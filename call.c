@@ -5,10 +5,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
 #include "call.h"
 
@@ -33,7 +33,7 @@ __attribute__((constructor)) void set_heap_header() {
 
 __attribute__((destructor)) void unset_heap_header() {
 
-  heap *h = (heap *)HEAP_HEADER_ADDR_HEAD;
+  const heap *h = (heap *)HEAP_HEADER_ADDR_HEAD;
   for (; h != HEAP_HEADER_ADDR_P; h++) {
     munmap(h->begin, h->page_num * PAGE_SIZE);
     if (h->file)
@@ -48,8 +48,8 @@ const char check_elf(const uint8_t const *const e) {
 
 // original elf file is going to be mapped on the beginning on virtual memory.
 
-const heap *map_elf(const void *const page_for_elf, const char *const fname) {
-  int fd = open(fname, O_RDWR);
+heap *map_elf(const void *page_for_elf, const char *const fname) {
+  const int fd = open(fname, O_RDWR);
   if (fd == -1)
     exit(0);
   struct stat stbuf;
@@ -58,7 +58,7 @@ const heap *map_elf(const void *const page_for_elf, const char *const fname) {
     exit(0);
   }
   const size_t map_size = (stbuf.st_size + 0x1000) & 0xfffff000;
-  void *begin = mmap(page_for_elf, map_size, PROT_READ /*|PROT_WRITE*/,
+  void *begin = mmap((void *)page_for_elf, map_size, PROT_READ /*|PROT_WRITE*/,
                      MAP_SHARED | MAP_FIXED, fd, 0);
   if (begin == MAP_FAILED) {
     printf("error:%u\n", errno);
@@ -74,6 +74,9 @@ const heap *map_elf(const void *const page_for_elf, const char *const fname) {
   heap *h = (heap *)HEAP_HEADER_ADDR_P;
   h->begin = begin;
   h->page_num = map_size / PAGE_SIZE;
+  // TODO.
+  // PROT & MAP flags for mmap is scheduled to be condensed as 4byte.
+  // Although it is originally 16byte(8+8)
   h->flags = 1;
   h->file = (uint16_t)fd;
   HEAP_HEADER_ADDR_P = h + 1;
@@ -81,7 +84,7 @@ const heap *map_elf(const void *const page_for_elf, const char *const fname) {
 }
 
 void retrieve_info_from_sht(const char const *const page_for_elf,
-                            info_on_elf *const _e) {
+                            info_on_elf *_e) {
 
   // filling all of offset information in a prepared struct from a file which
   // are mapped.
@@ -195,7 +198,7 @@ uint64_t estimate_size(const info_on_elf *const _in) {
       _in->symbol_p
           ? (Elf64_Sym *)((size_t)symbol_begin + (size_t)_in->symbol_size)
           : (Elf64_Sym *)((size_t)symbol_begin + (size_t)_in->dyn_sym_size);
-  Elf64_Sym *p = symbol_begin;
+  Elf64_Sym *p = (Elf64_Sym *)symbol_begin;
   for (; p != symbol_end; p++) {
     if (ELF64_ST_BIND(p->st_info) == STB_GLOBAL &&
         ELF64_ST_TYPE(p->st_info) == STT_FUNC)
@@ -208,7 +211,7 @@ const heap *map_smaller_symbol_table(const void *map_begin,
                                      const info_on_elf *const _e) {
   const size_t map_size =
       (estimate_size(_e) * sizeof(Elf64_Sym) + 0x1000) & 0xfffff000;
-  void *addr = mmap(map_begin, map_size, PROT_READ | PROT_WRITE,
+  void *addr = mmap((void *)map_begin, map_size, PROT_READ | PROT_WRITE,
                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
   if (addr == MAP_FAILED) {
     printf("error!\n");
@@ -234,7 +237,7 @@ void retrieve_info_from_symt(const info_on_elf *const _in,
       _in->symbol_p
           ? (Elf64_Sym *)((size_t)symbol_begin + (size_t)_in->symbol_size)
           : (Elf64_Sym *)((size_t)symbol_begin + (size_t)_in->dyn_sym_size);
-  Elf64_Sym *p = symbol_begin;
+  Elf64_Sym *p = (Elf64_Sym *)symbol_begin;
   for (; p != symbol_end; p++) {
 
     if (ELF64_ST_BIND(p->st_info) == STB_GLOBAL &&
@@ -289,13 +292,13 @@ void fill_plt_offset(const info_on_elf const *_e,
       (Elf64_Rela *)((size_t)_e->rela_dyn_p + _e->rela_dyn_size);
   const Elf64_Sym *dp = _e->dyn_sym_p;
   workspace_sym *sym_p;
-  const Elf64_Sym *plt_p_begin = _w->map_plt_begin - 1;
-  const Elf64_Sym *plt_p_end = _w->map_plt_end;
-  const Elf64_Sym *p_begin = _w->map_f_begin;
-  const Elf64_Sym *p_end = _w->map_f_end;
+  const workspace_sym *plt_p_begin = _w->map_plt_begin - 1;
+  const workspace_sym *plt_p_end = _w->map_plt_end;
+  const workspace_sym *p_begin = _w->map_f_begin;
+  const workspace_sym *p_end = _w->map_f_end;
   const char *str_p = _e->str_p == 0 ? _e->dyn_str_p : _e->str_p;
-  char num;
   char *name;
+  // plt is intended to be within a word...
   size_t *plt;
 
   // iterate .rela.plt
@@ -306,20 +309,27 @@ void fill_plt_offset(const info_on_elf const *_e,
     name = &_e->dyn_str_p[(dp + ELF64_R_SYM(rela_p->r_info))->st_name];
 
     // iterate workspace of plt table.
-    for (sym_p = plt_p_begin; sym_p != plt_p_end; sym_p--) {
+    for (sym_p = (workspace_sym *)plt_p_begin; sym_p != plt_p_end; sym_p--) {
       if (!strcmp(&str_p[sym_p->st_name], name)) {
-        sym_p->st_plt_value = (Elf64_Word)plt;
-        break;
+	// FIXME.
+	// st_plt_value is Word(32byte) which is half of the size which can
+	// represent arbitrary address space.
+	// if plt is mapped more than 65536(0x10000) then,
+	// following code will be failed.
+	// but there is no left space more than 8byte as 24byte which are
+	// st_name(8byte) + st_value(16byte) + st_size(16byte)
+	// has been blocked....
+	sym_p->st_plt_value = (Elf64_Word)((size_t)plt & 0xffff);
+	break;
       }
     }
-
     // iterate workspace of non-plt function table.
     // if this file is shared object,
     // function call on a same shared object is converted to calling via plt-got
     // scheme.
-    for (sym_p = p_begin; sym_p != p_end; sym_p++) {
+    for (sym_p = (workspace_sym *)p_begin; sym_p != p_end; sym_p++) {
       if (!strcmp(&str_p[sym_p->st_name], name)) {
-        sym_p->st_plt_value = (Elf64_Word)plt;
+        sym_p->st_plt_value = (Elf64_Word)((size_t)plt & 0xffff);
         break;
       }
     }
@@ -332,21 +342,21 @@ void fill_plt_offset(const info_on_elf const *_e,
   // iterate .rela.dyn_str_p
   for (rela_p = _e->rela_dyn_p; rela_p != rela_dyn_end; rela_p++) {
     size_t got_p = (size_t)_e->ehdr_p + rela_p->r_offset;
-    for (plt_got_p = plt_got_begin; plt_got_p != plt_got_end; plt_got_p++) {
+    for (plt_got_p = (plt_got *)plt_got_begin; plt_got_p != plt_got_end; plt_got_p++) {
       if (got_p ==
           (size_t)plt_got_p->rel_offset + (size_t)(&plt_got_p->_6690)) {
         name = &_e->dyn_str_p[(dp + ELF64_R_SYM(rela_p->r_info))->st_name];
-        plt = plt_got_p;
+        plt = (size_t *)(size_t)plt_got_p;
         // iterate workspace of plt table.
-        for (sym_p = plt_p_begin; sym_p != plt_p_end; sym_p--) {
+        for (sym_p = (workspace_sym *)plt_p_begin; sym_p != plt_p_end; sym_p--) {
           if (!strcmp(&str_p[sym_p->st_name], name)) {
-            sym_p->st_plt_value = (Elf64_Word)plt;
+            sym_p->st_plt_value = (Elf64_Word)((size_t)plt & 0xffff);
             break;
           }
         }
-        for (sym_p = p_begin; sym_p != p_end; sym_p++) {
+        for (sym_p = (workspace_sym *)p_begin; sym_p != p_end; sym_p++) {
           if (!strcmp(&str_p[sym_p->st_name], name)) {
-            sym_p->st_plt_value = (Elf64_Word)plt;
+            sym_p->st_plt_value = (Elf64_Word)((size_t)plt & 0xffff);
             break;
           }
         }
@@ -357,10 +367,9 @@ void fill_plt_offset(const info_on_elf const *_e,
   }
 };
 
-const heap *map_call_table(const void *const addr) {
+const heap *map_call_table(void *addr) {
 
-  const size_t map_size = PAGE_SIZE;
-  void *begin = mmap(addr, map_size, PROT_READ | PROT_WRITE,
+  void *begin = mmap(addr, PAGE_SIZE, PROT_READ | PROT_WRITE,
                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
   if (begin == MAP_FAILED) {
     printf("err\n");
@@ -368,11 +377,11 @@ const heap *map_call_table(const void *const addr) {
   heap *h = (heap *)((heap *)HEAP_HEADER_ADDR_P - COUNT);
   if (!COUNT) {
     h->begin = begin;
-    h->page_num = map_size / PAGE_SIZE;
+    h->page_num = 1;
     h->flags = 1;
     h->file = 0;
   } else {
-    h->page_num += map_size / PAGE_SIZE;
+    h->page_num += 1;
   }
   COUNT++;
   HEAP_HEADER_ADDR_P += sizeof(heap);
@@ -428,7 +437,8 @@ uint32_t *parse_binary(const info_on_workspace *const _in, const uint8_t *ip,
   }
   out_p += -count & 0x03;
   if (((size_t)out_p) % 16 != 0) {
-    printf("error!!%d\n", out_p);
+    printf("error\n");
+    exit(0);
   }
   *len_p = count;
   return out_p;
@@ -450,8 +460,8 @@ const heap *iterate_on_func(const info_on_workspace *const _in, const heap *h) {
       out_p->addr = cp->st_value;
       out_p->st_name = cp->st_name;
       out_p++;
-      end_p = (char *)((size_t)cp->st_value + (size_t)cp->st_size);
-      out_p = parse_binary(_in, (uint8_t *)cp->st_value, end_p,
+      end_p = (uint8_t *)((size_t)cp->st_value + (size_t)cp->st_size);
+      out_p = (call_table *)parse_binary(_in, (uint8_t *)cp->st_value, end_p,
                            (uint32_t *)out_p, map_end);
     } else {
       printf("error\n");
@@ -461,7 +471,7 @@ const heap *iterate_on_func(const info_on_workspace *const _in, const heap *h) {
   return h;
 }
 
-const char *gen_title(char *p) {
+char *gen_title(char *p) {
   const char *prefix = "digraph g ";
   p = stpcpy(p, prefix);
   *p = 0x7b;
@@ -471,7 +481,7 @@ const char *gen_title(char *p) {
   return p;
 }
 
-const heap *call_graph_file_map(int fd, void *map_begin) {
+heap *call_graph_file_map(int fd, void *map_begin) {
   const char c = 0x20;
   const size_t offset = COUNT * PAGE_SIZE;
   lseek(fd, offset + PAGE_SIZE, SEEK_SET);
@@ -509,12 +519,15 @@ char *emit_call_graph(const call_table *cp, const call_table *const end,
   const char *str_p = _e->str_p == 0 ? _e->dyn_str_p : _e->str_p;
   for (; cp != end; cp++) {
     len = cp->length;
+    // FIXME.
+    // if the next iteration is likely to go beyond current page,
+    // then, you need to map before entering loop.
     if (((size_t)out_p) + len * 30 > map_end) {
       call_graph_file_map((int)h->file, (void *)map_end);
       map_end += PAGE_SIZE;
     }
     if (len != 0) {
-      callee_name = &str_p[cp->st_name];
+      callee_name = (char *)&str_p[cp->st_name];
       elem = (uint32_t *)(cp + 1);
       cp += ((len + 3) / 4);
       for (; len != 0; elem++, len--) {
@@ -551,77 +564,76 @@ char *emit_call_graph(const call_table *cp, const call_table *const end,
 // you temporarily suspend memmove and switch to memmove from 2nd address.
 // third address is the size of byte which needs to be copied.
 
-void *conditional_memmove(char *p, char **pp) {
-  char *begin = pp;
-  for (;; p--) {
-    for (; *pp != 0; pp += 3) {
-      if (p == pp) {
-        p = mempcpy(p, pp + 1, pp + 2);
-      }
-    }
-    begin = pp;
-  }
-  return p;
-};
+/* void *conditional_memmove(char *p, char **pp) { */
+/*   char *begin = pp; */
+/*   for (;; p--) { */
+/*     for (; *pp != 0; pp += 3) { */
+/*       if (p == pp) { */
+/*         p = mempcpy(p, pp + 1, pp + 2); */
+/*       } */
+/*     } */
+/*     begin = pp; */
+/*   } */
+/*   return p; */
+/* }; */
 
-// this function will insert 4 new data on existing mapping from a executble
-// file. 4 elements which will be added is as follows.
+/* // this function will insert 4 new data on existing mapping from a executble */
+/* // file. 4 elements which will be added is as follows. */
 
-// 1. An entry of section header of .call (64byte)
-// 2. name of section header string table (6byte)
-// 3. name of symbol table (16byte)
-// 4. contents of the section (depends on how many funcitons are registered)
+/* // 1. An entry of section header of .call (64byte) */
+/* // 2. name of section header string table (6byte) */
+/* // 3. name of symbol table (16byte) */
+/* // 4. contents of the section (depends on how many funcitons are registered) */
 
-void convert_mmapped_area(info_on_elf *_e) {
+/* void convert_mmapped_area(info_on_elf *_e) { */
 
-  // entry of section header table
-  Elf64_Shdr shdr;
-  // symbol table entry
-  Elf64_Sym sym;
-  // section header string table entry
-  const char name = ".call";
-  // assuming we are in 64byte world,
-  char **aa;
-  // beginning of entry of symbol table
-  *aa = _e->symbol_p;
-  aa++;
-  *aa = &shdr;
-  aa++;
-  *aa = sizeof(shdr);
-  aa++;
-  // beginning of sh_str entry
-  *aa = _e->shdr_head;
-  aa++;
-  *aa = &name;
-  aa++;
-  *aa = sizeof(sym);
-  aa++;
-  // beginning of entry of symbol table
-  *aa = _e->symbol_p;
-  aa++;
-  *aa = &sym;
-  aa++;
-  *aa = sizeof(sym);
-  aa++;
-  // beginning of offset of symbol table
-  *aa = _e->symbol_p;
-  aa++;
-  // *aa = call_table_begin;
-  *aa = 6;
-  aa++;
-  // 0 indicates end.
-  *aa = 0;
-  int call_table_len = 1;
-  // sizeof(Elf64_Shdr) * sizeof(sym) + strlen(.call) + call_table_len
-  int added = sizeof(Elf64_Shdr) + sizeof(sym) + strlen(&name) + call_table_len;
-  // we are going to start from the end of the file + expected added size to the
-  // file.
-  conditional_memmove((char *)((size_t)_e->shdr_tail + added), aa);
-}
+/*   // entry of section header table */
+/*   Elf64_Shdr shdr; */
+/*   // symbol table entry */
+/*   Elf64_Sym sym; */
+/*   // section header string table entry */
+/*   const char *name = ".call"; */
+/*   // assuming we are in 64byte world, */
+/*   char **aa; */
+/*   // beginning of entry of symbol table */
+/*   *aa = _e->symbol_p; */
+/*   aa++; */
+/*   *aa = &shdr; */
+/*   aa++; */
+/*   *aa = sizeof(shdr); */
+/*   aa++; */
+/*   // beginning of sh_str entry */
+/*   *aa = _e->shdr_head; */
+/*   aa++; */
+/*   *aa = &name; */
+/*   aa++; */
+/*   *aa = sizeof(sym); */
+/*   aa++; */
+/*   // beginning of entry of symbol table */
+/*   *aa = _e->symbol_p; */
+/*   aa++; */
+/*   *aa = &sym; */
+/*   aa++; */
+/*   *aa = sizeof(sym); */
+/*   aa++; */
+/*   // beginning of offset of symbol table */
+/*   *aa = _e->symbol_p; */
+/*   aa++; */
+/*   // *aa = call_table_begin; */
+/*   *aa = 6; */
+/*   aa++; */
+/*   // 0 indicates end. */
+/*   *aa = 0; */
+/*   int call_table_len = 1; */
+/*   // sizeof(Elf64_Shdr) * sizeof(sym) + strlen(.call) + call_table_len */
+/*   int added = sizeof(Elf64_Shdr) + sizeof(sym) + strlen(&name) + call_table_len; */
+/*   // we are going to start from the end of the file + expected added size to the */
+/*   // file. */
+/*   conditional_memmove((char *)((size_t)_e->shdr_tail + added), aa); */
+/* } */
 
 int main(int argc, char **argv) {
 
-  // exit(0);
   char attach = 0;
   char generate = 0;
   if (argc < 2) {
@@ -642,15 +654,16 @@ int main(int argc, char **argv) {
   }
   const char *fname = argv[2];
   size_t last_map_offset;
+  // starting address
+  // easy to be understood if it is mapped from 0x00
   const void *elf_p = 0x0;
-  char *call_graph_f_map;
 
   // first of all, a given object format file needs to be mapped on a memory.
   const heap *h1 = map_elf(elf_p, fname);
 
   // second, you will retrieve necessary inforamtion from its section header
   // table.
-  const info_on_elf _info_on_elf;
+  info_on_elf _info_on_elf;
   retrieve_info_from_sht(h1->begin, &_info_on_elf);
 
   // third, you just need to map(prepare) workspace to iterate smaller symbol
@@ -662,12 +675,12 @@ int main(int argc, char **argv) {
   // fourth, you will extract the entries which is needed, and mapped to the
   // previously-prepared workspace mapping.
   info_on_workspace _info_on_workspace;
-  _info_on_workspace.map_f_begin = (Elf64_Sym *)last_map_offset;
-  _info_on_workspace.map_f_end = (Elf64_Sym *)last_map_offset;
+  _info_on_workspace.map_f_begin = (workspace_sym *)last_map_offset;
+  _info_on_workspace.map_f_end = (workspace_sym *)last_map_offset;
   _info_on_workspace.map_plt_begin =
-      (Elf64_Sym *)((size_t)last_map_offset + h2->page_num * PAGE_SIZE);
+      (workspace_sym *)((size_t)last_map_offset + h2->page_num * PAGE_SIZE);
   _info_on_workspace.map_plt_end =
-      (Elf64_Sym *)((size_t)last_map_offset + h2->page_num * PAGE_SIZE);
+      (workspace_sym *)((size_t)last_map_offset + h2->page_num * PAGE_SIZE);
   last_map_offset += h2->page_num * PAGE_SIZE;
 
   retrieve_info_from_symt(&_info_on_elf, &_info_on_workspace);
@@ -676,10 +689,10 @@ int main(int argc, char **argv) {
   fill_plt_offset(&_info_on_elf, &_info_on_workspace);
 
   // 6th, outcome is pasted here which i call call table.
-  heap *h3 = (call_table *)map_call_table((void *)last_map_offset);
+  heap *h3 = (heap *)map_call_table((void *)last_map_offset);
   // 7th (and this is main process), iterate workspace and generate
   // a call graph dependencies table looking up .text area of each functions.
-  h3 = iterate_on_func(&_info_on_workspace, h3);
+  h3 = (heap *)iterate_on_func(&_info_on_workspace, h3);
   last_map_offset += h3->page_num * PAGE_SIZE;
 
   // attach call graph table on a given elf format
