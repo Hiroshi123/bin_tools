@@ -19,7 +19,7 @@ You will see .dot format file after it is properly recognized.
 
 After you converted to svg, you will see a call graph.
 
-<img src="./out/graph.svg">
+<img src="out/graph.svg">
 
 ### Basic idea (case of elf format targeting x86)
 
