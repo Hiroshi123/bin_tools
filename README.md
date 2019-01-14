@@ -15,7 +15,8 @@ It was designed from my necessity to understand a binary file which does not hav
 ```
 
 -g means generate.
--e means attaching new elf section.
+
+-a means attaching new elf section.
 
 .so can be any executable file if it is elf format.
 
