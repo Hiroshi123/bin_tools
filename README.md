@@ -2,6 +2,10 @@
 
 call_graph_generation tool on binary file. Generally, misc for reverse engineering.
 
+## aim
+
+It was designed from my necessity to understand a binary file which does not have any source code efficiently.
+
 ## Call graph generation tool
 
 ### usage
@@ -91,4 +95,4 @@ Note that this section depends on symbol table section & string table section.
 
 ### Caution
 
-Still under development.
+Still under development. 
