@@ -1,0 +1,16 @@
+
+root = .
+sourcedir = src
+builddir = build
+
+rule obj
+    command=clang -c -g $in -o $out
+
+rule exe
+    command=clang $in -o $out
+
+build $builddir/bipatch.o: obj $sourcedir/bipatch.c
+build bipatch: exe $builddir/bipatch.o
+
+default bipatch
+
