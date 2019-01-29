@@ -1,0 +1,11 @@
+# bin_tools
+
+misc for reverse engineering.
+
+1.call_graph_generation tool
+2.bipatch
+
+## Aim
+
+It was designed from my necessity to understand a binary file which does not have any source code efficiently.
+
