@@ -1,5 +1,6 @@
 
 
+
 #define X86_NEAR_REL_CALL_OPCODE 0xe8
 #define X86_NEAR_REL_CALL_OPERAND_N 4
 
@@ -99,8 +100,47 @@ typedef struct {
   workspace_sym *map_plt_begin;
 } info_on_workspace;
 
+
+// definition of general symbol table entry
+// each object format (elf, macho-o, coff)
+// holds its own symbol table.
+// To generalize them and let it smaller for numebrs of iterations
+// to detect the possible addressing from cancdidate "e8" statement,
+// it is extracted.
+typedef struct gen_symtable {
+  // addr means the head address of symbol table.
+  // 32bit machine address is holded on this mmember for
+  // brevity
+  uint64_t st_value;
+  // size is the number of byte the binary that the function holds.
+  // these contains nop statemenet after returning.
+  // Note, mach-o and coff does not have the sihze of function in default that
+  // the elf allocates for.
+  // The value needs to be computed
+  // (sorting by the address, and grab the offset of the next function, if not the beggining of the next section)    
+  uint32_t st_size;
+  // name is the offset to the string name of that funciton from head
+  // address of the mapped object format.
+  // Note this is not the pointer to the address of the name.
+  // this requires extra calculation to reach the address of name of the funciton,
+  // but can be within 4byte.
+  // TODO. if the given object format is beyond the range of addressing space which
+  // which waa computed as?? 
+  uint32_t st_name; 
+} gen_symt;
+
 typedef struct {
-  Elf64_Addr addr;
-  Elf64_Word st_name;
-  Elf64_Word length;
+  gen_symt *map_f_begin;
+  gen_symt *map_f_end;
+  gen_symt *map_iat_begin;
+  gen_symt *map_iat_end;
+} function_map;
+
+// call table begins
+
+typedef struct {
+  uint64_t addr;
+  uint32_t st_name;
+  uint32_t length;
 } call_table;
+

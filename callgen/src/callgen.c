@@ -1,5 +1,5 @@
 
-#include <elf.h>
+#include "elf.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -41,14 +41,41 @@ __attribute__((destructor)) void unset_heap_header() {
   }
 }
 
-const char check_elf(const uint8_t const *const e) {
+static inline const char check_elf(const uint8_t const *const e) {
   return (e[EI_MAG0] == ELFMAG0 && e[EI_MAG1] == ELFMAG1 &&
           e[EI_MAG2] == ELFMAG2 && e[EI_MAG3] == ELFMAG3);
 }
 
+static inline const char check_macho(const uint32_t* p) {
+  return p == MH_MAGIC_64;
+}
+
+static inline const char check_pe(const uint16_t* p) {
+  return p == 0;
+}
+
+enum object_format {
+  ELF,
+  MACHO,
+  PE,
+  NONE,
+};
+
+object_format detect_format(const char* p) {
+  
+  if (!check_elf((uint8_t *)p)) { 
+    printf("this is not elf format file...\n");
+    return ELF;
+  } else if (check_macho(uint32_t*)p) {
+    return MACHO;
+  } else if (check_pe) {
+    return PE;
+  }
+}
+
 // original elf file is going to be mapped on the beginning on virtual memory.
 
-heap *map_elf(const void *page_for_elf, const char *const fname) {
+heap *init_map_file(const void *page_for_elf, const char *const fname) {
   const int fd = open(fname, O_RDWR);
   if (fd == -1)
     exit(0);
@@ -59,18 +86,13 @@ heap *map_elf(const void *page_for_elf, const char *const fname) {
   }
   const size_t map_size = (stbuf.st_size + 0x1000) & 0xfffff000;
   void *begin = mmap((void *)page_for_elf, map_size, PROT_READ /*|PROT_WRITE*/,
-                     MAP_SHARED | MAP_FIXED, fd, 0);
+                     MAP_SHARED/* | MAP_FIXED*/, fd, 0);
   if (begin == MAP_FAILED) {
     printf("error:%u\n", errno);
     close(fd);
     exit(0);
   } else if (begin != page_for_elf)
-    printf("mapped in a different memory.\n");
-  if (!check_elf((uint8_t *)begin)) {
-    printf("this is not elf format file...\n");
-    close(fd);
-    exit(0);
-  }
+    printf("mapped in a different memory.\n");  
   heap *h = (heap *)HEAP_HEADER_ADDR_P;
   h->begin = begin;
   h->page_num = map_size / PAGE_SIZE;
@@ -89,6 +111,7 @@ void retrieve_info_from_sht(const char const *const page_for_elf,
   // filling all of offset information in a prepared struct from a file which
   // are mapped.
   _e->ehdr_p = (Elf64_Ehdr *)page_for_elf;
+  printf("%x\n",page_for_elf);
   _e->phdr_p = (Elf64_Phdr *)_e->ehdr_p->e_phoff;
   _e->shdr_head = (Elf64_Shdr *)_e->ehdr_p->e_shoff;
   _e->shdr_tail = (Elf64_Shdr *)(_e->ehdr_p->e_shoff +
@@ -549,6 +572,7 @@ char *emit_call_graph(const call_table *cp, const call_table *const end,
   return out_p;
 }
 
+
 /* shdr.sh_name = 0; // needs to be changed later on */
 /* shdr.sh_type  SHT_SHLIB   */
 /* sh_flags -> 0 */
@@ -659,13 +683,13 @@ int main(int argc, char **argv) {
   const void *elf_p = 0x0;
 
   // first of all, a given object format file needs to be mapped on a memory.
-  const heap *h1 = map_elf(elf_p, fname);
+  
+  const heap *h1 = init_map_file(elf_p, fname);
 
   // second, you will retrieve necessary inforamtion from its section header
   // table.
   info_on_elf _info_on_elf;
   retrieve_info_from_sht(h1->begin, &_info_on_elf);
-
   // third, you just need to map(prepare) workspace to iterate smaller symbol
   // table to reduce computational cost on later stage.
 
