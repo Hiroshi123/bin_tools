@@ -2,8 +2,11 @@
 
 misc for reverse engineering.
 
-1.call_graph_generation tool
-2.bipatch
+1.callgen (call_graph_generation ) 
+(https://github.com/Hiroshi123/bin_tools/blob/master/callgen/README)
+
+2.bipatch (binary patch command)
+(https://github.com/Hiroshi123/bin_tools/blob/master/bipatch/README)
 
 ## Aim
 
