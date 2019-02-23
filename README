@@ -1,0 +1,14 @@
+# bin_tools
+
+misc for reverse engineering.
+
+1.callgen (call_graph_generation ) 
+(https://github.com/Hiroshi123/bin_tools/blob/master/callgen)
+
+2.bipatch (binary patch command)
+(https://github.com/Hiroshi123/bin_tools/blob/master/bipatch)
+
+## Aim
+
+It was designed from my necessity to understand a binary file which does not have any source code efficiently.
+
