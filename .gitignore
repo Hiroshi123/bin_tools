@@ -1,0 +1,13 @@
+
+# Compiled source #
+###################
+*.o
+*.so
+
+#### FILE
+
+\#*
+*~
+!/doc/Doxyfile
+#*
+#.*
