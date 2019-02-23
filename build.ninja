@@ -1,0 +1,110 @@
+
+cflags = -Wall -I./include
+
+#- L / usr / lib - L / usr / local / lib
+ldflags = -macosx_version_min 10.11
+
+srcdir = src
+objdir = obj
+bindir = bin
+testdir = tests
+tmpdir = tmp
+
+rule obj
+     command = cc $cflags -c $in -o $out
+
+rule slib
+     command = ar rcs $out $in
+
+rule link
+     command = ld $in $ldflags -o $out
+
+rule crt
+     command = as $in -o $out
+
+rule gen_elf_test
+     command = cc --target=x86_64-elf -c $in -o $out
+
+rule gen_elf_cpp_test
+     command = c++ --target=x86_64-elf -c $in -o $out
+
+rule gen_macho_test
+     command =cc -c $in -o $out
+     
+rule run_test_objtest
+     command =./objtest $in
+
+rule run_test_ldld
+     command =./ldld $in
+
+rule run_test_fpatch
+     command =./fpatch $in
+
+#build core object file
+       
+build $objdir/crt0.o:crt $srcdir/core/crt0.s
+build $objdir/elf.o : obj $srcdir/core/elf.c
+build $objdir/macho.o : obj $srcdir/core/macho.c
+build $objdir/pe.o : obj $srcdir/core/pe.c
+build $objdir/memory.o : obj $srcdir/core/memory.c
+build $objdir/objformat.o: obj $srcdir/core/objformat.c
+build $objdir/utils.o : obj $srcdir/core/utils.c
+
+#build for commands
+
+build $objdir/objtest.o: obj $srcdir/tools/objtest.c
+build $objdir/ldld.o : obj $srcdir/tools/ldld.c
+build $objdir/bipatch.o : obj $srcdir/tools/bipatch.c
+build $objdir/fpatch.o : obj $srcdir/tools/fpatch.c
+
+## #test######################## #
+
+#test for objtest
+
+#elf - genaration
+build $testdir/objtest/$tmpdir/elf/test01.o : gen_elf_test $testdir/objtest/test01.c
+build $testdir/objtest/$tmpdir/elf/test_sub_01.o : gen_elf_test $testdir/objtest/test_sub_01.c
+
+build $testdir/objtest/$tmpdir/elf/test01_cpp.o : gen_elf_test $testdir/objtest/test01_cpp.c
+build $testdir/objtest/$tmpdir/elf/test_sub_01_cpp.o : gen_elf_cpp_test $testdir/objtest/test_sub_01.cpp
+
+#mach - o generation
+build $testdir/objtest/$tmpdir/macho/test01.o : gen_macho_test $testdir/objtest/test01.c
+build $testdir/objtest/$tmpdir/macho/test_sub_01.o : gen_macho_test $testdir/objtest/test_sub_01.c
+
+#test for ldld
+
+build $testdir/ldld /$tmpdir/test_sub_01.o : gen_elf_test $testdir/ldld/test01.c
+
+build $objdir/lib.a : slib $objdir/elf.o $objdir/pe.o $objdir/macho.o $objdir/memory.o
+
+#test for fpatch
+
+build $testdir/fpatch/in/test01.o : gen_macho_test $testdir/fpatch/in/test01.c
+
+#test for bipatch
+
+#build commands
+
+build objtest : link $objdir/objtest.o $objdir/objformat.o $objdir/lib.a $objdir/crt0.o /usr/lib/libSystem.B.dylib
+build ldld : link $objdir/ldld.o $objdir/memory.o $objdir/crt0.o/usr/lib/libSystem.B.dylib
+build bipatch : link $objdir/bipatch.o $objdir/memory.o $objdir/crt0.o/usr/lib/libSystem.B.dylib
+build fpatch : link $objdir/fpatch.o $objdir/memory.o $objdir/macho.o $objdir/utils.o $objdir/crt0.o /usr/lib/libSystem.B.dylib
+
+#build test : $testdir / objtest / $tmpdir / test01.o
+
+build test : phony $testdir/objtest/$tmpdir/elf/test01_cpp.o $testdir/objtest/$tmpdir/elf/test_sub_01_cpp.o
+
+#$testdir / ldld / $tmpdir / test01.o
+
+build runtest_objtest : run_test_objtest $testdir/objtest/tmp/elf/test01_cpp.o $testdir/objtest/tmp/elf/test_sub_01_cpp.o
+
+build runtest_obj : run_test_objtest $testdir/objtest/tmp/macho/test01.o $testdir/objtest/tmp/macho/test_sub_01.o
+
+build runtest_ldld : run_test_ldld $testdir/ldld/test01.ld
+
+build $testdir /fpatch/out/test01.o : run_test_fpatch $testdir/fpatch/in/test01.o $testdir/fpatch/patch/patch01.txt
+
+build runtest_fpatch : phony $testdir/fpatch/out/test01.o
+
+default objtest
