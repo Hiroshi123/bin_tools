@@ -1,4 +1,5 @@
 
 int f1() {
-    return mock1() + mock2();
+  return mock1() + mock2();
 }
+

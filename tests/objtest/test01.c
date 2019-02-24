@@ -4,12 +4,13 @@ int mock1() {
 }
 
 int mock2() {
-  f2();  
-  return 2;
+  return 3;
 }
 
-char test__1() {
-  mock1();
-  int res = f1();
-  return res == 5;
+char test__1(char* p) {
+  // mock1();
+  char res = f1();
+  // int res = 5;
+  return res;
 }
+
