@@ -5,6 +5,7 @@
 #include "elf.h"
 #include "macho.h"
 #include "memory.h"
+#include "pe.h"
 #include "objformat.h"
 
 // what needs to be resoled is
@@ -28,12 +29,25 @@ char *process_elf(heap *a, heap *b) {
   return r;
 }
 
-void process_macho(heap *a, heap *b) {
+char *process_macho(heap *a, heap *b) {
   info_on_macho macho1;
   info_on_macho macho2;
   read_macho(a->begin, &macho1);
   read_macho(b->begin, &macho2);
+  // for macho every function on it will be subject of relocation
+  // as you are not able to guess caller-callee dependency from
+  // its symbol table.
   do_reloc_all(&macho1, &macho2);
+  do_reloc_all(&macho2, &macho1);
+  // on macho, every function puts prefix _ ahead of it,
+  const char* test_ = "_test__";
+  return find_test(test_, &macho1);
+}
+
+char *process_coff(heap *a, heap *b) {
+  info_on_coff e1;
+  info_on_coff e2;
+  read_coff(a->begin, &e1);
 }
 
 // testing will be done by writing inline assembly.
@@ -56,10 +70,8 @@ void do_test(char *r) {
 
   char *_a = (char *)get_current_meta_addr();
   // this is going to be the arugment to the test-subject function.
-  *_a = 1;
-  *(_a + 4) = 2;
   printf("argument:rdi is %d\n", *_a);
-  printf("argument:+4(rdi) is %d\n", *_a + 4);
+  printf("argument:+4(rdi) is %d\n", *(_a + 4));
 
   asm("call *%0" : : "r"(get_current_meta_addr));
   asm("mov %rax,%rdi");
@@ -88,12 +100,23 @@ int main(int argc, char **argv) {
     r = process_elf(a, b);
     break;
   case MACHO:
-    process_macho(a, b);
+    r = process_macho(a, b);
+    if (r == 0) {
+      printf("not found\n");
+    }
     break;
   case PE:
+    // pe might be difficult as its definition
+    // means executable but not relocatable..
+    // Ummm, needs to be considered...
+    // r = process_pe(a, b);
     printf("not yet..\n");
     return 0;
     // break;
+  case COFF:
+    r = process_coff(a, b);
+    printf("not yet..\n");
+    return 0;    
   case NONE:
     printf("error\n");
     return 0;
