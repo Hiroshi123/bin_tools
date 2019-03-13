@@ -48,6 +48,11 @@ char *process_coff(heap *a, heap *b) {
   info_on_coff e1;
   info_on_coff e2;
   read_coff(a->begin, &e1);
+  read_coff(b->begin, &e2);
+  do_reloc_coff(&e1, &e2);
+  do_reloc_coff(&e2, &e1);
+  const char* test_ = "test__";
+  return find_test_(test_, &e1);
 }
 
 // testing will be done by writing inline assembly.
@@ -67,19 +72,34 @@ char *process_coff(heap *a, heap *b) {
 // the returned value after calling a function on %rax on x86.
 
 void do_test(char *r) {
-
-  char *_a = (char *)get_current_meta_addr();
+  
+  heap* h = get_page(1);
+  // call once for later another call.
+  if ( h->begin != get_page_head()) {
+    printf("error\n");
+  }
+  char *_a = (char *)(h->begin);
   // this is going to be the arugment to the test-subject function.
   printf("argument:rdi is %d\n", *_a);
   printf("argument:+4(rdi) is %d\n", *(_a + 4));
-
-  asm("call *%0" : : "r"(get_current_meta_addr));
+  
+  asm("call *%0" : : "r"(get_page_head));
   asm("mov %rax,%rdi");
   asm("call *%0" : : "r"(r));
   asm("mov %rax,%rbx");
-  asm("call *%0" : : "r"(get_current_meta_addr));
+  asm("call *%0" : : "r"(get_page_head));
   asm("mov %rbx,(%rax)");
   printf("returned value on rax is %d\n", *_a);
+  
+}
+
+do_instrument(uint8_t* r) {
+
+  printf("r:%x,%x\n",r,*r);
+  decode(r);
+  /* for (;;c++) { */    
+  /* } */
+  
 }
 
 int main(int argc, char **argv) {
@@ -115,13 +135,14 @@ int main(int argc, char **argv) {
     // break;
   case COFF:
     r = process_coff(a, b);
-    printf("not yet..\n");
-    return 0;    
+    return 0;
+    break;
   case NONE:
     printf("error\n");
     return 0;
     // break;
   }
-  do_test(r);
+  do_instrument(r);
+  // do_test(r);
   return 0;
 }
