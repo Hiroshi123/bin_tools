@@ -86,6 +86,11 @@ heap* get_page(uint8_t num) {
   return h;
 }
 
+char* get_page_head() {
+  heap* h = (heap*)(HEAP_HEADER_ADDR_P-1);
+  return h->begin;
+}
+
 heap* get_current_meta_addr() {
   return (heap*)HEAP_HEADER_ADDR_P;
 }

@@ -10,6 +10,8 @@ enum OBJECT_FORMAT detect_format(const char* p) {
     return MACHO;
   } else if (check_pe(p)) {
     return PE;
+  } else if (check_coff(p)) {
+    return COFF;
   }
   return NONE;
 }

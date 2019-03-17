@@ -5,6 +5,7 @@ enum OBJECT_FORMAT {
   ELF,
   MACHO,
   PE,
+  COFF,
 };
 
 enum OBJECT_FORMAT detect_format(const char* p);

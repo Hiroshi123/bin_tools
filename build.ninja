@@ -1,5 +1,6 @@
 
 cflags = -Wall -I./include
+cflags_test = -fPIC
 
 #- L / usr / lib - L / usr / local / lib
 ldflags = -macosx_version_min 10.11
@@ -9,6 +10,12 @@ objdir = obj
 bindir = bin
 testdir = tests
 tmpdir = tmp
+
+rule all
+     command = cc $cflags $in -o $out
+
+rule emit_llvm
+     command = cc -S -emit-llvm -c $in -o $out
 
 rule obj
      command = cc $cflags -c $in -o $out
@@ -22,15 +29,26 @@ rule link
 rule crt
      command = as $in -o $out
 
+# arch-sub-vendor-sys-abi
+
 rule gen_elf_test
-     command = cc --target=x86_64-elf -c $in -o $out
+     command = cc --target=x86_64-elf $cflags_test -c $in -o $out
 
 rule gen_elf_cpp_test
-     command = c++ --target=x86_64-elf -c $in -o $out
+     command = c++ --target=x86_64-elf $cflags_test -c $in -o $out
 
 rule gen_macho_test
      command =cc -c $in -o $out
-     
+
+rule gen_macho_cpp_test
+     command =c++ -c $in -o $out
+
+rule gen_coff_test
+     command =cc --target=x86_64-w64-windows-gnu $cflags_test -c $in -o $out
+
+rule gen_coff_cpp_test
+     command =c++ --target=x86_64-w64-windows-gnu $cflags_test -c $in -o $out
+
 rule run_test_objtest
      command =./objtest $in
 
@@ -41,14 +59,16 @@ rule run_test_fpatch
      command =./fpatch $in
 
 #build core object file
-       
+
 build $objdir/crt0.o:crt $srcdir/core/crt0.s
 build $objdir/elf.o : obj $srcdir/core/elf.c
 build $objdir/macho.o : obj $srcdir/core/macho.c
 build $objdir/pe.o : obj $srcdir/core/pe.c
+build $objdir/coff.o : obj $srcdir/core/coff.c
 build $objdir/memory.o : obj $srcdir/core/memory.c
 build $objdir/objformat.o: obj $srcdir/core/objformat.c
 build $objdir/utils.o : obj $srcdir/core/utils.c
+build $objdir/java.o : obj $srcdir/core/java.c
 
 #build for commands
 
@@ -56,27 +76,57 @@ build $objdir/objtest.o: obj $srcdir/tools/objtest.c
 build $objdir/ldld.o : obj $srcdir/tools/ldld.c
 build $objdir/bipatch.o : obj $srcdir/tools/bipatch.c
 build $objdir/fpatch.o : obj $srcdir/tools/fpatch.c
+build $objdir/rv.o : obj $srcdir/tools/rv.c
 
 ## #test######################## #
 
+## llvm-IR
+
+build $testdir/objtest/$tmpdir/ir/test01.ll : emit_llvm $testdir/objtest/test01.c
+build $testdir/objtest/$tmpdir/ir/test_sub_01.ll : emit_llvm $testdir/objtest/test_sub_01.c
+
+build ir : phony $testdir/objtest/$tmpdir/ir/test01.ll $testdir/objtest/$tmpdir/ir/test_sub_01.ll
+
+## llvm-bitcode
+
 #test for objtest
 
-#elf - genaration
+# elf genaration
+
 build $testdir/objtest/$tmpdir/elf/test01.o : gen_elf_test $testdir/objtest/test01.c
 build $testdir/objtest/$tmpdir/elf/test_sub_01.o : gen_elf_test $testdir/objtest/test_sub_01.c
+
+build $testdir/objtest/$tmpdir/elf/qobject.o : gen_elf_test $testdir/objtest/qobject.c
 
 build $testdir/objtest/$tmpdir/elf/test01_cpp.o : gen_elf_test $testdir/objtest/test01_cpp.c
 build $testdir/objtest/$tmpdir/elf/test_sub_01_cpp.o : gen_elf_cpp_test $testdir/objtest/test_sub_01.cpp
 
-#mach - o generation
+# mach-o generation
 build $testdir/objtest/$tmpdir/macho/test01.o : gen_macho_test $testdir/objtest/test01.c
 build $testdir/objtest/$tmpdir/macho/test_sub_01.o : gen_macho_test $testdir/objtest/test_sub_01.c
+
+build $testdir/objtest/$tmpdir/macho/test01_cpp.o : gen_macho_test $testdir/objtest/test01_cpp.c
+build $testdir/objtest/$tmpdir/macho/test_sub_01_cpp.o : gen_macho_cpp_test $testdir/objtest/test_sub_01.cpp
+
+build $testdir/objtest/$tmpdir/macho/test02_cpp.o : gen_macho_test $testdir/objtest/test02_cpp.c
+
+build $testdir/objtest/$tmpdir/macho/test_sub_02_cpp.o : gen_macho_cpp_test $testdir/objtest/test_sub_02.cpp
+
+# coff-generation
+
+build $testdir/objtest/$tmpdir/coff/test01.o : gen_coff_test $testdir/objtest/test01.c
+build $testdir/objtest/$tmpdir/coff/test_sub_01.o : gen_coff_test $testdir/objtest/test_sub_01.c
+
+build $testdir/objtest/$tmpdir/coff/test01_cpp.o : gen_coff_test $testdir/objtest/test01_cpp.c
+build $testdir/objtest/$tmpdir/coff/test_sub_01_cpp.o : gen_coff_cpp_test $testdir/objtest/test_sub_01.cpp
+
+build $objdir/decode.o : obj $srcdir/core/decode.c
 
 #test for ldld
 
 build $testdir/ldld /$tmpdir/test_sub_01.o : gen_elf_test $testdir/ldld/test01.c
 
-build $objdir/lib.a : slib $objdir/elf.o $objdir/pe.o $objdir/macho.o $objdir/memory.o
+build $objdir/lib.a : slib $objdir/elf.o $objdir/pe.o $objdir/coff.o $objdir/macho.o $objdir/memory.o
 
 #test for fpatch
 
@@ -86,20 +136,31 @@ build $testdir/fpatch/in/test01.o : gen_macho_test $testdir/fpatch/in/test01.c
 
 #build commands
 
-build objtest : link $objdir/objtest.o $objdir/objformat.o $objdir/lib.a $objdir/crt0.o /usr/lib/libSystem.B.dylib
+build objtest : link $objdir/objtest.o $objdir/objformat.o $objdir/decode.o $objdir/lib.a $objdir/crt0.o /usr/lib/libSystem.B.dylib
 build ldld : link $objdir/ldld.o $objdir/memory.o $objdir/crt0.o/usr/lib/libSystem.B.dylib
-build bipatch : link $objdir/bipatch.o $objdir/memory.o $objdir/crt0.o/usr/lib/libSystem.B.dylib
+build bipatch : link $objdir/bipatch.o $objdir/memory.o $objdir/crt0.o /usr/lib/libSystem.B.dylib
 build fpatch : link $objdir/fpatch.o $objdir/memory.o $objdir/macho.o $objdir/utils.o $objdir/crt0.o /usr/lib/libSystem.B.dylib
+build rv : link $objdir/rv.o $objdir/memory.o $objdir/java.o $objdir/crt0.o /usr/lib/libSystem.B.dylib
+
 
 #build test : $testdir / objtest / $tmpdir / test01.o
+
+# build test : phony $testdir/objtest/$tmpdir/elf/test01_cpp.o $testdir/objtest/$tmpdir/elf/test_sub_01_cpp.o
 
 build test : phony $testdir/objtest/$tmpdir/elf/test01_cpp.o $testdir/objtest/$tmpdir/elf/test_sub_01_cpp.o
 
 #$testdir / ldld / $tmpdir / test01.o
 
-build runtest_objtest : run_test_objtest $testdir/objtest/tmp/elf/test01_cpp.o $testdir/objtest/tmp/elf/test_sub_01_cpp.o
+# build runtest_objtest : run_test_objtest $testdir/objtest/tmp/elf/test01_cpp.o $testdir/objtest/tmp/elf/test_sub_01_cpp.o
 
-build runtest_obj : run_test_objtest $testdir/objtest/tmp/macho/test01.o $testdir/objtest/tmp/macho/test_sub_01.o
+
+build runtest_obj1 : run_test_objtest $testdir/objtest/tmp/macho/test02_cpp.o $testdir/objtest/tmp/macho/test_sub_02_cpp.o
+
+build runtest_obj2 : run_test_objtest $testdir/objtest/tmp/elf/test01.o $testdir/objtest/tmp/elf/test_sub_01.o
+
+build runtest_obj3 : run_test_objtest $testdir/objtest/tmp/coff/test01_cpp.o $testdir/objtest/tmp/coff/test_sub_01_cpp.o
+
+build runtest_obj4 : run_test_objtest $testdir/objtest/tmp/elf/qobject.o $testdir/objtest/tmp/elf/object.o
 
 build runtest_ldld : run_test_ldld $testdir/ldld/test01.ld
 
