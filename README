@@ -2,11 +2,13 @@
 
 misc for reverse engineering.
 
-1.callgen (call_graph_generation ) 
-(https://github.com/Hiroshi123/bin_tools/blob/master/callgen)
+1.bipatch (binary patch command)
 
-2.bipatch (binary patch command)
-(https://github.com/Hiroshi123/bin_tools/blob/master/bipatch)
+2.objtest (execution for functions in a pre-linked object format flle)
+
+3.callgen (call_graph_generation)
+
+4.jvmtl (java dynamic analysis using jvmti)
 
 ## Aim
 
