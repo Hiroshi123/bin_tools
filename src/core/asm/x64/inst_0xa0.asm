@@ -1,0 +1,52 @@
+
+
+	section .text
+	global _0xa0_mov
+	global _0xa1_mov
+	global _0xa2_mov
+	global _0xa3_mov
+	global _0xa4_movsS	
+	global _0xa5_movsS
+	global _0xa6_cmpsS	
+	global _0xa7_cmpsS
+	global _0xa8_test	
+	global _0xa9_test
+	global _0xaa_stosS
+	global _0xab_stosS
+	global _0xac_lodsS
+	global _0xad_lodsS
+	global _0xae_scasS
+	global _0xaf_scasS
+
+_0xa0_mov:
+	ret
+_0xa1_mov:
+	ret
+_0xa2_mov:
+	ret
+_0xa3_mov:
+	ret
+_0xa4_movsS:
+	ret
+_0xa5_movsS:
+	ret
+_0xa6_cmpsS:
+	ret
+_0xa7_cmpsS:
+	ret
+_0xa8_test:
+	ret
+_0xa9_test:
+	ret
+_0xaa_stosS:
+	ret
+_0xab_stosS:
+	ret
+_0xac_lodsS:
+	ret
+_0xad_lodsS:
+	ret
+_0xae_scasS:
+	ret
+_0xaf_scasS:
+	ret
