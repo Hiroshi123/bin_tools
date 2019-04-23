@@ -18,28 +18,41 @@
 	extern _r13
 	extern _r14
 	extern _r15
-
 	extern _rip
 
+	extern _reg_size8
 
-reg_size8:
-	db 0x30,0x78,0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x0a
-	.len: equ $ - reg_size8
-
+	extern __rax
+	extern __rcx
+	extern __rdx
+	extern __rbx
+	extern __rsp
+	extern __rbp
+	extern __rsi
+	extern __rdi
+	extern __r8
+	extern __r9
+	extern __r10
+	extern __r11
+	extern __r12
+	extern __r13
+	extern __r14
+	extern __r15
+	extern __rip
+	
 test_sub_addr:
 	dq 0
 	
 	section .text
-
+	
 	global print
 	global _check_register
-	global _check_register
-	
-	extern _test_on_real_cpu
-	
+	global _initialize_v_regs
+	global _test_on_real_cpu
+	extern _exec
 print:
 	push rbp
-	mov r10,reg_size8+0x0a
+	lea r10,[_reg_size8+0x0a]
 	
 	mov r9,r8
 	call print1
@@ -58,8 +71,9 @@ print:
 	sar r8,8
 	mov r9,r8
 	call print1
-	
+	call _reg_save
 	call _write
+	call _reg_regain
 	pop rbp
 	ret
 	
@@ -89,7 +103,25 @@ print1:
 .less_than_0x0a:
 	add r8b,0x30
 	ret
-	
+
+__set_to_virtual_register:
+	mov [__rax],rax
+	mov [__rcx],rcx
+	mov [__rdx],rdx
+	mov [__rbx],rbx
+	mov [__rsp],rsp
+	mov [__rbp],rbp
+	mov [__rsi],rsi
+	mov [__r8 ],r8
+	mov [__r9 ],r9
+	mov [__r10],r10
+	mov [__r11],r11
+	mov [__r12],r12
+	mov [__r13],r13
+	mov [__r14],r14	
+	mov [__r15],r15
+	ret
+
 _set_to_virtual_register:
 	mov [_rax],rax
 	mov [_rcx],rcx
@@ -114,8 +146,8 @@ _set_to_real_register:
 	mov rcx,[_rcx]
 	mov rdx,[_rdx]
 	mov rbx,[_rbx]
-	mov rsp,[_rsp]
-	mov rbp,[_rbp]
+	;; mov rsp,[_rsp]
+	;; mov rbp,[_rbp]
 	mov rsi,[_rsi]
 	mov rdi,[_rdi]	
 	mov r8, [_r8 ]
@@ -137,15 +169,33 @@ test_f1:
 	
 _test_on_real_cpu:
 	;; set the starting address of test subject
+	push rbp
 	mov [_rip],rdi
 	add rdi,rsi
-	inc rdi
 	;; insert return at the end of it
-	mov [rdi],0xc3
+	mov byte [rdi],0xc3
+	;; mov byte [rdi],0x48
+	;; inc rdi
+	;; mov byte [rdi],0xb8
+	;; inc rdi
+	;; lea rbx,[_test_on_real_cpu.done]
+	;; mov qword [rdi],rbx
+	;; add rdi,8
+	;; mov byte [rdi],0xff
+	;; inc rdi
+	;; mov byte [rdi],0xe0	
+	;; inc rdi
+	
 	;; set all of registers but rip
+	mov [_rsp],rsp
 	call _set_to_real_register
+	mov rsp,[_rsp]
 	call [_rip]
-	call _set_to_virtual_register
+.done:
+	call __set_to_virtual_register
+	mov rsp,[_rsp]
+	pop rbp
+	ret
 	
 _test_on_v_cpu:	
 	call _exec 
@@ -153,24 +203,23 @@ _test_on_v_cpu:
 	call [test_sub_addr]
 	call _set_to_virtual_register
 	
-_initialize_regs:
-	mov [_rax],0
-	mov [_rcx],0
-	mov [_rdx],0
-	mov [_rbx],0
-	;; mov [_rsp],0
-	;; mov [_rbp],0
-	mov [_rsi],0
-	mov [_rdi],0
-	mov [_r8 ],0
-	mov [_r9 ],0
-	mov [_r10],0
-	mov [_r11],0
-	mov [_r12],0
-	mov [_r13],0
-	mov [_r14],0
-	mov [_r15],0
-	
+_initialize_v_regs:
+	mov dword [_rax],0
+	mov dword [_rcx],0
+	mov dword [_rdx],0
+	mov dword [_rbx],0
+	mov dword [_rsp],0
+	mov dword [_rbp],0
+	mov dword [_rsi],0
+	mov dword [_rdi],0
+	mov dword [_r8 ],0
+	mov dword [_r9 ],0
+	mov dword [_r10],0
+	mov dword [_r11],0
+	mov dword [_r12],0
+	mov dword [_r13],0
+	mov dword [_r14],0
+	mov dword [_r15],0
 	
 _check_register:
 	mov rax,0x100014000
@@ -209,12 +258,27 @@ _check_register:
 	mov rsp,rbp
 	pop rsp
 	ret
+
+_reg_save:
+	mov r8,rax
+	mov r9,rdi
+	mov r10,rsi
+	mov r11,rdx
+	ret
+
+_reg_regain:
+	mov rax,r8
+	mov rdi,r9
+	mov rsi,r10
+	mov rdx,r11
+	ret
 	
 _write:
 	mov rax, 0x2000004 ; write
 	mov rdi, 1 ; stdout
-	mov rsi, reg_size8
-	mov rdx, reg_size8.len
+	lea rsi, [_reg_size8]
+	mov rdx, 0x0b
+	;; mov rdx, _reg_size8.len
 	syscall
 	ret
 
