@@ -16,8 +16,12 @@
 	global _0x9d_popf
 	global _0x9e_sahf
 	global _0x9f_lahf
+
+	extern print
 	
 _0x90_nop:
+	mov r8,3
+	call print
 	ret
 _0x91_xchg_eax:
 	ret

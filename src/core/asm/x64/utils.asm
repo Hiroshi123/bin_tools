@@ -260,17 +260,17 @@ _check_register:
 	ret
 
 _reg_save:
-	mov r8,rax
-	mov r9,rdi
-	mov r10,rsi
-	mov r11,rdx
+	mov r12,rax
+	mov r13,rdi
+	mov r14,rsi
+	mov r15,rdx
 	ret
 
 _reg_regain:
-	mov rax,r8
-	mov rdi,r9
-	mov rsi,r10
-	mov rdx,r11
+	mov rax,r12
+	mov rdi,r13
+	mov rsi,r14
+	mov rdx,r15
 	ret
 	
 _write:
@@ -278,6 +278,7 @@ _write:
 	mov rdi, 1 ; stdout
 	lea rsi, [_reg_size8]
 	mov rdx, 0x0b
+	;; rcx,r8,r9 is another register
 	;; mov rdx, _reg_size8.len
 	syscall
 	ret
