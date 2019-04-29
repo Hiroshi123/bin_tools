@@ -20,6 +20,11 @@
 
 	extern _rip
 	extern _context
+	extern _context._rex
+	extern _context._data_prefix
+	extern _context._addr_prefix
+	
+	extern print
 	
 _0x40_set_rex:
 	mov rax,[_rip]
@@ -42,6 +47,12 @@ _0x46_set_rex:
 _0x47_set_rex:
 	ret
 _0x48_set_rex:
+	mov rdx,[_rip]
+	mov dl,[rdx]
+	mov byte [_context._rex],dl
+	mov r8,0x48
+	call print
+	;; mov [_context._rex],[_rip]	
 	ret
 _0x49_set_rex:
 	ret

@@ -47,6 +47,11 @@
 	global _sub32
 	global _sub64
 
+	global _and
+	global _or
+	global _xor
+	global _cmp
+	
 	extern _rax
 	extern _rcx
 	extern _rdx
@@ -68,32 +73,41 @@
 	extern _rip
 	
 	extern _context._dflag
+	extern _context._rex
 	extern _context._arg1
 	extern _context._arg2
 	extern _context._res
 
 	extern print
+	extern get_diff_host_guest_addr
+	extern _get_host_addr_from_guest
 	
 _fetch:
 	push rbp
 	mov ax,0
 	mov al,[_context._dflag]
-	mov al,[_fetch_base]
+	lea rdx,[_fetch_base]
 	add dx,ax
 	call [rdx]
 	pop rbp
 	ret
 
 _fetch8:
+	mov qword [_context._res],0x00
 	mov rax,[_rip]
 	mov al,[rax]
 	mov [_context._res],al
 	ret
 _fetch16:
+	mov qword [_context._res],0x00
 	mov rax,[_rip]
 	mov ax,[rax]
 	ret
 _fetch32:
+	mov qword [_context._res],0x00	
+	mov rax,[_rip]
+	mov eax,[rax]
+	mov [_context._res],eax	
 	ret
 _fetch64:
 	ret
@@ -113,7 +127,7 @@ _load8:
 	mov rax,[_context._arg1]
 	mov rax,[rax]
 	mov r8,[_context._arg1]
-	call print 
+	call print
 	ret
 	
 _load16:
@@ -122,7 +136,17 @@ _load16:
 _load32:
 	ret
 	
-_load64:
+_load64:	
+	mov rax,[_context._arg1]
+	;; this is util function which will 
+	mov rdi,0
+	mov rsi,rax
+	call get_diff_host_guest_addr
+	add rax,[_rsp]
+
+	mov rax,[rax]
+	mov r8,[_context._arg1]
+	call print	
 	ret
 
 _store:
@@ -137,8 +161,14 @@ _store:
 	
 _store8:
 	push rbp
-	mov rax,[_context._res]
-	mov [_context._arg1],rax
+	mov rax,[_context._arg1]
+	;; 
+	mov rdi,0
+	mov rsi,rax
+	call get_diff_host_guest_addr
+	add rax,[_context._arg1]	
+	;; 
+	mov rax,[_context._arg2]
 	pop rbp
 	ret
 	
@@ -149,6 +179,12 @@ _store32:
 	ret
 	
 _store64:
+	push rbp
+	mov rax,[_context._arg1]
+	call _get_host_addr_from_guest
+	mov rdx,[_context._arg2]
+	mov [rax],rdx
+	pop rbp
 	ret
 
 ;;; assign means setting a value on a register.
@@ -161,8 +197,12 @@ _store64:
 _assign:
 	push rbp
 	mov ax,0
-	mov al,[_context._dflag]
+;;; 
+	mov r8,0x88
+	call print
+
 	lea rdx,[_assign_base]
+	mov al,[_context._dflag]
 	add dx,ax
 	call [rdx]
 	pop rbp
@@ -192,6 +232,11 @@ _assign32:
 	ret
 	
 _assign64:
+	push rbp
+	mov rax,[_context._arg1]
+	mov rcx,[_context._arg2]
+	mov [rax],rcx
+	pop rbp
 	ret
 
 ;;; addition with signed
@@ -200,7 +245,7 @@ _add:
 	push rbp
 	mov ax,0
 	mov al,[_context._dflag]
-	mov al,[_add_base]
+	lea rdx,[_add_base]
 	add dx,ax
 	call [rdx]
 	pop rbp
@@ -226,35 +271,63 @@ _add16:
 	ret
 	
 _add32:
-	mov edx,[rax+4]
-	mov ecx,[rax+8]
-	add edx,ecx
-	mov [rax+12],edx
+	mov rax,[_context._arg1]
+	mov edx,[_context._arg2]
+	add eax,edx
+	mov [_context._res],rax
 	ret
 	
 _add64:
-	mov rax,rsi
-	add rax,rdi
+	mov rax,[_context._arg1]
+	mov rdx,[_context._arg2]
+	add rax,rdx
+	mov [_context._res],rax
+	ret
+
+_sub:
+	push rbp
+	mov r8,0x77
+	call print
+
+	mov ax,0
+	mov al,[_context._dflag]
+	lea rdx,[_sub_base]
+	add dx,ax
+	call [rdx]
+	pop rbp
 	ret
 
 _sub8:
-	mov al,sil
-	sub al,dil
 	ret
 
 _sub16:
-	mov ax,si
-	sub ax,di
 	ret
 	
 _sub32:
-	mov eax,esi
-	sub eax,edi
 	ret
 	
 _sub64:
-	mov rax,rsi
-	sub rax,rdi
+	push rbp
+	mov r8,0x77
+	call print
+	mov rax,[_context._arg1]
+	mov rdx,[_context._arg2]
+	sub rax,rdx
+	mov [_context._res],rax
+	pop rbp
 	ret
 
-	
+
+_and:
+	ret
+
+_or:
+	ret
+
+_xor:
+	ret
+
+_cmp:
+	ret
+
+

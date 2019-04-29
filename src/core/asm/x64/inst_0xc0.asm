@@ -17,6 +17,8 @@
 	global _0xce_into	
 	global _0xcf_iret
 
+	extern print
+	
 _0xc0_shift:
 	ret
 _0xc1_shift:
@@ -24,6 +26,10 @@ _0xc1_shift:
 _0xc2_ret:
 	ret
 _0xc3_ret:
+	push rbp
+	mov r8,0xc3
+	call print
+	pop rbp
 	ret
 _0xc4_les:
 	ret

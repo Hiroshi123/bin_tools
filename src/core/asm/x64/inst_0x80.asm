@@ -21,12 +21,26 @@
 
 	extern _rax
 	extern _rcx
+	extern _rbp	
+	extern _rsp
 	extern _rip
 
-	extern _set_scale_index_base
+	extern _sub
 	
-	extern _set_reg_to_arg1
+	extern _set_scale_index_base
+
 	extern _mov_reg_to_arg1
+	extern _mov_reg_to_arg2
+	extern _set_reg_to_arg1
+	extern _set_reg_to_arg2
+	
+	extern _mov_rm_to_arg1
+	extern _mov_rm_to_arg2
+	extern _set_rm_to_arg1
+	extern _set_rm_to_arg2
+
+	extern _mov_res_to_arg1
+	extern _mov_res_to_arg2
 	
 	extern _load_arg1_by_mod
 	extern _load_arg2_by_mod
@@ -34,9 +48,15 @@
 	
 	extern print
 	extern _get_mod_reg_rm
+	extern _get_mod_op_rm
 
+	extern _context._reg
+	extern _context._rm
 	extern _context._dflag
+	extern _context._rex
 	extern _assign
+	
+	extern _fetch8_imm_set_to_arg2
 	
 ;;; 0x80
 
@@ -50,6 +70,26 @@ _0x82_arith_imm:
 	ret
 	
 _0x83_arith_imm:
+	
+	push rbp
+	add byte [_rip],1
+	call _get_mod_op_rm
+	call _set_scale_index_base
+	call _load_arg1_by_mod
+	add byte [_rip],1
+	call _fetch8_imm_set_to_arg2
+	add byte [_rip],1
+	call [_context._reg]
+	call _mov_rm_to_arg1
+	call _mov_res_to_arg2
+	call _store_or_assign_arg1_by_mod
+	
+	mov r8,[_rsp]
+	call print
+	mov r8,0x83
+	call print
+	
+	pop rbp
 	ret
 
 _0x84_test:
@@ -67,16 +107,21 @@ _0x88_mov:
 	ret
 	
 _0x89_mov:
+	
 	push rbp
-	add byte [_rip],1
-
+	add byte [_rip],1	
+	call _get_mod_reg_rm
+	call _set_scale_index_base
+	call _mov_rm_to_arg1
+	call _set_reg_to_arg2
+	call _store_or_assign_arg1_by_mod
+	
 	mov r8,0x11
 	call print
-	call _get_mod_reg_rm
-	mov r8,[_context._dflag]
-	call print
-	call _set_scale_index_base
-	call _store_or_assign_arg1_by_mod
+	
+	mov r8,[_rsp]
+	call print	
+	
 	pop rbp
 	ret
 
@@ -84,6 +129,7 @@ _0x8a_mov:
 	ret
 
 _0x8b_mov:
+
 	push rbp
 	mov qword [_rcx],7
 	add byte [_rip],1

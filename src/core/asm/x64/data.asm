@@ -63,6 +63,7 @@
 	global _context._res
 	global _context._imm
 
+	global _op01_f_base
 	global _mod_f_base01
 	global _mod_f_base02
 	global _reg_size8
@@ -72,7 +73,8 @@
 	global _fetch_base
 	global _add_base
 	global _sub_base
-	global _assign_base	
+	global _assign_base
+
 	
 _reg_names:  db "rax rdx rcx rbx rsi rdi r8 r9 r10 r11 r12 r13 r14 r15 eflags rip rsp rbp "
 	
@@ -468,6 +470,17 @@ _context:
 	
 ;;; following should be aligned as it will be scooped from instruciton given a value of _context._mod.
 
+_op01_f_base:
+	dq _add
+	dq _or
+	dq _add
+	dq _sub
+	dq _and
+	dq _sub
+	dq _xor
+	dq _cmp
+	
+	
 _mod_f_base01:
 	dq _mod00_do1
 	dq _mod01_do1
@@ -536,7 +549,15 @@ print_str:
 
 	
 	section .text
-;;; 
+;;;
+
+	extern _add
+	extern _sub
+	extern _and
+	extern _or
+	extern _xor
+	extern _cmp
+	
 	extern _mod00_do1
 	extern _mod01_do1
 	extern _mod10_do1
@@ -795,4 +816,17 @@ print_str:
 	extern _sub8
 	extern _sub16
 	extern _sub32
-	extern _sub64	
+	extern _sub64
+
+	section .text
+	global _hello_world
+	
+_hello_world:
+	;; mov rax, 0x2000004 ; write
+	mov rax, 0x0000001 ; write
+	mov rdi, 1 ; stdout
+	mov rsi, msg1
+	mov rdx, msg1.len
+	syscall
+	ret
+	

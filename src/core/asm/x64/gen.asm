@@ -19,8 +19,9 @@
 	global _mod11_do2
 	
 	;; fetch immidiate
-	global _fetch_immidiate
-	
+	global _fetch8_imm_set_to_arg2:
+	global _fetch32_imm_set_to_arg2:
+
 	;; store or assign
 	global _store_or_assign_arg1_by_mod
 	global _store_arg1_by_mod
@@ -167,28 +168,31 @@ _mod00_do1:
 _mod01_do1:
 	;; fetch
 	;; load
-
+	push rbp
 	call _fetch8
 	call _set_rm_to_arg1
 	call _mov_res_to_arg2
 	call _add
 	call _mov_res_to_arg1
 	call _load
-
+	pop rbp
 	ret
 	
 _mod10_do1:
 	;; fetch
 	;; load
+	push rbp
 	call _fetch32
 	call _set_rm_to_arg1
 	call _mov_res_to_arg2
 	call _add
 	call _mov_res_to_arg1
 	call _load
+	pop rbp
 	ret
 	
 _mod11_do1:
+	
 	ret
 
 _load_arg2_by_mod:
@@ -242,9 +246,9 @@ _mod10_do2:
 	ret
 	
 _mod11_do2:
+	push rbp
 	call _assign
-	mov r8,0x57
-	call print	
+	pop rbp
 	ret
 
 _store_or_assign_arg1_by_mod:
@@ -278,5 +282,17 @@ _set_arg1_reg_arg2_rm:
 	mov [_context._arg2],rax
 	ret
 	
-
+_fetch8_imm_set_to_arg2:
+	push rbp
+	call _fetch8
+	call _mov_res_to_arg2
+	pop rbp
+	ret
+	
+_fetch32_imm_set_to_arg2:
+	push rbp
+	call _fetch32
+	call _mov_res_to_arg2
+	pop rbp
+	ret
 	

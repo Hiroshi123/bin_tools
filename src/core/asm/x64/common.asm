@@ -4,18 +4,23 @@
 
 	global _get_rax
 	global _set_rax
-	global _hello_world
 	global _exec
 	global _exec_one	
 	global _set_rip
 	global _set_rsp
+	global _get_rip
+	global _get_rsp
 	global _init_regs
 	global _gen_code
 	global _get_mod_reg_rm
+	global _get_mod_op_rm
 	
 	global _set_eflags
 	global setrip
 
+	global _get_host_addr_from_guest
+	extern get_diff_host_guest_addr
+	
 	extern _opcode_table
 	extern _context
 	extern _context._rex
@@ -26,8 +31,11 @@
 	extern _context._index
 	extern _context._base
 	extern _context._dflag
-	extern _context._aflag	
-
+	extern _context._aflag
+	extern _context._arg1
+	extern _context._arg2	
+	extern _context._res
+	
 	extern _context._data_prefix
 	extern _context._addr_prefix
 
@@ -52,9 +60,20 @@
 
 	extern print
 	
+	extern _op01_f_base
+
+	extern _sub
+	extern _add
+	extern _or
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-	
+_get_rip:
+	mov rax,[_rip]
+	ret
+_get_rsp:
+	mov rax,[_rsp]
+	ret
+
 _set_rip:
 	mov [_rip],rdi
 	ret
@@ -70,14 +89,19 @@ _exec_one:
 	mov rax,_opcode_table
 	mov rbx,0x00
 	mov rdx,[_rip]
-	mov bl,[rdx]
-	imul rbx,0x08
+	mov bl,[rdx]	
+	shl rbx,0x03
+	;; imul rbx,0x08
+	mov r8,0x11
+	call print
+	mov r8,rdx
+	call print
 	add rax,rbx
 	call [rax]
-	add byte [_rip],0x01
-
-	mov r8,0x00
+	;; add byte [_rip],0x01
+	mov r8,0xff
 	call print
+
 	pop rbp
 	ret
 	
@@ -186,13 +210,6 @@ _set_immidiate:
 ;; 	ret
 ;; 	jmp _gen_code
 	
-;; _hello_world:
-;; 	mov rax, 0x2000004 ; write
-;; 	mov rdi, 1 ; stdout
-;; 	mov rsi, msg1
-;; 	mov rdx, msg1.len
-;; 	syscall
-;; 	ret
 
 ;; _hello_pika:
 ;; 	mov rax, 0x2000004 ; write
@@ -210,15 +227,29 @@ _set_immidiate:
 ;; 	syscall
 ;; 	ret
 	
-_get_mod_reg_rm:
+_set_op01_f_base:
 	push rbp
-	;; fetch
+	mov rdx,_op01_f_base
+	mov r9,0x00
+	mov r9b,al
+	and r9b,0b00111000	
+	add dx,r9w
+	mov rdx,[rdx]
+	mov [_context._reg], rdx
+	pop rbp
+	ret
+	
+_get_mod_op_rm:
+	push rbp
+	;; fetched mod/reg/rm data is set on al(1byte)
 	mov rax,[_rip]
-	mov byte al,[rax]	
+	mov byte al,[rax]
+	;; rex prefix is set on bl(1byte)
 	mov bl,[_context._rex]
-
+	
 	call _set_mod
-	call _set_reg
+	call _set_op01_f_base
+	
 	call _set_rm
 	call _set_dflag
 	call _set_aflag
@@ -226,16 +257,22 @@ _get_mod_reg_rm:
 	pop rbp
 	ret
 	
-	;; call _get_aflag
-	;; call _set_dflag
+_get_mod_reg_rm:
+	push rbp
+	;; fetched mod/reg/rm data is set on al(1byte)
+	mov rax,[_rip]
+	mov byte al,[rax]
+	;; rex prefix is set on bl(1byte)
+	mov bl,[_context._rex]
 
-	;; reg_base + bl(reg)
-	
-	;; mov al,[_rex]
-	;; mov [dflag] al
-	
-	;; mov al,[_rip]	
-	;; mov [aflag] al
+	call _set_mod
+	call _set_reg
+	call _set_rm
+	call _set_dflag
+	call _set_aflag
+
+	pop rbp
+	ret
 
 _set_mod:
 	mov r8b,al
@@ -250,12 +287,12 @@ _set_reg:
 	push rbp
 	mov r8,0x00
 	;; 1. get base of reg
-	mov r8b,al
+	mov r8b,bl
 	lea r12,[_set_reg.done1]
 	and r8b,0b00000100
 	cmp r8b,0b00000100
-	jna set_base_reg
-	jmp set_base_reg_ex
+	je set_base_reg_ex
+	jmp set_base_reg
 	;; 2.get kind of reg
 .done1:
 	mov r9b,al
@@ -284,7 +321,7 @@ set_register_size:
 	;; check rex_prefix is set
 	and bl,0b00001000
 	cmp bl,0b00001000
-	ja  set_register_size.done2
+	je  set_register_size.done2
 	and byte [_context._data_prefix],0xff
 	jna  set_register_size.done1
 	mov r10b,0x2
@@ -299,11 +336,11 @@ _set_rm:
 	push rbp
 	mov r8,0x00
 	;; 1. get base of rm
-	mov r8b,al
+	mov r8b,bl
 	lea r12,[_set_rm.done1]	
 	and r8b,0b00000001
 	cmp r8b,0b00000001
-	jna set_base_reg
+	jne set_base_reg
 	jmp set_base_reg_ex
 .done1:
 	;; 2. get kind of rm
@@ -321,18 +358,18 @@ _set_rm:
 _set_dflag:
 	;; check rex_prefix is set
 	mov bl,[_context._rex]
-	and bl,0b00001000
+	and bl,0b00001000	
 	cmp bl,0b00001000
-	ja  _set_dflag.done1
+	je  _set_dflag.done1
 	mov dl,[_context._data_prefix]
 	and dl,0xff
 	cmp bl,0xff
-	jna _set_dflag.done2
+	jne _set_dflag.done2
 	mov byte [_context._dflag],0x8
 	ret
-.done1:
+.done1:	
 	mov byte [_context._dflag],0x18
-	ret	
+	ret
 .done2:
 	mov byte [_context._dflag],0x10
 	ret
@@ -342,7 +379,7 @@ _set_aflag:
 	mov dl,[_context._addr_prefix]
 	and dl,0xff
 	cmp bl,0xff	
-	jna _set_aflag.done1	
+	jne _set_aflag.done1	
 	and byte [_context._aflag],0x00
 .done1:
 	and byte [_context._aflag],0x08
@@ -355,6 +392,17 @@ _get_reg_base:
 _get_rm_base:	
 	mov rax,_r8
 	mov rax,_r8
+
+;;; this is just a wrapper of get_diff_host_guest_addr
+;;; which basically calculates diff of host & guest addr.
+
+_get_host_addr_from_guest:
+	push rbp
+	mov rdi,rax
+	call get_diff_host_guest_addr
+	add rax,[_context._arg1]
+	pop rbp
+	ret
 	
 ;;; jmp instruction
 

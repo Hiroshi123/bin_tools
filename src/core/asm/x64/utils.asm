@@ -220,6 +220,7 @@ _initialize_v_regs:
 	mov dword [_r13],0
 	mov dword [_r14],0
 	mov dword [_r15],0
+	ret
 	
 _check_register:
 	mov rax,0x100014000
@@ -274,7 +275,8 @@ _reg_regain:
 	ret
 	
 _write:
-	mov rax, 0x2000004 ; write
+	;; mov rax, 0x2000004	;write
+	mov rax, 0x0000001	;write
 	mov rdi, 1 ; stdout
 	lea rsi, [_reg_size8]
 	mov rdx, 0x0b
