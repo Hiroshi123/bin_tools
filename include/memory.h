@@ -18,9 +18,12 @@ typedef struct __attribute__((__packed__)) {
   uint16_t file;
   // subsequent mapping
   // struct __heap* next;
+  void* guest_addr;
+  
 } heap;
 
 
 heap* init_map_file(const char *const fname);
-
+heap* guest_mmap(void* guest_addr, uint8_t page_num);
+void* get_diff_host_guest_addr(void* guest_addr);
 
