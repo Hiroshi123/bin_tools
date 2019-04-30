@@ -115,11 +115,10 @@ _0x89_mov:
 	call _mov_rm_to_arg1
 	call _set_reg_to_arg2
 	call _store_or_assign_arg1_by_mod
+
+	add byte [_rip],1
 	
-	mov r8,0x11
-	call print
-	
-	mov r8,[_rsp]
+	mov r8,0x89
 	call print	
 	
 	pop rbp
@@ -129,7 +128,7 @@ _0x8a_mov:
 	ret
 
 _0x8b_mov:
-
+	
 	push rbp
 	mov qword [_rcx],7
 	add byte [_rip],1

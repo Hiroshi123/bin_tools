@@ -4,6 +4,11 @@
 	section .text
 
 	global _0x00_add
+	global _0x01_add
+	global _0x02_add
+	global _0x03_add
+	global _0x04_add
+	global _0x05_add
 	
 	extern _rip
 
@@ -91,6 +96,9 @@ _0x00_add:
 	ret
 	
 _0x01_add:
+	nop
+	nop
+	nop
 	ret
 
 _0x02_add:

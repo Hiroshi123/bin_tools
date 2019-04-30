@@ -1,4 +1,5 @@
 
+	default rel	
 	section .text
 	global _0x90_nop
 	global _0x91_xchg_eax
@@ -16,12 +17,15 @@
 	global _0x9d_popf
 	global _0x9e_sahf
 	global _0x9f_lahf
-
+	
 	extern print
+
+	extern _rip
 	
 _0x90_nop:
-	mov r8,3
+	mov r8,0x90
 	call print
+	add byte [_rip],0x01
 	ret
 _0x91_xchg_eax:
 	ret

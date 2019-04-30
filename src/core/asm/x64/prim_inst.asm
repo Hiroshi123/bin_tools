@@ -136,17 +136,17 @@ _load16:
 _load32:
 	ret
 	
-_load64:	
+_load64:
+	push rbp
 	mov rax,[_context._arg1]
 	;; this is util function which will 
-	mov rdi,0
-	mov rsi,rax
-	call get_diff_host_guest_addr
-	add rax,[_rsp]
-
+	call _get_host_addr_from_guest
 	mov rax,[rax]
-	mov r8,[_context._arg1]
-	call print	
+	;; add rax,[_rsp]
+	mov [_context._res],rax
+	mov r8,[_context._res]
+	call print
+	pop rbp
 	ret
 
 _store:

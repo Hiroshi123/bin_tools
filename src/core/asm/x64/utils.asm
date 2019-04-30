@@ -40,9 +40,7 @@
 	extern __r15
 	extern __rip
 	
-test_sub_addr:
-	dq 0
-	
+
 	section .text
 	
 	global print
@@ -59,7 +57,7 @@ print:
 
 	mov r8,r9
 	sar r8,8
-	mov r9,r8	
+	mov r9,r8
 	call print1
 
 	mov r8,r9
@@ -200,7 +198,7 @@ _test_on_real_cpu:
 _test_on_v_cpu:	
 	call _exec 
 	call _set_to_real_register
-	call [test_sub_addr]
+	;; call [test_sub_addr]
 	call _set_to_virtual_register
 	
 _initialize_v_regs:

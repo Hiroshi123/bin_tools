@@ -2,14 +2,16 @@
 	default rel
 	section .text
 
-	global _get_rax
-	global _set_rax
+	global _get_host_rax
+	global _set_host_rax
 	global _exec
 	global _exec_one	
 	global _set_rip
 	global _set_rsp
 	global _get_rip
 	global _get_rsp
+	global _get_host_rsp
+	
 	global _init_regs
 	global _gen_code
 	global _get_mod_reg_rm
@@ -65,7 +67,14 @@
 	extern _sub
 	extern _add
 	extern _or
+
+	extern _0xe8_call
+	
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+_get_host_rsp:
+	mov rax,rsp
+	ret
 
 _get_rip:
 	mov rax,[_rip]
@@ -86,17 +95,26 @@ _init_regs:
 
 _exec_one:
 	push rbp
-	mov rax,_opcode_table
+	lea rax,[_opcode_table]
+	mov r8,rax
+	call print
+
 	mov rbx,0x00
 	mov rdx,[_rip]
 	mov bl,[rdx]	
-	shl rbx,0x03
-	;; imul rbx,0x08
+	;; shl rbx,0x03
+	imul rbx,0x08
+
+	adc rax,rbx
+	
 	mov r8,0x11
 	call print
-	mov r8,rdx
+	mov r8,[rax]
 	call print
-	add rax,rbx
+
+	mov r8,_0xe8_call
+	call print	
+
 	call [rax]
 	;; add byte [_rip],0x01
 	mov r8,0xff
@@ -126,11 +144,12 @@ _exec:
 	pop rbp
 	ret	
 
-_get_rax:
+	
+_get_host_rax:
 	mov rax,rax
 	ret
 	
-_set_rax:
+_set_host_rax:
 	mov rax,rdi
 	ret
 

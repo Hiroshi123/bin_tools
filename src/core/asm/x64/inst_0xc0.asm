@@ -1,4 +1,6 @@
 
+	default rel
+	
 	section .text
 	global _0xc0_shift
 	global _0xc1_shift	
@@ -18,6 +20,12 @@
 	global _0xcf_iret
 
 	extern print
+	extern _rip
+	extern _rsp
+
+	extern _get_host_addr_from_guest
+	extern _context._internal_arg1
+	extern _gen_pop
 	
 _0xc0_shift:
 	ret
@@ -29,6 +37,14 @@ _0xc3_ret:
 	push rbp
 	mov r8,0xc3
 	call print
+	mov r8,[_rsp]
+	call print	
+	mov rax,_rip
+	mov [_context._internal_arg1],rax
+	call _gen_pop
+	mov r8,[_rsp]
+	call print
+	
 	pop rbp
 	ret
 _0xc4_les:
@@ -38,6 +54,10 @@ _0xc5_lds:
 _0xc6_mov:
 	ret
 _0xc7_mov:
+	mov r8,0xc7
+	call print
+	add byte [_rip],1
+	
 	ret
 _0xc8_enter:
 	ret

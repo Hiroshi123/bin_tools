@@ -52,6 +52,7 @@ _0x48_set_rex:
 	mov byte [_context._rex],dl
 	mov r8,0x48
 	call print
+	add byte [_rip],0x01
 	;; mov [_context._rex],[_rip]	
 	ret
 _0x49_set_rex:

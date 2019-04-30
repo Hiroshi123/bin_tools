@@ -1,6 +1,7 @@
 
 	default rel
 	section .text
+	global _gen_push
 	global _0x50_push
 	global _0x51_push
 	global _0x52_push
@@ -9,6 +10,7 @@
 	global _0x55_push
 	global _0x56_push
 	global _0x57_push
+	global _gen_pop
 	global _0x58_pop
 	global _0x59_pop
 	global _0x5a_pop
@@ -28,10 +30,16 @@
 	
 	extern _store64
 	extern _assign64
+	extern _add64
 	extern _sub64
+	extern _load64
 	extern _mov_res_to_arg2
+
+	extern _context._internal_arg1
 	
 	extern get_diff_host_guest_addr
+
+	extern _rip
 	
 _0x50_push:
 	mov rax,[_rax]
@@ -52,35 +60,17 @@ _0x53_push:
 _0x54_push:
 	ret
 _0x55_push:
+	
 	push rbp
+	mov r8,0x55
+	call print
 	mov rax,[_rbp]
-	mov [_context._arg2],rax
-	mov rax,[_rsp]
-	mov [_context._arg1],rax
-	call _store64
-	
-	mov r8,[_rsp]
-	call print
-	;; mov rax,[_rsp]
-	;; mov r8,[rax]
-	;; call print	
-	;; sub byte [_rsp],0x08
-
-	mov rax,[_rsp]
-	mov qword [_context._arg1],rax
-	mov qword [_context._arg2],0x08
-	call _sub64
-	;; 3rd 
-	mov rax,_rsp
-	mov [_context._arg1],rax
-	;; 
-	call _mov_res_to_arg2
-	call _assign64
-	
-	mov r8,[_rsp]
-	call print
+	mov [_context._internal_arg1],rax
+	call _gen_push
+	add byte [_rip],1	
 	pop rbp
 	ret
+	
 _0x56_push:
 	ret
 _0x57_push:
@@ -102,10 +92,81 @@ _0x5b_pop:
 _0x5c_pop:
 	ret
 _0x5d_pop:
+
+	push rbp	
+	mov rax,_rbp
+	mov [_context._internal_arg1],rax
+	call _gen_pop
+	add byte [_rip],1
+	
+	pop rbp	
 	ret
+	
 _0x5e_pop:
 	ret
 _0x5f_pop:
 	ret
 
+
+;;; this is a general implementation of push.
+;;; it produces 3 primitive instructions.
+
+;;; 1. let rsp up 8 bytes step(subtract 0x08 from original value)
+;;; 2. assign the value on rsp.
+;;; 3. store the value which is given on [_context._internal_arg1].
+
+_gen_push:
+	
+	push rbp
+		
+	mov rax,[_rsp]
+	mov qword [_context._arg1],rax
+	mov qword [_context._arg2],0x08
+	call _sub64
+	
+	mov rax,_rsp
+	mov [_context._arg1],rax
+	call _mov_res_to_arg2
+	call _assign64
+
+	mov rax,[_context._internal_arg1]
+	mov [_context._arg2],rax
+	mov rax,[_rsp]
+	mov [_context._arg1],rax
+	call _store64
+	
+	pop rbp
+	ret
+
+;;; 1. load a value of [_rsp]
+;;; 2. assign a value to given memory[_context._internal_arg1]
+;;; 3. add rsp
+;;; 4. assign rsp
+
+_gen_pop:
+	
+	push rbp
+	
+	mov rax,[_rsp]
+	mov [_context._arg1],rax
+	call _load64
+
+	mov rax,[_context._internal_arg1]
+	mov [_context._arg1],rax
+	call _mov_res_to_arg2
+	call _assign64
+
+	mov rax,[_rsp]
+	mov qword [_context._arg1],rax
+	mov qword [_context._arg2],0x08
+	call _add64
+	
+	mov rax,_rsp
+	mov [_context._arg1],rax
+	call _mov_res_to_arg2
+	call _assign64
+	
+	
+	pop rbp	
+	ret
 	

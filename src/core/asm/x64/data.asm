@@ -24,7 +24,8 @@
 	global _r15
 	global _eflags	
 	global _rip
-
+	global _low_rip
+	
 	global __rax
 	global __rdx
 	global __rcx
@@ -62,7 +63,8 @@
 	global _context._arg2
 	global _context._res
 	global _context._imm
-
+	global _context._internal_arg1
+	
 	global _op01_f_base
 	global _mod_f_base01
 	global _mod_f_base02
@@ -98,6 +100,7 @@ _r14:	dq 0
 _r15:	dq 0
 _eflags:dq 0
 _rip:	dq 0
+_low_rip:dq 0
 
 ;;;  this is auxietrary set of registers
 __rax:	dq 0
@@ -124,11 +127,11 @@ __rip:	dq 0
 _opcode_table:
 	;; 0x00
 	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
+	dq _0x01_add
+	dq _0x02_add
+	dq _0x03_add
+	dq _0x04_add
+	dq _0x05_add
 	dq _0x00_add
 	dq _0x00_add
 
@@ -467,7 +470,9 @@ _context:
 	dq 0
 ._imm:
 	dq 0
-	
+._internal_arg1:
+	dq 0
+
 ;;; following should be aligned as it will be scooped from instruciton given a value of _context._mod.
 
 _op01_f_base:
@@ -572,6 +577,11 @@ print_str:
 	extern _load_arg2_by_mod
 
 	extern _0x00_add
+	extern _0x01_add
+	extern _0x02_add
+	extern _0x03_add
+	extern _0x04_add
+	extern _0x05_add
 	
 	extern _0x40_set_rex
 	extern _0x41_set_rex
