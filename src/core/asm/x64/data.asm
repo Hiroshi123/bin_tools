@@ -46,15 +46,18 @@
 	global __rip
 
 	global _opcode_table
+	global _extend_opcode_table
+	
 	;; global _write
 	global _context
+	global _context._opcode_table
+
 	global _context._rex	
 	global _context._mod
 	global _context._reg
 	global _context._rm
-	global _context._scale
-	global _context._index
-	global _context._base
+	global _context._sib
+	global _context._sib_displacement
 	global _context._dflag
 	global _context._aflag	
 	global _context._data_prefix
@@ -62,12 +65,17 @@
 	global _context._arg1
 	global _context._arg2
 	global _context._res
-	global _context._imm
+	global _context._imm_op
 	global _context._internal_arg1
 	
 	global _op01_f_base
-	global _mod_f_base01
-	global _mod_f_base02
+	global _op_shift_base
+	global _op_shl_base
+	
+	global _mod_load_base
+	global _mod_fetch_base
+	global _mod_store_base
+
 	global _reg_size8
 
 	global _load_base
@@ -135,7 +143,17 @@ _opcode_table:
 	dq _0x00_add
 	dq _0x00_add
 
-	;; 0x08
+	;; 0x08 or
+	dq _0x00_add
+	dq _0x00_add
+	dq _0x00_add
+	dq _0x00_add
+	dq _0x00_add
+	dq _0x00_add
+	dq _0x00_add
+	dq _0x0f
+
+	;; 0x10 adc
 	dq _0x00_add
 	dq _0x00_add
 	dq _0x00_add
@@ -145,7 +163,7 @@ _opcode_table:
 	dq _0x00_add
 	dq _0x00_add
 
-	;; 0x10
+	;; 0x18 sbb
 	dq _0x00_add
 	dq _0x00_add
 	dq _0x00_add
@@ -155,7 +173,27 @@ _opcode_table:
 	dq _0x00_add
 	dq _0x00_add
 
-	;; 0x18
+	;; 0x20 and
+	dq _0x20_and
+	dq _0x21_and
+	dq _0x22_and
+	dq _0x23_and
+	dq _0x24_and
+	dq _0x25_and
+	dq _0x00_add
+	dq _0x00_add
+
+	;; 0x28 sub
+	dq _0x28_sub
+	dq _0x29_sub
+	dq _0x2a_sub
+	dq _0x2b_sub
+	dq _0x2c_sub
+	dq _0x2d_sub
+	dq _0x00_add
+	dq _0x00_add
+
+	;; 0x30 and
 	dq _0x00_add
 	dq _0x00_add
 	dq _0x00_add
@@ -165,37 +203,7 @@ _opcode_table:
 	dq _0x00_add
 	dq _0x00_add
 
-	;; 0x20
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-
-	;; 0x28
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-
-	;; 0x30
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-
-	;; 0x38
+	;; 0x38 xor
 	dq _0x00_add
 	dq _0x00_add
 	dq _0x00_add
@@ -306,8 +314,8 @@ _opcode_table:
 	dq _0x95_xchg_eax
 	dq _0x96_xchg_eax
 	dq _0x97_xchg_eax
-	dq _0x98_cwde
-	dq _0x99_cwd
+	dq _0x98_convert
+	dq _0x99_convert
 	dq _0x9a_lcall
 	dq _0x9b_fwait
 	dq _0x9c_pushf
@@ -434,11 +442,13 @@ _opcode_table:
 	;; dq _0x0c_add
 	;; dq _0x0d_add
 	
-	
 
+	
 ;;; Note that as reg/rm represents pointer to the register which is created by
 ;;; get_mod_reg_rm function, it contains dword size, and the rest of data is just 1byte.
 _context:
+._opcode_table:
+	dq _opcode_table
 ._rex: db 0	
 ._data_prefix: db 0
 ._addr_prefix: db 0
@@ -448,12 +458,8 @@ _context:
 	dq 0
 ._rm:
 	dq 0
-._scale:
+._sib:
 	db 0
-._index:
-	dq 0
-._base:
-	dq 0
 ._dflag:
 	db 0
 ._aflag:
@@ -468,11 +474,13 @@ _context:
 	dq 0
 ._res:
 	dq 0
-._imm:
+._imm_op:
 	dq 0
 ._internal_arg1:
 	dq 0
-
+._sib_displacement:
+	dq 0
+	
 ;;; following should be aligned as it will be scooped from instruciton given a value of _context._mod.
 
 _op01_f_base:
@@ -485,18 +493,54 @@ _op01_f_base:
 	dq _xor
 	dq _cmp
 	
-	
-_mod_f_base01:
-	dq _mod00_do1
-	dq _mod01_do1
-	dq _mod10_do1
-	dq _mod11_do1	
+_op_shift_base:	
+	dq _rol
+	dq _ror
+	;; rcl 
+	dq _rol
+	;; rcr
+	dq _ror
+	;; shl
+	dq _shl
+	;; shr
+	dq _shr
+	;; shl1
+	dq _shl
+	;; sar
+	dq _shr
 
-_mod_f_base02:
-	dq _mod00_do2
-	dq _mod01_do2
-	dq _mod10_do2
-	dq _mod11_do2	
+;;; shift operation does not support two register operand but reg is always imm.
+;;; [_context._arg2] which was set was as the degree of shift is going to be the offset
+;;; to the function which will has one of them is register.
+
+_op_shl_base:
+	dq _shl0
+	dq _shl1
+	dq _shl2
+	dq _shl3
+	dq _shl4
+	dq _shl5
+	dq _shl6
+	dq _shl7
+	;; dq _shl8
+	
+_mod_load_base:
+	dq _mod00_load
+	dq _mod01_load
+	dq _mod10_load
+	dq _mod11_load	
+
+_mod_store_base:
+	dq _mod00_store
+	dq _mod01_store
+	dq _mod10_store
+	dq _mod11_store	
+
+_mod_fetch_base:
+	dq _mod00_fetch_displacement
+	dq _mod01_fetch_displacement
+	dq _mod10_fetch_displacement
+	dq _mod11_fetch_displacement
 
 _load_base:
 	dq _load8
@@ -552,6 +596,297 @@ print_0x:
 print_str:
 	dq 0x00
 
+_extend_opcode_table:
+
+	;; 0x0f00
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f08
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f10
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f18
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f20
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f28
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f30
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f38
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f40
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f48
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f50
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f58
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f60
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f68
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f70
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f78
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f80
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f88
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f90
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0f98
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0fa0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0fa8
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0fb0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq _0x0fb6_movzbS
+	dq 0
+	;; 0x0fb8
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq _0x0fbe_movsbS
+	dq 0
+	;; 0x0fc0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0fc8
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0fd0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0fd8
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0fe0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0fe8
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0ff0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	;; 0x0ff8
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+	dq 0
+
 	
 	section .text
 ;;;
@@ -562,17 +897,27 @@ print_str:
 	extern _or
 	extern _xor
 	extern _cmp
+
+	extern _rol
+	extern _ror
+	extern _shl
+	extern _shr	
 	
-	extern _mod00_do1
-	extern _mod01_do1
-	extern _mod10_do1
-	extern _mod11_do1
+	extern _mod00_load
+	extern _mod01_load
+	extern _mod10_load
+	extern _mod11_load
 
-	extern _mod00_do2
-	extern _mod01_do2
-	extern _mod10_do2
-	extern _mod11_do2
-
+	extern _mod00_fetch_displacement
+	extern _mod01_fetch_displacement
+	extern _mod10_fetch_displacement
+	extern _mod11_fetch_displacement
+	
+	extern _mod00_store
+	extern _mod01_store
+	extern _mod10_store
+	extern _mod11_store
+	
 	extern _load_arg1_by_mod
 	extern _load_arg2_by_mod
 
@@ -582,6 +927,22 @@ print_str:
 	extern _0x03_add
 	extern _0x04_add
 	extern _0x05_add
+
+	extern _0x0f
+	
+	extern _0x20_and
+	extern _0x21_and
+	extern _0x22_and
+	extern _0x23_and
+	extern _0x24_and
+	extern _0x25_and
+
+	extern _0x28_sub
+	extern _0x29_sub
+	extern _0x2a_sub
+	extern _0x2b_sub
+	extern _0x2c_sub
+	extern _0x2d_sub
 	
 	extern _0x40_set_rex
 	extern _0x41_set_rex
@@ -681,8 +1042,8 @@ print_str:
 	extern _0x95_xchg_eax
 	extern _0x96_xchg_eax
 	extern _0x97_xchg_eax
-	extern _0x98_cwde
-	extern _0x99_cwd
+	extern _0x98_convert
+	extern _0x99_convert
 	extern _0x9a_lcall
 	extern _0x9b_fwait
 	extern _0x9c_pushf
@@ -795,6 +1156,8 @@ print_str:
 	extern _0xfe_op
 	extern _0xff_op
 
+	extern _0x0fb6_movzbS
+	extern _0x0fbe_movsbS
 	;; following will be primitive instruction where x86-63 heads to.
 
 	extern _fetch
@@ -828,6 +1191,16 @@ print_str:
 	extern _sub32
 	extern _sub64
 
+	extern _shl0
+	extern _shl1
+	extern _shl2
+	extern _shl3
+	extern _shl4
+	extern _shl5
+	extern _shl6
+	extern _shl7
+	extern _shl8	
+	
 	section .text
 	global _hello_world
 	
@@ -839,4 +1212,5 @@ _hello_world:
 	mov rdx, msg1.len
 	syscall
 	ret
+
 	

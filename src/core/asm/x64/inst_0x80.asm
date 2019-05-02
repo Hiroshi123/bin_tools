@@ -44,6 +44,8 @@
 	
 	extern _load_arg1_by_mod
 	extern _load_arg2_by_mod
+	extern _load_rm_by_mod
+	
 	extern _store_or_assign_arg1_by_mod
 	
 	extern print
@@ -54,9 +56,17 @@
 	extern _context._rm
 	extern _context._dflag
 	extern _context._rex
+	extern _context._arg1	
+	extern _context._arg2
+	extern _context._imm_op
+	
 	extern _assign
 	
 	extern _fetch8_imm_set_to_arg2
+	extern _fetch_displacement_by_mod
+
+	extern _op01_f_base
+	extern _set_imm_op_base
 	
 ;;; 0x80
 
@@ -73,13 +83,18 @@ _0x83_arith_imm:
 	
 	push rbp
 	add byte [_rip],1
+
+	;; tmp
+	mov r8,_op01_f_base	
+	call _set_imm_op_base
 	call _get_mod_op_rm
+	add byte [_rip],1
 	call _set_scale_index_base
-	call _load_arg1_by_mod
-	add byte [_rip],1
+	call _fetch_displacement_by_mod
+	call _load_rm_by_mod
+	call _mov_res_to_arg1
 	call _fetch8_imm_set_to_arg2
-	add byte [_rip],1
-	call [_context._reg]
+	call [_context._imm_op]
 	call _mov_rm_to_arg1
 	call _mov_res_to_arg2
 	call _store_or_assign_arg1_by_mod
@@ -104,38 +119,65 @@ _0x87_xchg:
 	ret
 	
 _0x88_mov:
+	push rbp
+
+	add byte [_rip],1
+	call _get_mod_reg_rm
+	add byte [_rip],1
+	mov byte [_context._dflag],0x00
+
+	call _set_scale_index_base
+	call _fetch_displacement_by_mod
+	call _mov_rm_to_arg1
+	call _set_reg_to_arg2
+	call _store_or_assign_arg1_by_mod
+
+	mov r8,0x88
+	call print
+	
+	pop rbp	
 	ret
 	
 _0x89_mov:
 	
 	push rbp
-	add byte [_rip],1	
+	add byte [_rip],1
 	call _get_mod_reg_rm
+	add byte [_rip],1
 	call _set_scale_index_base
+	call _fetch_displacement_by_mod
 	call _mov_rm_to_arg1
 	call _set_reg_to_arg2
 	call _store_or_assign_arg1_by_mod
-
-	add byte [_rip],1
 	
 	mov r8,0x89
-	call print	
+	call print
 	
 	pop rbp
 	ret
-
+	
 _0x8a_mov:
 	ret
 
 _0x8b_mov:
 	
 	push rbp
-	mov qword [_rcx],7
 	add byte [_rip],1
 	call _get_mod_reg_rm
+	add byte [_rip],1	
 	call _set_scale_index_base
-	call _load_arg2_by_mod
+	call _fetch_displacement_by_mod
+	call _load_rm_by_mod
+	call _mov_res_to_arg2
 	call _mov_reg_to_arg1
+
+	mov r8,0x8b
+	call print
+	mov r8,[_context._arg1]
+	call print	
+	mov r8,[_context._arg2]
+	call print
+	
 	call _assign
 	pop rbp
 	ret

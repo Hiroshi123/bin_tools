@@ -51,6 +51,21 @@
 	global _or
 	global _xor
 	global _cmp
+
+	global _rol
+	global _ror
+	global _shl
+	global _shr
+
+	global _shl0
+	global _shl1
+	global _shl2
+	global _shl3
+	global _shl4
+	global _shl5
+	global _shl6
+	global _shl7
+	global _shl8	
 	
 	extern _rax
 	extern _rcx
@@ -76,11 +91,16 @@
 	extern _context._rex
 	extern _context._arg1
 	extern _context._arg2
+	extern _context._rm
+	extern _context._reg	
 	extern _context._res
 
 	extern print
 	extern get_diff_host_guest_addr
 	extern _get_host_addr_from_guest
+	
+	extern _op_shl_base
+
 	
 _fetch:
 	push rbp
@@ -98,21 +118,25 @@ _fetch8:
 	mov al,[rax]
 	mov [_context._res],al
 	ret
+
 _fetch16:
 	mov qword [_context._res],0x00
 	mov rax,[_rip]
 	mov ax,[rax]
 	ret
+
 _fetch32:
 	mov qword [_context._res],0x00	
 	mov rax,[_rip]
 	mov eax,[rax]
 	mov [_context._res],eax	
 	ret
+
 _fetch64:
 	ret
 	
 ;;;  you have	
+
 _load:
 	push rbp
 	mov ax,0
@@ -124,16 +148,36 @@ _load:
 	ret
 	
 _load8:
-	mov rax,[_context._arg1]
-	mov rax,[rax]
-	mov r8,[_context._arg1]
+	push rbp
+	mov r8,0x33
 	call print
+	mov qword [_context._res],0x00
+	mov rax,[_context._arg1]
+	call _get_host_addr_from_guest	
+	mov rdx,0
+	mov dl,[rax]
+	
+	mov byte [_context._res],dl
+	
+	mov r8,rax
+	call print	
+	
+	mov r8,[_context._res]
+	call print
+	pop rbp
 	ret
 	
 _load16:
 	ret
 	
 _load32:
+	push rbp
+	mov rax,[_context._arg1]
+	;; this is util function which will 
+	call _get_host_addr_from_guest
+	mov rax,[rax]
+	mov [_context._res],rax
+	pop rbp
 	ret
 	
 _load64:
@@ -142,10 +186,7 @@ _load64:
 	;; this is util function which will 
 	call _get_host_addr_from_guest
 	mov rax,[rax]
-	;; add rax,[_rsp]
 	mov [_context._res],rax
-	mov r8,[_context._res]
-	call print
 	pop rbp
 	ret
 
@@ -162,13 +203,9 @@ _store:
 _store8:
 	push rbp
 	mov rax,[_context._arg1]
-	;; 
-	mov rdi,0
-	mov rsi,rax
-	call get_diff_host_guest_addr
-	add rax,[_context._arg1]	
-	;; 
-	mov rax,[_context._arg2]
+	call _get_host_addr_from_guest
+	mov rdx,[_context._arg2]
+	mov byte [rax],dl
 	pop rbp
 	ret
 	
@@ -176,6 +213,12 @@ _store16:
 	ret
 	
 _store32:
+	push rbp
+	mov rax,[_context._arg1]
+	call _get_host_addr_from_guest
+	mov rdx,[_context._arg2]
+	mov [rax],rdx
+	pop rbp	
 	ret
 	
 _store64:
@@ -210,9 +253,20 @@ _assign:
 	
 _assign8:
 	push rbp
+	mov rcx,0
 	mov rax,[_context._arg1]
 	mov cl,[_context._arg2]
 	mov [rax],cl
+	mov r8,0xb6
+	call print
+	
+	mov r8,[_context._arg1]
+	call print
+	mov r8,[_context._rm]
+	call print
+	mov r8,[_context._arg2]
+	call print
+	
 	pop rbp
 	ret
 	
@@ -253,11 +307,14 @@ _add:
 	
 _add8:
 	mov qword [_context._res],0
-	mov al,[_context._arg1]
+	mov rax,[_context._arg1]
 	mov bl,[_context._arg2]
 	add al,bl
-	mov [_context._res],ax
+	mov [_context._res],rax
 	;; [_context._res]
+	mov r8,[_context._arg1]
+	call print
+	
 	mov r8,[_context._res]
 	call print
 	ret
@@ -298,12 +355,29 @@ _sub:
 	ret
 
 _sub8:
+	mov qword [_context._res],0
+	mov rax,[_context._arg1]
+	mov bl,[_context._arg2]
+	sub al,bl
+	mov [_context._res],rax
+	;; [_context._res]
+	mov r8,[_context._arg1]
+	call print
+	
+	mov r8,[_context._res]
+	call print	
 	ret
-
+	
 _sub16:
 	ret
 	
 _sub32:
+	push rbp
+	mov rax,[_context._arg1]
+	mov rdx,[_context._arg2]
+	sub rax,rdx
+	mov [_context._res],rax
+	pop rbp
 	ret
 	
 _sub64:
@@ -317,7 +391,6 @@ _sub64:
 	pop rbp
 	ret
 
-
 _and:
 	ret
 
@@ -326,8 +399,63 @@ _or:
 
 _xor:
 	ret
-
+	
 _cmp:
 	ret
+	
+_rol:
+	ret
+	
+_ror:
+	ret
 
+_shr:
+	ret
+	
+_shl:
+	push rbp
+	mov rax,[_context._arg1]	
+	mov rdx,_op_shl_base
+	mov rcx,[_context._arg2]
+	shl rcx,0x03
+	add rdx,rcx
+	call [rdx]
+	mov [_context._res],rax
+	pop rbp
+	ret
+	
+_shl0:
+	ret
 
+_shl1:
+	shl rax,1	
+	ret
+	
+_shl2:	
+	shl rax,2
+	ret
+	
+_shl3:
+	shl rax,3
+	ret
+	
+_shl4:
+	shl rax,4
+	ret
+	
+_shl5:
+	shl rax,5
+	ret
+	
+_shl6:	
+	shl rax,6
+	ret
+	
+_shl7:
+	shl rax,7
+	ret
+	
+_shl8:
+	shl rax,8
+	ret
+	

@@ -25,6 +25,8 @@
 	extern _context._addr_prefix
 	
 	extern print
+
+	extern _exec_one
 	
 _0x40_set_rex:
 	mov rax,[_rip]
@@ -53,6 +55,7 @@ _0x48_set_rex:
 	mov r8,0x48
 	call print
 	add byte [_rip],0x01
+	jmp _exec_one
 	;; mov [_context._rex],[_rip]	
 	ret
 _0x49_set_rex:

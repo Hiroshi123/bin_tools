@@ -3,14 +3,19 @@
 
 	section .text
 
-	global _0x00_add
-	global _0x01_add
-	global _0x02_add
-	global _0x03_add
-	global _0x04_add
-	global _0x05_add
+	global _0x20_and
+	global _0x21_and
+	global _0x22_and
+	global _0x23_and
+	global _0x24_and
+	global _0x25_and
 
-	global _0x0f
+	global _0x28_sub
+	global _0x29_sub
+	global _0x2a_sub
+	global _0x2b_sub
+	global _0x2c_sub
+	global _0x2d_sub
 	
 	extern _rip
 
@@ -47,7 +52,6 @@
 	extern  _context._mod	
 	extern  _context._reg
 	extern  _context._rm
-	extern _context._opcode_table
 	
 	extern _rax
 	extern _rcx
@@ -66,44 +70,92 @@
 	extern _r14
 	extern _r15
 	extern _rip
-
+	
 	extern _add
 	extern _add8
 	extern _add16
 	extern _add32
 	extern _add64
+	
+	extern _sub
+	extern _sub8
+	extern _sub16
+	extern _sub32
+	extern _sub64
 
+	
 	extern _fetch_displacement_by_mod
-	extern _extend_opcode_table
-	extern _exec_one
 	
-_0x00_add:
+_0x20_and:
 	push rbp
-	add byte [_rip],1
-	;; scale_index_base	
-	mov qword [_rax],2
-	mov qword [_rcx],3
-	
-	call _get_mod_reg_rm
-	mov r8,[_context._reg]
+	pop rbp
+	ret
+
+_0x21_and:
+	push rbp
+	pop rbp
+	ret
+_0x22_and:
+	push rbp
+	pop rbp
+	ret
+_0x23_and:
+	push rbp
+	pop rbp
+	ret
+_0x24_and:
+	push rbp
+	pop rbp
+	ret
+_0x25_and:
+	push rbp
+	pop rbp
+	ret
+
+_0x28_sub:
+	push rbp
+	pop rbp
+	ret
+
+_0x29_sub:
+	push rbp
+	mov r8,0x29
 	call print
-	mov rax,_rcx
-	;; [_context._reg]
+
+	add byte [_rip],1	
+	call _get_mod_reg_rm
+	add byte [_rip],1
 	call _set_scale_index_base
-	call _load_arg1_by_mod
+	call _fetch_displacement_by_mod
+	call _mov_rm_to_arg1
+	call _load_rm_by_mod
+	call _mov_res_to_arg1
 	call _set_reg_to_arg2
-	call _add8
+	call _sub
 	call _mov_rm_to_arg1
 	call _mov_res_to_arg2
 	call _store_or_assign_arg1_by_mod	
 
-	mov r8,[_rax]
-	call print
-
+	pop rbp
+	ret
+_0x2a_sub:
+	push rbp
+	pop rbp
+	ret
+_0x2b_sub:
+	push rbp
+	pop rbp
+	ret
+_0x2c_sub:
+	push rbp
+	pop rbp
+	ret
+_0x2d_sub:
+	push rbp
 	pop rbp
 	ret
 	
-_0x01_add:
+___f:
 	push rbp
 	add byte [_rip],1	
 	call _get_mod_reg_rm
@@ -123,24 +175,4 @@ _0x01_add:
 	call print
 	pop rbp
 	ret
-
-_0x02_add:
-	ret
-_0x03_add:
-	ret
-_0x04_add:
-	ret
-_0x05_add:
-	ret
-
-_0x08_sub:
-	ret
-	
-_0x0f:
-	add byte [_rip],0x01
-	mov rax,_extend_opcode_table
-	mov [_context._opcode_table],rax
-	jmp _exec_one
-	ret
-	
 	

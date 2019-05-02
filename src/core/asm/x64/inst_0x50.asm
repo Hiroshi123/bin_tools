@@ -62,12 +62,12 @@ _0x54_push:
 _0x55_push:
 	
 	push rbp
+	add byte [_rip],1
 	mov r8,0x55
 	call print
 	mov rax,[_rbp]
 	mov [_context._internal_arg1],rax
 	call _gen_push
-	add byte [_rip],1	
 	pop rbp
 	ret
 	
@@ -75,6 +75,7 @@ _0x56_push:
 	ret
 _0x57_push:
 	ret
+	
 _0x58_pop:
 	mov rax,[_rsp]
 	mov rbx,[rax]
@@ -83,6 +84,7 @@ _0x58_pop:
 	mov [_rax],rbx
 	add dword [_rsp],8
 	ret
+	
 _0x59_pop:
 	ret
 _0x5a_pop:
@@ -93,12 +95,11 @@ _0x5c_pop:
 	ret
 _0x5d_pop:
 
-	push rbp	
+	push rbp
+	add byte [_rip],1	
 	mov rax,_rbp
 	mov [_context._internal_arg1],rax
-	call _gen_pop
-	add byte [_rip],1
-	
+	call _gen_pop	
 	pop rbp	
 	ret
 	
@@ -128,7 +129,7 @@ _gen_push:
 	mov [_context._arg1],rax
 	call _mov_res_to_arg2
 	call _assign64
-
+	
 	mov rax,[_context._internal_arg1]
 	mov [_context._arg2],rax
 	mov rax,[_rsp]
@@ -137,7 +138,7 @@ _gen_push:
 	
 	pop rbp
 	ret
-
+	
 ;;; 1. load a value of [_rsp]
 ;;; 2. assign a value to given memory[_context._internal_arg1]
 ;;; 3. add rsp
@@ -165,7 +166,6 @@ _gen_pop:
 	mov [_context._arg1],rax
 	call _mov_res_to_arg2
 	call _assign64
-	
 	
 	pop rbp	
 	ret

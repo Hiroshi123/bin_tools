@@ -16,15 +16,22 @@
 	global _gen_code
 	global _get_mod_reg_rm
 	global _get_mod_op_rm
+	global _set_dflag
+	global _set_aflag
 	
 	global _set_eflags
 	global setrip
 
 	global _get_host_addr_from_guest
+	global _set_imm_op_base
+	global _set_scale_index_base
+	
 	extern get_diff_host_guest_addr
 	
 	extern _opcode_table
 	extern _context
+	extern _context._opcode_table
+
 	extern _context._rex
 	extern _context._mod
 	extern _context._reg
@@ -37,7 +44,8 @@
 	extern _context._arg1
 	extern _context._arg2	
 	extern _context._res
-	
+	extern _context._imm_op
+	extern _context._sib_displacement
 	extern _context._data_prefix
 	extern _context._addr_prefix
 
@@ -62,13 +70,25 @@
 
 	extern print
 	
-	extern _op01_f_base
-
 	extern _sub
 	extern _add
 	extern _or
-
+	extern _shl
+	extern _fetch8
+	extern _fetch32
+	
+	extern _add32	
+	
 	extern _0xe8_call
+
+	extern _op_shift_base
+
+	extern _mov_res_to_arg2
+
+	extern _sib_no_fetch_displacement
+	extern _sib_fetch8_displacement
+	extern _sib_fetch32_displacement
+	extern _context._sib
 	
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -94,11 +114,11 @@ _init_regs:
 	ret
 
 _exec_one:
-	push rbp
-	lea rax,[_opcode_table]
-	mov r8,rax
-	call print
 
+	push rbp
+
+	mov rax,[_context._opcode_table]
+	;; mov rax,[rax]
 	mov rbx,0x00
 	mov rdx,[_rip]
 	mov bl,[rdx]	
@@ -107,19 +127,16 @@ _exec_one:
 
 	adc rax,rbx
 	
-	mov r8,0x11
-	call print
-	mov r8,[rax]
-	call print
-
-	mov r8,_0xe8_call
-	call print	
-
 	call [rax]
 	;; add byte [_rip],0x01
-	mov r8,0xff
-	call print
 
+	;; following should be reset.
+	;; rex prefix(0x4X) / data prefix (0x66) / addr prefix (0x67)
+	mov byte [_context._rex],0x00
+	mov byte [_context._data_prefix],0x00
+	mov byte [_context._addr_prefix],0x00
+	mov rax,_opcode_table
+	mov [_context._opcode_table],rax
 	pop rbp
 	ret
 	
@@ -210,14 +227,168 @@ _mod10_do:
 	
 _mod11_do:
 	ret
+	
+;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	
+;;; if mod == 00/01/10 && rm == 100(rsp)
+;;; fetch8 at least
+;;; fetch8 or 32 additionally.
 
+;;; scale index base
+
+compute_scale_index:
+	
+	push rbp
+	mov dl,[_context._rm]
+	;; scale(shift)
+	and dl,0b11000000
+	rol dl,0x02
+
+	mov qword [_context._arg2],0
+	mov [_context._arg2],dl
+
+	;; get base of index register
+	lea r12,[compute_scale_index.done1]
+	mov r8b,[_context._rex]
+	and r8b,0b00000010
+	cmp r8b,0b00000010
+	je set_base_reg_ex
+	jmp set_base_reg
+.done1:
+
+	;; get kind of index register
+	mov dx,0
+	mov al,[_context._res]
+	mov dl,al
+	and dl,0b00111000
+	add r8w,dx
+	mov r8,[r8]
+	mov [_context._arg1],r8
+	call _shl
+	call _mov_res_to_arg2	
+	pop rbp
+	ret
+
+compute_base:
+
+	push rbp
+	mov r8,0x99
+	call print
+	
+	;; get base of base register(rax/r8)
+	lea r12,[compute_base.done1]
+	mov r8b,[_context._rex]
+	and r8b,0b00000001
+	cmp r8b,0b00000001
+	je set_base_reg_ex
+	jmp set_base_reg
+.done1:
+	;; get kind of base register
+	mov dx,0
+	mov dl,[_context._rm]
+	and dl,0b00000111
+	shl dl,0x03
+	add r8w,dx
+	mov r8,[r8]
+	
+	;; if kind is 101(rbp), fetch displacement (32 or 8)
+	;; call print
+	mov rax,_sib_no_fetch_displacement
+	mov [_context._sib_displacement],rax
+	cmp dl,0b00101000
+	jne compute_base.done4
+	
+	mov dl,[_context._mod]
+	and dl,0b01000000
+	cmp dl,0b01000000
+	jne compute_base.done2
+	jmp compute_base.done3
+.done2:
+	mov rax,_sib_fetch8_displacement	
+	mov [_context._sib_displacement],rax
+	jmp compute_base.done4
+.done3:
+	mov rax,_sib_fetch32_displacement
+	mov [_context._sib_displacement],rax
+	jmp compute_base.done4	
+	
+	;; in this case, mod == 00 but, you need to retrieve 32bit displacement
+	;; on the subsequent function "fetch_displacement".
+	;; if mod == 01/10, let it be as things are worked out with doing nothing.
+	
+	;; call [compute_base.displacement00]
+	
+	;; set the value on [_context._arg1] to be added with the result of scale times index.
+	
+.done4:
+	mov [_context._arg1],r8
+	mov r8,[_context._arg1]
+	call print
+	pop rbp
+	ret
 
 _set_scale_index_base:
-	ret
 
+	push rbp
+	mov rax,0
+	mov al,[_context._mod]
+	mov rdx,[_context._rm]
+	
+	cmp al,0b00011000
+	je _set_scale_index_base.done1
+
+	lea rcx, [_rsp]
+	
+	cmp rdx,rcx
+	jne _set_scale_index_base.done1	
+	
+	mov r8,rcx
+	call print
+
+	mov r8,rdx
+	call print
+	
+	call _fetch8
+	add byte [_rip],0x01
+	mov al,[_context._res]
+	mov [_context._rm],al
+	call compute_scale_index
+	call compute_base
+	call _add32
+	mov rdx, [_context._res]
+	mov [_context._rm],rdx
+	
+	mov byte [_context._sib],0xff
+
+	pop rbp
+
+	ret
+	
+.done1:
+	pop rbp
+	ret
+	
+;;; if mod == 00 && rm == 101(rbp)
+;;; fetch32
+_set_rip_offset:
+
+	push rbp
+
+	mov r8b,[_context._mod]
+	mov r9b,[_context._rm]
+	
+	cmp r8b,0b00000000
+	jne _set_rip_offset.done1
+	cmp r9b,0b00101000
+	jne _set_rip_offset.done1
+	ret
+.done1:	
+	ret
+	
 _set_immidiate:
 	ret
-
+	
+;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	
 ;; _gen_code:
 ;; 	push rbp 
@@ -245,16 +416,22 @@ _set_immidiate:
 ;; 	mov rdx, 1
 ;; 	syscall
 ;; 	ret
+
+;;; this takes argument r8 which is not good.
+;;; needs to be retried from opcode later on.
+_set_imm_op_base:
+	mov [_context._imm_op], r8
+	ret
 	
-_set_op01_f_base:
+_set_imm_op:
 	push rbp
-	mov rdx,_op01_f_base
+	mov rdx,[_context._imm_op]
 	mov r9,0x00
 	mov r9b,al
-	and r9b,0b00111000	
+	and r9b,0b00111000
 	add dx,r9w
 	mov rdx,[rdx]
-	mov [_context._reg], rdx
+	mov [_context._imm_op], rdx
 	pop rbp
 	ret
 	
@@ -267,7 +444,7 @@ _get_mod_op_rm:
 	mov bl,[_context._rex]
 	
 	call _set_mod
-	call _set_op01_f_base
+	call _set_imm_op
 	
 	call _set_rm
 	call _set_dflag
@@ -377,7 +554,7 @@ _set_rm:
 _set_dflag:
 	;; check rex_prefix is set
 	mov bl,[_context._rex]
-	and bl,0b00001000	
+	and bl,0b00001000
 	cmp bl,0b00001000
 	je  _set_dflag.done1
 	mov dl,[_context._data_prefix]

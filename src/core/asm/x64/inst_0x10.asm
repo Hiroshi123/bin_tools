@@ -9,8 +9,6 @@
 	global _0x03_add
 	global _0x04_add
 	global _0x05_add
-
-	global _0x0f
 	
 	extern _rip
 
@@ -47,7 +45,6 @@
 	extern  _context._mod	
 	extern  _context._reg
 	extern  _context._rm
-	extern _context._opcode_table
 	
 	extern _rax
 	extern _rcx
@@ -74,8 +71,6 @@
 	extern _add64
 
 	extern _fetch_displacement_by_mod
-	extern _extend_opcode_table
-	extern _exec_one
 	
 _0x00_add:
 	push rbp
@@ -135,12 +130,5 @@ _0x05_add:
 
 _0x08_sub:
 	ret
-	
-_0x0f:
-	add byte [_rip],0x01
-	mov rax,_extend_opcode_table
-	mov [_context._opcode_table],rax
-	jmp _exec_one
-	ret
-	
+
 	
