@@ -103,10 +103,10 @@ heap* get_current_meta_head() {
   return (heap*)HEAP_HEADER_ADDR_HEAD;
 }
 
-heap* guest_mmap(void* guest_addr, uint8_t page_num) {
+heap* guest_mmap(void* guest_addr, uint32_t map_size) {
   
   //
-  int map_size = PAGE_SIZE*page_num;
+  // int map_size = PAGE_SIZE*page_num;
   int fd = -1;
   void *begin = mmap(NULL,map_size , PROT_READ|PROT_WRITE|PROT_EXEC,
                      MAP_PRIVATE|MAP_ANONYMOUS, fd, 0);
@@ -123,18 +123,46 @@ heap* guest_mmap(void* guest_addr, uint8_t page_num) {
 
 void* get_diff_host_guest_addr(void* guest_addr) {
 
-  printf("arg1:%x\n",guest_addr);
+  /* printf("arg1:%x\n",guest_addr); */
   
   heap* h = HEAP_HEADER_ADDR_HEAD;
   heap* h_end = HEAP_HEADER_ADDR_P;
   void* guest_begin = (uint64_t)guest_addr & 0xfffff000;
   for (;h!=h_end;h++) {
-    printf("%x\n",h->begin);
+    /* printf("%x\n",h->begin); */
     if (h->guest_addr != -1) {
-      printf("g:%x,%x\n",h->guest_addr,guest_begin);
-      if (guest_begin == h->guest_addr) {
-	uint64_t diff = (uint64_t)h->begin - (uint64_t)guest_begin;
-	printf("diff:%x,%x\n",h->begin,diff);
+      /* printf("g:%x,%x\n",h->guest_addr,guest_begin); */
+      
+      uint32_t page = 0;
+      for (;page < h->page_num;page++) {
+	if (guest_begin == h->guest_addr + page * PAGE_SIZE) {
+	  uint64_t diff = (uint64_t)h->begin - ((uint64_t)guest_begin - (uint64_t) page * PAGE_SIZE);
+	  /* printf("diff:%lx,%lx\n",h->begin); */
+	  return (void*)diff;
+	}	
+      }
+      
+      /* if (h->guest_addr != h->page_num) {	 */
+      /* } */
+    }
+  }
+  return NULL;
+}
+
+
+void* get_diff_host_addr(void* host_addr) {
+  
+  /* printf("arg1:%x\n",guest_addr); */ 
+  heap* h = HEAP_HEADER_ADDR_HEAD;
+  heap* h_end = HEAP_HEADER_ADDR_P;
+  void* host_begin = (uint64_t)host_addr & 0xfffff000;
+  for (;h!=h_end;h++) {
+    /* printf("%x\n",h->begin); */
+    if (h->guest_addr != -1) {
+      /* printf("g:%x,%x\n",h->guest_addr,guest_begin); */
+      if (host_begin == h->begin) {
+	uint64_t diff = (uint64_t)h->guest_addr - (uint64_t)host_begin;
+	/* printf("diff:%x,%x\n",h->begin,diff); */
 	return (void*)diff;
       }
       /* if (h->guest_addr != h->page_num) {	 */
@@ -143,4 +171,5 @@ void* get_diff_host_guest_addr(void* guest_addr) {
   }
   return NULL;
 }
+
 

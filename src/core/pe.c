@@ -59,19 +59,17 @@ void load_pe64(IMAGE_DOS_HEADER* p_dos_header, void* stack_addr) {
   printf("13,%d\n", nt_header->OptionalHeader.DataDirectory[13].Size);
   printf("14,%d\n", nt_header->OptionalHeader.DataDirectory[14].Size);
   
-  uint64_t* a = ((uint8_t*)(p_dos_header)) /*+ nt_header->OptionalHeader.ImageBase*/
-    + nt_header->OptionalHeader.BaseOfCode;
-  
-  printf("cdc,%x,%x\n",a,*(a));
+  /* uint64_t* a = ((uint8_t*)(p_dos_header)) /\*+ nt_header->OptionalHeader.ImageBase*\/ */
+  /*   + nt_header->OptionalHeader.BaseOfCode;  */
   
   IMAGE_SECTION_HEADER* s = (IMAGE_SECTION_HEADER*)(nt_header + 1);
-  printf("%x\n",s);
   
   /* IMAGE_SECTION_HEADER* s = e->sec_begin; */
   heap* h;
   
   // mapping image header(dos header + file feader + optional header) itself
-  h = guest_mmap(nt_header->OptionalHeader.ImageBase,1);
+  uint32_t map_size = ((0 + 0x1000) & 0xfffff000);  
+  h = guest_mmap(nt_header->OptionalHeader.ImageBase,map_size);
   memcpy
     (h->begin,
      p_dos_header,
@@ -81,8 +79,9 @@ void load_pe64(IMAGE_DOS_HEADER* p_dos_header, void* stack_addr) {
   int sec_num = nt_header->FileHeader.NumberOfSections;  
   IMAGE_SECTION_HEADER* end = s + sec_num;
   for (;s!=end;s++) {
+    map_size = ((s->VirtualAddress + 0x1000) & 0xfffff000);
     // guest map also have to have some flags...
-    h = guest_mmap(nt_header->OptionalHeader.ImageBase + s->VirtualAddress, 1);
+    h = guest_mmap(nt_header->OptionalHeader.ImageBase + s->VirtualAddress, map_size);
     printf("p:%x,%x\n",h->begin, h->page_num);
     void* dst = memcpy
       (h->begin,
@@ -105,11 +104,13 @@ void load_pe64(IMAGE_DOS_HEADER* p_dos_header, void* stack_addr) {
   
   // stack Reserved
   void* stack_head = (uint64_t)stack_addr & 0xfffff000;
-  h = guest_mmap(stack_head, 1); 
+  map_size = ((0 + 0x1000) & 0xfffff000);  
+  h = guest_mmap(stack_head, map_size); 
   // heap Reserve
   void* start_addr = nt_header->OptionalHeader.ImageBase + nt_header->OptionalHeader.AddressOfEntryPoint;
   return start_addr;
 }
+
 
 // prepare host/get address translation mapping.
 // guest (page1) 0x40000000 -> host current address();
