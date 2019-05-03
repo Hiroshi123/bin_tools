@@ -84,7 +84,7 @@
 	extern _r14
 	extern _r15
 
-	extern _eflag
+	extern _eflags
 	extern _rip
 	
 	extern _context._dflag
@@ -94,7 +94,7 @@
 	extern _context._rm
 	extern _context._reg	
 	extern _context._res
-
+	
 	extern print
 	extern get_diff_host_guest_addr
 	extern _get_host_addr_from_guest
@@ -113,21 +113,26 @@ _fetch:
 	ret
 
 _fetch8:
+	push rbp
 	mov qword [_context._res],0x00
 	mov rax,[_rip]
+	call _get_host_addr_from_guest
 	mov al,[rax]
 	mov [_context._res],al
+	pop rbp
 	ret
 
 _fetch16:
 	mov qword [_context._res],0x00
 	mov rax,[_rip]
+	call _get_host_addr_from_guest
 	mov ax,[rax]
 	ret
 
 _fetch32:
 	mov qword [_context._res],0x00	
 	mov rax,[_rip]
+	call _get_host_addr_from_guest
 	mov eax,[rax]
 	mov [_context._res],eax	
 	ret
@@ -210,6 +215,12 @@ _store8:
 	ret
 	
 _store16:
+	push rbp
+	mov rax,[_context._arg1]
+	call _get_host_addr_from_guest
+	mov rdx,[_context._arg2]
+	mov [rax],rdx
+	pop rbp	
 	ret
 	
 _store32:
@@ -343,9 +354,6 @@ _add64:
 
 _sub:
 	push rbp
-	mov r8,0x77
-	call print
-
 	mov ax,0
 	mov al,[_context._dflag]
 	lea rdx,[_sub_base]
@@ -360,12 +368,6 @@ _sub8:
 	mov bl,[_context._arg2]
 	sub al,bl
 	mov [_context._res],rax
-	;; [_context._res]
-	mov r8,[_context._arg1]
-	call print
-	
-	mov r8,[_context._res]
-	call print	
 	ret
 	
 _sub16:
@@ -382,8 +384,6 @@ _sub32:
 	
 _sub64:
 	push rbp
-	mov r8,0x77
-	call print
 	mov rax,[_context._arg1]
 	mov rdx,[_context._arg2]
 	sub rax,rdx
@@ -401,6 +401,25 @@ _xor:
 	ret
 	
 _cmp:
+	push rbp
+	mov rax,[_context._arg1]	
+	mov rdx,[_context._arg2]
+	;; sign , overflow , parity , zero , carry
+
+	;; carry flag
+	;; left most bits added.
+	;; left most bits subtracted.
+
+	;; overflow flag is turned on if 
+	
+	sub rax,rdx
+	mov r8,[_eflags]
+	call print
+	pop rbp
+	ret
+	
+_update_eflags:
+	mov qword [_eflags],0x00
 	ret
 	
 _rol:

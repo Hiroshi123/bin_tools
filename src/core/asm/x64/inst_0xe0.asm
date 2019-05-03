@@ -36,6 +36,7 @@
 	extern _mov_res_to_arg2
 
 	extern _gen_push
+	extern _fetch8
 	
 _0xe0_loopnz:
 	add r8,0xe0
@@ -90,7 +91,6 @@ _0xe8_call:
 	call _ex
 	add byte [_rip],0x01
 	call _fetch32_imm_set_to_arg2	
-	add byte [_rip],0x04
 	;; mov rax,[_rip]
 	;; mov [_context._arg1],rax	
 	;; call _add32
@@ -125,6 +125,13 @@ _0xea_jmp:
 
 	ret
 _0xeb_jmp:
+	push rbp
+	add byte [_rip],1
+	call _fetch8
+	add byte [_rip],1
+	mov rax,[_context._res]
+	add [_rip],rax
+	pop rbp
 	ret
 	
 _0xec_port_io:

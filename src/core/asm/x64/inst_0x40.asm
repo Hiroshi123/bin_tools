@@ -21,21 +21,35 @@
 	extern _rip
 	extern _context
 	extern _context._rex
+	extern _context._res	
 	extern _context._data_prefix
 	extern _context._addr_prefix
 	
 	extern print
-
+	extern _fetch8
+	
 	extern _exec_one
 	
 _0x40_set_rex:
-	mov rax,[_rip]
+	push rbp
+	;; mov rax,[_rip]
+	call _fetch8
+	mov al,[_context._res]
 	and al,0x0f
+	pop rbp
 	;; mov byte [_context._rex],al
 	ret
 	
 _0x41_set_rex:
+	mov r8,0x41
+	call print
+	call _fetch8
+	add byte [_rip],0x01
+	mov dl,[_context._res]
+	mov byte [_context._rex],dl
+	jmp _exec_one	
 	ret
+	
 _0x42_set_rex:
 	ret
 _0x43_set_rex:
@@ -49,11 +63,9 @@ _0x46_set_rex:
 _0x47_set_rex:
 	ret
 _0x48_set_rex:
-	mov rdx,[_rip]
-	mov dl,[rdx]
+	call _fetch8
+	mov dl,[_context._res]
 	mov byte [_context._rex],dl
-	mov r8,0x48
-	call print
 	add byte [_rip],0x01
 	jmp _exec_one
 	;; mov [_context._rex],[_rip]	

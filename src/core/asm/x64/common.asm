@@ -25,13 +25,15 @@
 	global _get_host_addr_from_guest
 	global _set_imm_op_base
 	global _set_scale_index_base
+	global _set_base_reg
 	
 	extern get_diff_host_guest_addr
 	
 	extern _opcode_table
 	extern _context
+	extern _context._opcode
 	extern _context._opcode_table
-
+	
 	extern _context._rex
 	extern _context._mod
 	extern _context._reg
@@ -48,6 +50,8 @@
 	extern _context._sib_displacement
 	extern _context._data_prefix
 	extern _context._addr_prefix
+	extern _context._rip_rel
+	extern _context._internal_arg1
 
 	extern _rax
 	extern _rcx
@@ -116,17 +120,19 @@ _init_regs:
 _exec_one:
 
 	push rbp
+	
+	call _fetch8
 
-	mov rax,[_context._opcode_table]
-	;; mov rax,[rax]
+	mov r8,0x1
+	call print
+
 	mov rbx,0x00
-	mov rdx,[_rip]
-	mov bl,[rdx]	
+	mov bl,[_context._res]
+	mov [_context._opcode],bl
+	mov rax,[_context._opcode_table]
 	;; shl rbx,0x03
 	imul rbx,0x08
-
 	adc rax,rbx
-	
 	call [rax]
 	;; add byte [_rip],0x01
 
@@ -252,8 +258,8 @@ compute_scale_index:
 	mov r8b,[_context._rex]
 	and r8b,0b00000010
 	cmp r8b,0b00000010
-	je set_base_reg_ex
-	jmp set_base_reg
+	je _set_base_reg_ex
+	jmp _set_base_reg
 .done1:
 
 	;; get kind of index register
@@ -280,8 +286,8 @@ compute_base:
 	mov r8b,[_context._rex]
 	and r8b,0b00000001
 	cmp r8b,0b00000001
-	je set_base_reg_ex
-	jmp set_base_reg
+	je _set_base_reg_ex
+	jmp _set_base_reg
 .done1:
 	;; get kind of base register
 	mov dx,0
@@ -438,8 +444,8 @@ _set_imm_op:
 _get_mod_op_rm:
 	push rbp
 	;; fetched mod/reg/rm data is set on al(1byte)
-	mov rax,[_rip]
-	mov byte al,[rax]
+	call _fetch8
+	mov al,[_context._res]
 	;; rex prefix is set on bl(1byte)
 	mov bl,[_context._rex]
 	
@@ -456,8 +462,10 @@ _get_mod_op_rm:
 _get_mod_reg_rm:
 	push rbp
 	;; fetched mod/reg/rm data is set on al(1byte)
-	mov rax,[_rip]
-	mov byte al,[rax]
+	call _fetch8
+	mov al,[_context._res]
+	;; mov byte al,[rax]
+	;; mov rax,[_rip]	
 	;; rex prefix is set on bl(1byte)
 	mov bl,[_context._rex]
 
@@ -487,8 +495,8 @@ _set_reg:
 	lea r12,[_set_reg.done1]
 	and r8b,0b00000100
 	cmp r8b,0b00000100
-	je set_base_reg_ex
-	jmp set_base_reg
+	je _set_base_reg_ex
+	jmp _set_base_reg
 	;; 2.get kind of reg
 .done1:
 	mov r9b,al
@@ -504,11 +512,11 @@ _set_reg:
 	pop rbp
 	ret
 	
-set_base_reg:	
+_set_base_reg:	
 	mov r8,_rax
 	jmp r12 
 	
-set_base_reg_ex:
+_set_base_reg_ex:
 	mov r8,_r8
 	jmp r12
 	
@@ -536,8 +544,8 @@ _set_rm:
 	lea r12,[_set_rm.done1]	
 	and r8b,0b00000001
 	cmp r8b,0b00000001
-	jne set_base_reg
-	jmp set_base_reg_ex
+	jne _set_base_reg
+	jmp _set_base_reg_ex
 .done1:
 	;; 2. get kind of rm
 	mov r9b,al
@@ -548,6 +556,15 @@ _set_rm:
 	;; 3. get size of rm
 	;; call set_register_size
 	mov [_context._rm],r8
+	;; RIP offset check (mod == 00 & rm == 101)
+	cmp r9b,0b00101000
+	jne _set_rm.done2
+	mov r9b,al
+	and r9b,0b11000000
+	cmp r9b,0b00000000
+	jne _set_rm.done2
+	mov byte [_context._rip_rel],0xff
+.done2:
 	pop rbp
 	ret
 
@@ -594,9 +611,10 @@ _get_rm_base:
 
 _get_host_addr_from_guest:
 	push rbp
+	mov [_context._internal_arg1],rax
 	mov rdi,rax
 	call get_diff_host_guest_addr
-	add rax,[_context._arg1]
+	add rax,[_context._internal_arg1]
 	pop rbp
 	ret
 	
@@ -690,3 +708,4 @@ _set_eflags:
 setrip:
 	add [_rip],rdi
 	ret
+

@@ -72,6 +72,7 @@
 	extern _context._aflag
 	extern _context._arg1
 	extern _context._arg2
+	extern _context._rip_rel
 
 	extern _rax
 	extern _rip
@@ -176,7 +177,7 @@ _mov_res_to_arg2:
 _mod00_load:
 	push rbp
 	;; call load
-	call _set_rm_to_arg1
+	call _mov_rm_to_arg1
 	call _load
 	pop rbp
 	ret
@@ -218,10 +219,6 @@ _load_arg2_by_mod:
 	add dx,ax
 	call [rdx]
 	call _mov_res_to_arg2
-	mov r8,0x11
-	call print
-	mov r8,[_context._arg2]
-	call print
 	pop rbp
 	ret
 	
@@ -233,10 +230,6 @@ _load_arg1_by_mod:
 	add dx,ax
 	call [rdx]
 	call _mov_res_to_arg1
-	mov r8,_rax
-	call print
-	mov r8,[_context._arg1]
-	call print
 	pop rbp
 	ret
 
@@ -251,6 +244,7 @@ _load_rm_by_mod:
 	
 	pop rbp
 	ret
+
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -344,9 +338,15 @@ _sib_fetch32_displacement:
 _fetch_displacement_by_mod:
 	
 	push rbp
+	;; SIB check
 	mov byte al,[_context._sib]
 	cmp al,0xff
 	je _fetch_displacement_by_mod.sib_displacement
+	;; RIP relative offset check
+	mov byte al,[_context._rip_rel]
+	cmp al,0xff
+	je _fetch_displacement_by_mod.rip_relative_offset
+	
 	mov ax,0
 	lea rdx,[_mod_fetch_base]
 	mov al ,[_context._mod]
@@ -362,36 +362,49 @@ _fetch_displacement_by_mod:
 	mov byte [_context._sib],0x00
 	pop rbp
 	ret
+
+.rip_relative_offset:
+	mov byte [_context._rip_rel],0x00
+	call _fetch32
+	add byte [_rip],4
+	mov r8,[_context._res]
+	call print
+	;; call _mov_rm_to_arg1
+	;; mov rax,[_rip]
+	mov rax,[_rip]	
+	mov [_context._arg1],rax
+	call _mov_res_to_arg2
+	call _add64
+	mov r8,[_context._arg1]
+	call print
+	mov r8,[_context._res]
+	call print
+	mov rax,[_context._res]
+	mov [_context._rm],rax
+	mov r8,0x78
+	call print
+	pop rbp
+	ret
 	
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 _mod00_store:
-	ret	
-	;; jmp _load
-	
-_mod01_store:
-	;; fetch
-	;; load
 	push rbp
-	
+	call _store
+	pop rbp
+	ret	
+		
+_mod01_store:
+	push rbp
 	call _store
 	pop rbp
 	ret
 	
 _mod10_store:
-	;; fetch
-	;; load	
 	push rbp
-
 	call _store
-
-	;; call _fetch32
-	;; call _add32
-	;; call _load
-	
 	pop rbp
-	ret
-	
+	ret	
 	
 _mod11_store:
 	push rbp

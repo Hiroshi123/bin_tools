@@ -27,6 +27,7 @@
 	
 	extern _context._arg1
 	extern _context._arg2
+	extern _context._opcode
 	
 	extern _store64
 	extern _assign64
@@ -36,12 +37,15 @@
 	extern _mov_res_to_arg2
 
 	extern _context._internal_arg1
+	extern _context._internal_arg2
 	
 	extern get_diff_host_guest_addr
 
 	extern _rip
+	extern _r8
 	
 _0x50_push:
+	
 	mov rax,[_rax]
 	mov rbx,[_rsp]
 	mov [rbx],rax
@@ -58,7 +62,20 @@ _0x52_push:
 _0x53_push:
 	ret
 _0x54_push:
+	push rbp
+	add byte [_rip],1
+	;; if rex_prefix (rex_b) is set, then
+	;; it means you must use registers of r8-r15.
+	;; [_context._opcode] will choose kind of registers among the given 8.
+	mov r8,0x54
+	call print
+	call _select_reg
+	mov [_context._internal_arg1],rax
+	call _gen_push
+	pop rbp
 	ret
+
+
 _0x55_push:
 	
 	push rbp
@@ -98,8 +115,8 @@ _0x5d_pop:
 	push rbp
 	add byte [_rip],1	
 	mov rax,_rbp
-	mov [_context._internal_arg1],rax
-	call _gen_pop	
+	mov [_context._internal_arg2],rax
+	call _gen_pop
 	pop rbp	
 	ret
 	
@@ -108,7 +125,34 @@ _0x5e_pop:
 _0x5f_pop:
 	ret
 
+;;;
 
+_select_reg:
+	
+	lea r12,[_select_reg.done1]	
+	and r8b,0b00000001
+	cmp r8b,0b00000001
+	jne _set_base_reg
+	jmp _set_base_reg_ex
+.done1:
+	;; 2. get kind of register
+	mov r9,0x00
+	mov r9b,[_context._opcode]
+	;; only rightest 3bit is needed for register selection.
+	and r9b,0b00000111
+	;; you need to shift left 3times considering size of each register.
+	shl r9b,3
+	add r8b,r9b
+	ret
+	
+_set_base_reg:	
+	mov r8,_rax
+	jmp r12
+	
+_set_base_reg_ex:
+	mov r8,_r8
+	jmp r12
+	
 ;;; this is a general implementation of push.
 ;;; it produces 3 primitive instructions.
 
@@ -147,12 +191,11 @@ _gen_push:
 _gen_pop:
 	
 	push rbp
-	
 	mov rax,[_rsp]
 	mov [_context._arg1],rax
 	call _load64
 
-	mov rax,[_context._internal_arg1]
+	mov rax,[_context._internal_arg2]
 	mov [_context._arg1],rax
 	call _mov_res_to_arg2
 	call _assign64
@@ -166,7 +209,7 @@ _gen_pop:
 	mov [_context._arg1],rax
 	call _mov_res_to_arg2
 	call _assign64
-	
+
 	pop rbp	
 	ret
 	

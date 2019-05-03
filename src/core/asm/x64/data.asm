@@ -50,6 +50,7 @@
 	
 	;; global _write
 	global _context
+	global _context._opcode
 	global _context._opcode_table
 
 	global _context._rex	
@@ -67,6 +68,8 @@
 	global _context._res
 	global _context._imm_op
 	global _context._internal_arg1
+	global _context._internal_arg2
+	global _context._rip_rel
 	
 	global _op01_f_base
 	global _op_shift_base
@@ -449,7 +452,8 @@ _opcode_table:
 _context:
 ._opcode_table:
 	dq _opcode_table
-._rex: db 0	
+._opcode: db 0
+._rex: db 0
 ._data_prefix: db 0
 ._addr_prefix: db 0
 ._mod:
@@ -459,6 +463,8 @@ _context:
 ._rm:
 	dq 0
 ._sib:
+	db 0
+._rip_rel:
 	db 0
 ._dflag:
 	db 0
@@ -477,6 +483,8 @@ _context:
 ._imm_op:
 	dq 0
 ._internal_arg1:
+	dq 0
+._internal_arg2:
 	dq 0
 ._sib_displacement:
 	dq 0
