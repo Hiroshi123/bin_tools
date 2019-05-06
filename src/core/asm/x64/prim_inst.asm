@@ -1,4 +1,5 @@
 
+	
 	default rel
 	section .text
 
@@ -11,6 +12,8 @@
 	extern _sub_base
 	extern _assign_base
 
+	global __fetch8
+	
 	global _fetch
 	global _fetch8
 	global _fetch16
@@ -47,6 +50,14 @@
 	global _sub32
 	global _sub64
 
+	global _test
+	global _not
+	global _neg
+	global _mul
+	global _imul
+	global _div
+	global _idiv
+	
 	global _and
 	global _or
 	global _xor
@@ -57,6 +68,12 @@
 	global _shl
 	global _shr
 
+	global _inc
+	global _dec
+	global _call
+	global _jmp
+	global _push
+	
 	global _shl0
 	global _shl1
 	global _shl2
@@ -98,10 +115,25 @@
 	extern print
 	extern get_diff_host_guest_addr
 	extern _get_host_addr_from_guest
+
+	extern _context._internal_arg1
+	extern _gen_push
 	
 	extern _op_shl_base
 
-	
+%include "constant.asm"
+
+;;; this fetch 8 does not increment instruction pointer aiming for debugging purpose.
+__fetch8:
+	push rbp
+	mov qword [_context._res],0x00
+	mov rax,[_rip]
+	call _get_host_addr_from_guest
+	mov al,[rax]
+	mov [_context._res],al
+	pop rbp
+	ret
+
 _fetch:
 	push rbp
 	mov ax,0
@@ -119,26 +151,43 @@ _fetch8:
 	call _get_host_addr_from_guest
 	mov al,[rax]
 	mov [_context._res],al
+	add byte [_rip],1
 	pop rbp
 	ret
 
 _fetch16:
+	push rbp
 	mov qword [_context._res],0x00
 	mov rax,[_rip]
 	call _get_host_addr_from_guest
 	mov ax,[rax]
+	mov [_context._res],ax
+	add byte [_rip],2
+	pop rbp
 	ret
 
 _fetch32:
+	push rbp
 	mov qword [_context._res],0x00	
 	mov rax,[_rip]
 	call _get_host_addr_from_guest
 	mov eax,[rax]
 	mov [_context._res],eax	
+	add byte [_rip],4
+	pop rbp
 	ret
 
 _fetch64:
+	push rbp
+	mov qword [_context._res],0x00
+	mov rax,[_rip]
+	call _get_host_addr_from_guest
+	mov rax,[rax]
+	mov [_context._res],rax
+	add byte [_rip],8
+	pop rbp
 	ret
+
 	
 ;;;  you have	
 
@@ -413,10 +462,23 @@ _cmp:
 	;; overflow flag is turned on if 
 	
 	sub rax,rdx
+	;; set zero flag if the computed result equals 0
+	lea r15,[_cmp.done1]
+	cmp eax,0
+	je _set_zeroflags
+.done1:
+	
 	mov r8,[_eflags]
 	call print
+	
 	pop rbp
 	ret
+
+_set_zeroflags:
+	mov qword [_eflags],eflags_zf
+	;; or qword [_eflags],eflags_zf
+	jmp r15
+
 	
 _update_eflags:
 	mov qword [_eflags],0x00
@@ -476,5 +538,60 @@ _shl7:
 	
 _shl8:
 	shl rax,8
+	ret
+
+_test:
+	ret
+
+_not:
+	mov r8,0xff
+	call print
+	ret
+
+_neg:
+	ret
+
+_mul:
+	ret
+
+_imul:
+	ret
+
+_div:
+	ret
+
+_idiv:
+	ret
+	
+
+_inc:
+	ret
+
+_dec:
+	ret
+
+_call:
+	push rbp
+	;; addition of displacement & register is assumed to be set on
+	;; [_context._arg1] already.
+	;; you can get the value, and jump on it.
+	
+	mov rax,[_context._res]
+	
+	;; before adding rax, you need to store rip to be returned on it.
+	mov rdx,[_rip]
+	mov [_rip],rax
+	
+	mov [_context._internal_arg1],rdx
+	call _gen_push
+	
+	pop rbp
+	
+	ret
+	
+_jmp:
+	ret
+
+_push:
 	ret
 	

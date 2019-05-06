@@ -62,7 +62,6 @@ _0xc1_shift:
 	mov r8, _op_shift_base
 	call _set_imm_op_base
 	call _get_mod_op_rm
-	add byte [_rip],1
 	call _set_scale_index_base
 	call _fetch_displacement_by_mod
 	call _mov_rm_to_arg1
@@ -106,7 +105,6 @@ _0xc6_mov:
 	add byte [_rip],1
 	;; _rip are assumed to be on mod/reg/rm
 	call _get_mod_reg_rm
-	add byte [_rip],1
 	;; set dflag as 0 which means register size will be 1byte.
 	mov byte [_context._dflag],0x00
 
@@ -128,7 +126,6 @@ _0xc7_mov:
 	add byte [_rip],1
 	;; _rip are assumed to be on mod/reg/rm
 	call _get_mod_reg_rm
-	add byte [_rip],1
 	;; _rip are assumed to be on next of mod/reg/rm to be fetched..
 	call _set_scale_index_base
 	;; displacement fetch (mod/reg/rm are no longer on the range of an eye)

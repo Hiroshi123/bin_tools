@@ -54,7 +54,6 @@ _0x0fb6_movzbS:
 	push rbp
 	add byte [_rip],1	
 	call _get_mod_reg_rm
-	add byte [_rip],1
 	;; it loads just 1byte which means dflag must be 0
 	mov byte [_context._dflag],0x00	
 	call _set_scale_index_base	
@@ -70,9 +69,8 @@ _0x0fb6_movzbS:
 _0x0fbe_movsbS:
 
 	push rbp
-	add byte [_rip],1	
-	call _get_mod_reg_rm
 	add byte [_rip],1
+	call _get_mod_reg_rm
 	;; it loads just 1byte which means dflag must be 0
 	mov byte [_context._dflag],0x00	
 	call _set_scale_index_base	

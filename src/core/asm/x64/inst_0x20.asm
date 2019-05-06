@@ -124,7 +124,6 @@ _0x29_sub:
 
 	add byte [_rip],1	
 	call _get_mod_reg_rm
-	add byte [_rip],1
 	call _set_scale_index_base
 	call _fetch_displacement_by_mod
 	call _mov_rm_to_arg1
@@ -159,7 +158,6 @@ ___f:
 	push rbp
 	add byte [_rip],1	
 	call _get_mod_reg_rm
-	add byte [_rip],1
 	call _set_scale_index_base
 	call _fetch_displacement_by_mod
 	call _mov_rm_to_arg1

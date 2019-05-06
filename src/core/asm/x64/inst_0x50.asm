@@ -28,7 +28,8 @@
 	extern _context._arg1
 	extern _context._arg2
 	extern _context._opcode
-	
+	extern _context._rex	
+
 	extern _store64
 	extern _assign64
 	extern _add64
@@ -45,91 +46,172 @@
 	extern _r8
 	
 _0x50_push:
-	
-	mov rax,[_rax]
-	mov rbx,[_rsp]
-	mov [rbx],rax
-	sub dword [_rsp],8
-	;; mov r8,[_rsp]
-	mov r8,0x33
-	call print
+	push rbp
+	add byte [_rip],1
+	call _select_reg
+	mov r8,[r8]
+	mov [_context._internal_arg1],r8
+	call _gen_push
+	pop rbp
 	ret
 	
 _0x51_push:
-	ret
-_0x52_push:
-	ret
-_0x53_push:
-	ret
-_0x54_push:
 	push rbp
 	add byte [_rip],1
-	;; if rex_prefix (rex_b) is set, then
-	;; it means you must use registers of r8-r15.
-	;; [_context._opcode] will choose kind of registers among the given 8.
-	mov r8,0x54
-	call print
 	call _select_reg
+	mov r8,[r8]
+	mov [_context._internal_arg1],r8
+	call _gen_push
+	pop rbp
+	ret
+
+_0x52_push:
+	push rbp
+	add byte [_rip],1
+	call _select_reg
+	mov r8,[r8]
 	mov [_context._internal_arg1],rax
 	call _gen_push
 	pop rbp
 	ret
 
+_0x53_push:
+	push rbp
+	add byte [_rip],1
+	call _select_reg
+	mov r8,[r8]
+	mov [_context._internal_arg1],r8
+	call _gen_push
+	pop rbp
+	ret
+	
+_0x54_push:
+	push rbp
+	add byte [_rip],1
+	mov r8,0x54
+	call print
+
+	;; if rex_prefix (rex_b) is set, then
+	;; it means you must use registers of r8-r15.
+	;; [_context._opcode] will choose kind of registers among the given 8.
+	call _select_reg
+	mov r8,[r8]
+	mov [_context._internal_arg1],r8
+	call _gen_push
+	pop rbp
+	ret
 
 _0x55_push:
 	
 	push rbp
 	add byte [_rip],1
-	mov r8,0x55
-	call print
-	mov rax,[_rbp]
-	mov [_context._internal_arg1],rax
+	call _select_reg
+	mov r8,[r8]
+	mov [_context._internal_arg1],r8
 	call _gen_push
 	pop rbp
 	ret
 	
 _0x56_push:
-	ret
-_0x57_push:
+	push rbp
+	add byte [_rip],1
+	call _select_reg
+	mov r8,[r8]
+	mov [_context._internal_arg1],r8
+	call _gen_push
+	pop rbp
 	ret
 	
+_0x57_push:
+	push rbp
+	add byte [_rip],1
+	call _select_reg
+	mov r8,[r8]
+	mov [_context._internal_arg1],r8
+	call _gen_push
+	pop rbp
+	ret
+
+;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	
 _0x58_pop:
-	mov rax,[_rsp]
-	mov rbx,[rax]
-	mov r8,rbx
-	call print
-	mov [_rax],rbx
-	add dword [_rsp],8
+	push rbp
+	add byte [_rip],1
+	call _select_reg
+	mov [_context._internal_arg2],r8
+	call _gen_pop
+	pop rbp
 	ret
 	
 _0x59_pop:
-	ret
-_0x5a_pop:
-	ret
-_0x5b_pop:
-	ret
-_0x5c_pop:
-	ret
-_0x5d_pop:
-
 	push rbp
-	add byte [_rip],1	
-	mov rax,_rbp
-	mov [_context._internal_arg2],rax
+	add byte [_rip],1
+	call _select_reg
+	mov [_context._internal_arg2],r8
 	call _gen_pop
-	pop rbp	
+	pop rbp
+	ret
+	
+_0x5a_pop:
+	push rbp
+	add byte [_rip],1
+	call _select_reg
+	mov [_context._internal_arg2],r8
+	call _gen_pop
+	pop rbp
+	ret
+
+_0x5b_pop:
+	push rbp
+	add byte [_rip],1
+	call _select_reg
+	mov [_context._internal_arg2],r8
+	call _gen_pop
+	pop rbp
+	ret
+
+_0x5c_pop:
+	push rbp
+	add byte [_rip],1
+	call _select_reg
+	mov [_context._internal_arg2],r8
+	call _gen_pop
+	pop rbp
+	ret
+
+_0x5d_pop:
+	push rbp
+	add byte [_rip],1
+	call _select_reg
+	mov [_context._internal_arg2],r8
+	call _gen_pop
+	pop rbp
 	ret
 	
 _0x5e_pop:
-	ret
-_0x5f_pop:
+	push rbp
+	add byte [_rip],1
+	call _select_reg
+	mov [_context._internal_arg2],r8
+	call _gen_pop
+	pop rbp
 	ret
 
+_0x5f_pop:
+	push rbp
+	add byte [_rip],1
+	call _select_reg
+	mov [_context._internal_arg2],r8
+	call _gen_pop
+	pop rbp
+	ret
+	
 ;;;
 
 _select_reg:
 	
-	lea r12,[_select_reg.done1]	
+	lea r12,[_select_reg.done1]
+	mov r8b,[_context._rex]
 	and r8b,0b00000001
 	cmp r8b,0b00000001
 	jne _set_base_reg

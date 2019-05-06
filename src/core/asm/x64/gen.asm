@@ -262,7 +262,6 @@ _mod01_fetch_displacement:
 	;; fetch
 	push rbp
 	call _fetch8
-	add byte [_rip],1
 	call _set_rm_to_arg1
 	call _mov_res_to_arg2
 	call _add8
@@ -277,7 +276,6 @@ _mod10_fetch_displacement:
 	;; load
 	push rbp
 	call _fetch32
-	add byte [_rip],4
 	call _set_rm_to_arg1
 	call _mov_res_to_arg2
 	call _add
@@ -299,21 +297,30 @@ _sib_no_fetch_displacement:
 	
 _sib_fetch8_displacement:
 	push rbp
+	mov r8b,[_context._rm]
+	call print
+
 	call _fetch8
-	add byte [_rip],1
 	call _mov_rm_to_arg1
 	call _mov_res_to_arg2
 	call _add8
 	mov rax,[_context._res]
 	mov [_context._rm],rax
-	
+	mov r8,0x88
+	call print
+	mov r8b,[_context._arg1]
+	call print
+	mov r8b,[_context._arg2]
+	call print
+	mov r8b,[_context._res]
+	call print
+
 	pop rbp
 	ret
 	
 _sib_fetch32_displacement:
 	push rbp
 	call _fetch32
-	add byte [_rip],4
 	call _mov_rm_to_arg1
 	call _mov_res_to_arg2
 	call _add
@@ -366,7 +373,6 @@ _fetch_displacement_by_mod:
 .rip_relative_offset:
 	mov byte [_context._rip_rel],0x00
 	call _fetch32
-	add byte [_rip],4
 	mov r8,[_context._res]
 	call print
 	;; call _mov_rm_to_arg1
@@ -446,7 +452,6 @@ _set_arg1_reg_arg2_rm:
 _fetch8_imm_set_to_arg2:
 	push rbp
 	call _fetch8
-	add byte [_rip],0x01
 	call _mov_res_to_arg2
 	pop rbp
 	ret
@@ -454,7 +459,6 @@ _fetch8_imm_set_to_arg2:
 _fetch32_imm_set_to_arg2:
 	push rbp
 	call _fetch32
-	add byte [_rip],0x04
 	call _mov_res_to_arg2
 	pop rbp
 	ret

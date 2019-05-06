@@ -44,7 +44,6 @@ _0x41_set_rex:
 	mov r8,0x41
 	call print
 	call _fetch8
-	add byte [_rip],0x01
 	mov dl,[_context._res]
 	mov byte [_context._rex],dl
 	jmp _exec_one	
@@ -66,7 +65,6 @@ _0x48_set_rex:
 	call _fetch8
 	mov dl,[_context._res]
 	mov byte [_context._rex],dl
-	add byte [_rip],0x01
 	jmp _exec_one
 	;; mov [_context._rex],[_rip]	
 	ret

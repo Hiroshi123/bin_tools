@@ -78,6 +78,7 @@
 	extern _add
 	extern _or
 	extern _shl
+	extern __fetch8	
 	extern _fetch8
 	extern _fetch32
 	
@@ -120,8 +121,8 @@ _init_regs:
 _exec_one:
 
 	push rbp
-	
-	call _fetch8
+	;; debugging purpose to be stopped when not yet implemented.
+	call __fetch8
 
 	mov r8,0x1
 	call print
@@ -248,6 +249,8 @@ compute_scale_index:
 	mov dl,[_context._rm]
 	;; scale(shift)
 	and dl,0b11000000
+	cmp dl,0b00000000
+	je compute_scale_index.done2
 	rol dl,0x02
 
 	mov qword [_context._arg2],0
@@ -275,6 +278,14 @@ compute_scale_index:
 	pop rbp
 	ret
 
+	;; [CAUTION] undocumented feature.
+	;; if scale == 00, it does not mean, index is set as it is but index ends up with 0.
+	;; no matter what is set on index.
+.done2:
+	mov qword [_context._arg2],0
+	pop rbp
+	ret
+
 compute_base:
 
 	push rbp
@@ -297,18 +308,27 @@ compute_base:
 	add r8w,dx
 	mov r8,[r8]
 	
-	;; if kind is 101(rbp), fetch displacement (32 or 8)
-	;; call print
 	mov rax,_sib_no_fetch_displacement
 	mov [_context._sib_displacement],rax
+
+	;; undocumented feature(if rm is not 101, follow the value of mod)
+	;; cmp dl,0b00101000
+	;; jne compute_base.done4
+
+	;; mod == 01
+	mov cl,[_context._mod]
+	and cl,0b00001000
+	cmp cl,0b00001000
+	je compute_base.done2
+	;; mod == 10
+	mov cl,[_context._mod]
+	and cl,0b00010000
+	je compute_base.done3
+	;; mod == 00
+	;; if kind is 101(rbp), fetch displacement32
 	cmp dl,0b00101000
-	jne compute_base.done4
-	
-	mov dl,[_context._mod]
-	and dl,0b01000000
-	cmp dl,0b01000000
-	jne compute_base.done2
-	jmp compute_base.done3
+	je compute_base.done3
+	jmp compute_base.done4	
 .done2:
 	mov rax,_sib_fetch8_displacement	
 	mov [_context._sib_displacement],rax
@@ -355,7 +375,6 @@ _set_scale_index_base:
 	call print
 	
 	call _fetch8
-	add byte [_rip],0x01
 	mov al,[_context._res]
 	mov [_context._rm],al
 	call compute_scale_index

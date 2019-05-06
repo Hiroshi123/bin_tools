@@ -70,9 +70,13 @@
 	global _context._internal_arg1
 	global _context._internal_arg2
 	global _context._rip_rel
-	
+
+	;; immidiate operation
 	global _op01_f_base
+	global _op_f6_f_base
+	global _op_fe_f_base	
 	global _op_shift_base
+	
 	global _op_shl_base
 	
 	global _mod_load_base
@@ -88,6 +92,7 @@
 	global _sub_base
 	global _assign_base
 
+	
 	
 _reg_names:  db "rax rdx rcx rbx rsi rdi r8 r9 r10 r11 r12 r13 r14 r15 eflags rip rsp rbp "
 	
@@ -196,23 +201,23 @@ _opcode_table:
 	dq _0x00_add
 	dq _0x00_add
 
-	;; 0x30 and
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
+	;; 0x30 xor
+	dq _0x30_xor
+	dq _0x31_xor
+	dq _0x32_xor
+	dq _0x33_xor
+	dq _0x34_xor
+	dq _0x35_xor
 	dq _0x00_add
 	dq _0x00_add
 
-	;; 0x38 xor
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
-	dq _0x00_add
+	;; 0x38 cmp
+	dq _0x38_cmp
+	dq _0x39_cmp
+	dq _0x3a_cmp
+	dq _0x3b_cmp
+	dq _0x3c_cmp
+	dq _0x3d_cmp
 	dq _0x00_add
 	dq _0x00_add
 
@@ -500,7 +505,7 @@ _op01_f_base:
 	dq _sub
 	dq _xor
 	dq _cmp
-	
+
 _op_shift_base:	
 	dq _rol
 	dq _ror
@@ -516,7 +521,31 @@ _op_shift_base:
 	dq _shl
 	;; sar
 	dq _shr
+	
+_op_f6_f_base:
+	dq _test
+	dq 0
+	dq _not
+	dq _neg
+	dq _mul
+	dq _imul
+	dq _div
+	dq _idiv
 
+_op_fe_f_base:
+	dq _inc
+	dq _dec
+	dq _call
+	;; lcall
+	dq _call
+	;; jmp
+	dq _jmp
+	;; ljmp
+	dq _jmp
+	;; push
+	dq _push
+	dq 0
+	
 ;;; shift operation does not support two register operand but reg is always imm.
 ;;; [_context._arg2] which was set was as the degree of shift is going to be the offset
 ;;; to the function which will has one of them is register.
@@ -906,6 +935,22 @@ _extend_opcode_table:
 	extern _xor
 	extern _cmp
 
+	;; f6/f7
+	extern _test
+	extern _not
+	extern _neg
+	extern _mul
+	extern _imul
+	extern _div
+	extern _idiv
+	
+	;; fe/ff
+	extern _inc
+	extern _dec
+	extern _call
+	extern _jmp
+	extern _push
+	
 	extern _rol
 	extern _ror
 	extern _shl
@@ -951,6 +996,21 @@ _extend_opcode_table:
 	extern _0x2b_sub
 	extern _0x2c_sub
 	extern _0x2d_sub
+
+	extern _0x30_xor
+	extern _0x31_xor
+	extern _0x32_xor
+	extern _0x33_xor
+	extern _0x34_xor
+	extern _0x35_xor
+
+	;; 0x38 cmp
+	extern _0x38_cmp
+	extern _0x39_cmp
+	extern _0x3a_cmp
+	extern _0x3b_cmp
+	extern _0x3c_cmp
+	extern _0x3d_cmp
 	
 	extern _0x40_set_rex
 	extern _0x41_set_rex

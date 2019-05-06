@@ -27,6 +27,8 @@
 	extern _fetch32
 	extern _assign32
 	extern _mov_res_to_arg2
+	extern _set_dflag
+	extern _fetch
 	
 _0xb0_mov:
 	ret
@@ -45,20 +47,15 @@ _0xb6_mov:
 _0xb7_mov:
 	ret
 _0xb8_mov:
-
+	
 	push rbp
 	add byte [_rip],1
-
-	call _fetch32
-	add byte [_rip],4
-	
+	call _set_dflag
+	call _fetch	
 	call _mov_res_to_arg2
-
 	mov rax,_rax
 	mov [_context._arg1],rax
-
 	call _assign32
-	
 	pop rbp
 	ret
 _0xb9_mov:

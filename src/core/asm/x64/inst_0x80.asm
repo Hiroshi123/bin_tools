@@ -92,7 +92,6 @@ _0x83_arith_imm:
 	mov r8,_op01_f_base	
 	call _set_imm_op_base
 	call _get_mod_op_rm
-	add byte [_rip],1
 
 	call _set_scale_index_base
 	call _fetch_displacement_by_mod
@@ -128,7 +127,6 @@ _0x88_mov:
 
 	add byte [_rip],1
 	call _get_mod_reg_rm
-	add byte [_rip],1
 	mov byte [_context._dflag],0x00
 
 	call _set_scale_index_base
@@ -148,7 +146,6 @@ _0x89_mov:
 	push rbp
 	add byte [_rip],1
 	call _get_mod_reg_rm
-	add byte [_rip],1
 	call _set_scale_index_base
 	call _fetch_displacement_by_mod
 	call _mov_rm_to_arg1
@@ -169,7 +166,6 @@ _0x8b_mov:
 	push rbp
 	add byte [_rip],1
 	call _get_mod_reg_rm
-	add byte [_rip],1	
 	call _set_scale_index_base
 
 	mov r8,0x8b
@@ -195,7 +191,6 @@ _0x8d_lea:
 	push rbp
 	add byte [_rip],1
 	call _get_mod_reg_rm
-	add byte [_rip],1	
 	call _set_scale_index_base
 	call _fetch_displacement_by_mod
 	;; note lea does not need memory access.

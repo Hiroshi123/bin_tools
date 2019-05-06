@@ -26,35 +26,9 @@
 
 	extern _fetch8
 	extern _context._res
+	extern print
 	
-;;; eflags carry flag
-%define eflags_cf 0x0001
-;;; eflags parity flag
-%define eflags_pf 0x0004
-;;; eflags adjust flag
-%define eflags_af 0x0010
-;;; eflags zero flag
-%define eflags_zf 0x0040
-;;; eflags sign flag
-%define eflags_sf 0x0080
-;;; eflags trap flag
-%define eflags_tf 0x0100
-;;; eflags interrupt enable flag
-%define eflags_if 0x0200
-;;; eflags direction flag
-%define eflags_df 0x0400
-;;; eflags overflow flag
-%define eflags_of 0x0800
-;;; eflags iopl
-%define eflags_iopl 0x3000
-;;; eflags nested task flag
-%define eflags_nt 0x4000
-
-;;; sign flag & overflow flag
-%define eflags_sof 0x0880
-
-;;; carry flag & zero flag
-%define eflags_czf 0x0041
+%include "constant.asm"	
 	
 ;;; jmp instruction
 	
@@ -78,11 +52,28 @@ _0x73_jnc:
 	call _set_eflags
 	jnc setrip
 	ret
+	
 ;;; je is equal to 0 which means zero flag is set
 _0x74_je:
-	call _set_eflags
-	je setrip
+	push rbp
+	add byte [_rip],1
+
+	mov r8,0x77
+	call print
+	
+	mov r8d,[_eflags]
+	call print
+	
+	call _fetch8
+	mov eax,[_eflags]
+	and eax,eflags_zf
+	cmp eax,eflags_zf
+	je _add_rip
+	pop rbp
+	;; call _set_eflags
+	;; je setrip
 	ret
+	
 ;;; jne means the result of the last instruction was not 0
 ;;; meaning zero flag is not set
 _0x75_jne:
@@ -142,7 +133,6 @@ _0x7e_jng:
 	add byte [_rip],1
 	
 	call _fetch8
-	add byte [_rip],1
 	
 	mov rax,[_eflags]
 	
