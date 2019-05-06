@@ -22,8 +22,10 @@ typedef struct __attribute__((__packed__)) {
   
 } heap;
 
-
 heap* init_map_file(const char *const fname);
-heap* guest_mmap(void* guest_addr, uint8_t page_num);
+heap* guest_mmap(void* guest_addr, uint32_t page_num);
 void* get_diff_host_guest_addr(void* guest_addr);
-
+void get_diff_host_guest_addr_(void* guest_addr, void** host_addr);
+void get_host_head(void* guest_addr, void** host_addr);
+void get_host_head_from_host(void* host_addr, void** host_head_addr);
+heap* get_current_meta_addr();
