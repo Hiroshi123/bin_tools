@@ -12,6 +12,9 @@
 	extern _sub_base
 	extern _assign_base
 
+	extern _check_on_iat
+	extern _find_f_addr
+	
 	global __fetch8
 	
 	global _fetch
@@ -103,6 +106,9 @@
 
 	extern _eflags
 	extern _rip
+
+	extern _debug._inst
+	extern _debug._offset
 	
 	extern _context._dflag
 	extern _context._rex
@@ -122,7 +128,7 @@
 	extern _op_shl_base
 
 %include "constant.asm"
-
+	
 ;;; this fetch 8 does not increment instruction pointer aiming for debugging purpose.
 __fetch8:
 	push rbp
@@ -131,6 +137,12 @@ __fetch8:
 	call _get_host_addr_from_guest
 	mov al,[rax]
 	mov [_context._res],al
+	;; for debugging
+	lea rdx,[_debug._inst]
+	add dl,[_debug._offset]
+	mov byte [rdx],al
+	add byte [_debug._offset],1
+	;; no incrementation
 	pop rbp
 	ret
 
@@ -151,6 +163,12 @@ _fetch8:
 	call _get_host_addr_from_guest
 	mov al,[rax]
 	mov [_context._res],al
+	;; for debugging
+	lea rdx,[_debug._inst]
+	add dl,[_debug._offset]
+	mov [rdx],al
+	add byte [_debug._offset],1
+	;; increment
 	add byte [_rip],1
 	pop rbp
 	ret
@@ -162,6 +180,12 @@ _fetch16:
 	call _get_host_addr_from_guest
 	mov ax,[rax]
 	mov [_context._res],ax
+	;; for debugging
+	lea rdx,[_debug._inst]
+	add dl,[_debug._offset]
+	mov [rdx],ax
+	add byte [_debug._offset],2
+	;; 
 	add byte [_rip],2
 	pop rbp
 	ret
@@ -173,6 +197,12 @@ _fetch32:
 	call _get_host_addr_from_guest
 	mov eax,[rax]
 	mov [_context._res],eax	
+	;; for debugging
+	lea rdx,[_debug._inst]
+	add dl,[_debug._offset]
+	mov [rdx],eax
+	add byte [_debug._offset],4
+	;; 
 	add byte [_rip],4
 	pop rbp
 	ret
@@ -184,6 +214,13 @@ _fetch64:
 	call _get_host_addr_from_guest
 	mov rax,[rax]
 	mov [_context._res],rax
+	;; for debugging
+	lea rdx,[_debug._inst]
+	add dl,[_debug._offset]
+	mov [rdx],rax
+	add byte [_debug._offset],8
+	;; 
+
 	add byte [_rip],8
 	pop rbp
 	ret
@@ -577,6 +614,17 @@ _call:
 	;; you can get the value, and jump on it.
 	
 	mov rax,[_context._res]
+
+	mov rdi,[_rip]
+	mov rsi,rax
+	
+	call _check_on_iat
+
+	mov rdi,[_rip]	
+	mov rsi,[_context._res]	
+	call _find_f_addr
+	mov r8,rax
+	call print
 	
 	;; before adding rax, you need to store rip to be returned on it.
 	mov rdx,[_rip]

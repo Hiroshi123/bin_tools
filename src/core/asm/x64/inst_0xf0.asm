@@ -192,7 +192,22 @@ _0xfe_op:
 	ret
 
 ;;; inc/dec/call/jmp/push
+;;; when you jmp to absolute position, if it will retrieve the value on .rdata
+;;; when you load dll or exe, you just mark where is iat which needs to be filled out
+;;; as it is referred from calling to other function of another dll.
+;;; From abs jmp/call side, if you try to check the value of iat, and it still holds the
+;;; reference to int, it does not read the value of iat.
+;;; Instead pause the execution of the instruction until loader should handle resolution.
+;;; loader will look for the name of function and dll which contains it.
+;;; resolve only the function.
 
+;;; what you need to implement.
+;;; 1. checking of range of IAT
+;;; 2. resolution which targets only one pair of function assuming the dll had been already mapped.
+
+;;; [memory access]
+;;; 
+	
 _0xff_op:
 
 	push rbp

@@ -49,6 +49,10 @@
 	global _extend_opcode_table
 	
 	;; global _write
+	global _debug
+	global _debug._inst
+	global _debug._offset
+	
 	global _context
 	global _context._opcode
 	global _context._opcode_table
@@ -493,6 +497,14 @@ _context:
 	dq 0
 ._sib_displacement:
 	dq 0
+
+;;; debugging purpose for temporaily storing the fetched instruction
+_debug:
+._inst:
+	dq 0
+	dq 0
+._offset:
+	db 0
 	
 ;;; following should be aligned as it will be scooped from instruciton given a value of _context._mod.
 

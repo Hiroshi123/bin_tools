@@ -30,6 +30,7 @@
 	extern get_diff_host_guest_addr
 	
 	extern _opcode_table
+	extern _debug._offset
 	extern _context
 	extern _context._opcode
 	extern _context._opcode_table
@@ -121,6 +122,9 @@ _init_regs:
 _exec_one:
 
 	push rbp
+	;; for debuging, offset should be reset
+	mov byte [_debug._offset],0
+
 	;; debugging purpose to be stopped when not yet implemented.
 	call __fetch8
 
