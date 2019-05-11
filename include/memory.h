@@ -1,5 +1,6 @@
 
 #include <stdint.h>
+#include "types.h"
 
 typedef struct __attribute__((__packed__)) {
   // first argument of mmap
@@ -19,13 +20,19 @@ typedef struct __attribute__((__packed__)) {
   // subsequent mapping
   // struct __heap* next;
   void* guest_addr;
-  
+  // pointer to name of the mapping if it is none, set 0.
+  union {
+    uint64_t name_addr;
+    uint64_t parent_addr;
+  }
 } heap;
 
 heap* init_map_file(const char *const fname);
-heap* guest_mmap(void* guest_addr, uint32_t page_num);
+heap* guest_mmap(void* guest_addr, uint32_t map_size, uint32_t flags, uint64_t name_or_parent_addr);
 void* get_diff_host_guest_addr(void* guest_addr);
 void get_diff_host_guest_addr_(void* guest_addr, void** host_addr);
 void get_host_head(void* guest_addr, void** host_addr);
 void get_host_head_from_host(void* host_addr, void** host_head_addr);
 heap* get_current_meta_addr();
+heap* search_page_by_name(char* query);
+

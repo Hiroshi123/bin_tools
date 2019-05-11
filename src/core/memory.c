@@ -42,6 +42,8 @@ __attribute__((destructor)) void unset_heap_header() {
 }
 
 heap *init_map_file(const char *const fname) {
+
+  // printf("%s\n",tolower(fname));
   const int fd = open(fname, O_RDWR);
   if (fd == -1)
     return 0;
@@ -103,7 +105,7 @@ heap* get_current_meta_head() {
   return (heap*)HEAP_HEADER_ADDR_HEAD;
 }
 
-heap* guest_mmap(void* guest_addr, uint32_t map_size) {
+heap* guest_mmap(void* guest_addr, uint32_t map_size, uint32_t flags, uint64_t name_or_parent_addr) {
   
   //
   // int map_size = PAGE_SIZE*page_num;
@@ -113,10 +115,16 @@ heap* guest_mmap(void* guest_addr, uint32_t map_size) {
   heap *h = (heap *)HEAP_HEADER_ADDR_P;
   h->begin = begin;
   h->page_num = map_size / PAGE_SIZE;
-  h->flags = 1;
+  h->flags = flags;
   h->file = (uint16_t)fd;
   // higher bits are going to be set as 0.
   h->guest_addr = (uint64_t)guest_addr & 0xffffffff;
+  if (h->flags == 1) {
+    h->name_addr = name_or_parent_addr;    
+  } else {
+    h->parent_addr = name_or_parent_addr;
+  }
+  //
   HEAP_HEADER_ADDR_P += 1;
   return h;
   
@@ -152,13 +160,13 @@ void get_diff_host_guest_addr_(void* guest_addr, void** host_addr) {
   heap* h_end = HEAP_HEADER_ADDR_P;
   void* guest_begin = (uint64_t)guest_addr & 0xfffff000;
   
-  printf("%x,%x\n",guest_addr,guest_begin);
+  /* printf("%x,%x\n",guest_addr,guest_begin); */
   
   uint32_t page = 0;
   for (;h!=h_end;h++) {
     /* printf("%x\n",h->begin); */
     if (h->guest_addr != -1) {
-      printf("g:%lx,%lx\n",h->guest_addr,guest_begin);
+      /* printf("g:%lx,%lx\n",h->guest_addr,guest_begin); */
       
       page = 0;
       for (;page < h->page_num;page++) {
@@ -166,7 +174,7 @@ void get_diff_host_guest_addr_(void* guest_addr, void** host_addr) {
 	  uint64_t diff = (uint64_t)h->begin - ((uint64_t)guest_begin - (uint64_t) page * PAGE_SIZE);
 	  uint32_t dd = page * PAGE_SIZE;
 	  uint16_t guest_in_page_offset = guest_addr - guest_begin;
-	  printf("diff:%lx,%x,%x\n",h->begin,page,dd);
+	  /* printf("diff:%lx,%x,%x\n",h->begin,page,dd); */
 	  *host_addr = h->begin + dd + guest_in_page_offset;
 	  return;
 	}
@@ -213,7 +221,6 @@ void get_host_head_from_host(void* host_addr, void** host_head_addr) {
   }
 }
 
-
 void* get_diff_host_addr(void* host_addr) {
   
   /* printf("arg1:%x\n",guest_addr); */ 
@@ -236,4 +243,35 @@ void* get_diff_host_addr(void* host_addr) {
   return NULL;
 }
 
+/*heap**/void* get_parent_heap_from_guest(p_guest p) {
+  heap* h = HEAP_HEADER_ADDR_HEAD;
+  heap* h_end = HEAP_HEADER_ADDR_P;
+  uint32_t guest_begin = p & 0xfffff000;  
+  uint32_t page = 0;
+  for (;h!=h_end;h++) {
+    if (h->guest_addr != -1) {
+      page = 0;
+      for (;page < h->page_num;page++) {
+	if (guest_begin == h->guest_addr + page * PAGE_SIZE) {	  
+	  return h->parent_addr;
+	}
+      }
+    }
+  }
+  return NULL;
+}
+
+heap* search_page_by_name(char* query) {
+  heap* h = HEAP_HEADER_ADDR_HEAD;
+  heap* h_end = HEAP_HEADER_ADDR_P;
+  for (;h!=h_end;h++) {
+    /* printf("%x\n",h->begin); */
+    if (h->guest_addr != -1) {
+      if (h->flags && h->name_addr && h->name_addr == query) {
+	return h;
+      }
+    }
+  }
+  return NULL;
+}
 
