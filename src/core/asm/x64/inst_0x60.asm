@@ -1,7 +1,8 @@
 
-
 	default rel
+
 	section .text
+
 	global _0x60_pusha
 	global _0x61_popa
 	global _0x62_bound
@@ -23,9 +24,16 @@
 	
 	extern _rax
 	extern _rsp
+	extern _rip
+
+	extern _fs
+	extern _gs
+	
 	extern print
-
-
+	extern _exec_one
+	extern _context._override
+	extern _context._override_reg
+	
 _0x60_pusha:
 	ret
 	
@@ -39,12 +47,34 @@ _0x63_movslS:
 	ret
 	
 _0x64_prefix_seg_fs:
-	ret
-	
-_0x65_prefix_seg_gs:
-	ret
 
+	add dword [_rip],1
+	mov byte [_context._override],0xff
+	mov rax,_fs
+	mov [_context._override_reg],rax
+	jmp _exec_one
+	
+_0x65_prefix_seg_gs:	
+	add dword [_rip],1
+	mov byte [_context._override],0xff
+	mov rax,_gs
+	mov [_context._override_reg],rax
+	jmp _exec_one
+	
 _0x66_prefix_data:
+	;; mov cs,[fs:2]
+	;; mov ds,rdx
+	;; mov ds,edx
+	;; mov [fs:edx+3],eax
+	;; mov es,dx
+	;; mov fs,dx
+	;; mov gs,dx
+	;; mov rax,[cs:2]
+	;; mov rax,[ds:edx]
+	;; lea rax,[es:edx]
+	;; lea rax,[ss:edx]
+	
+	;; mov es:cx,15h
 	ret
 
 _0x67_prefix_addr:

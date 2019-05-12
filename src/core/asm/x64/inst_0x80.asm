@@ -26,6 +26,7 @@
 	extern _rip
 
 	extern _sub
+	extern _and
 	
 	extern _set_scale_index_base
 
@@ -64,6 +65,8 @@
 	extern _assign
 	
 	extern _fetch8_imm_set_to_arg2
+	extern _fetch32_imm_set_to_arg2
+
 	extern _fetch_displacement_by_mod
 
 	extern _op01_f_base
@@ -75,6 +78,34 @@ _0x80_arith_imm:
 	ret
 	
 _0x81_arith_imm:
+	push rbp
+	add byte [_rip],1
+
+	mov r8,0x81
+	call print
+
+	;; tmp
+	mov r8,_op01_f_base	
+	call _set_imm_op_base
+	call _get_mod_op_rm
+
+	call _set_scale_index_base
+	call _fetch_displacement_by_mod
+	
+	call _load_rm_by_mod
+	call _mov_res_to_arg1	
+	call _fetch32_imm_set_to_arg2
+
+	call [_context._imm_op]
+	
+	call _mov_rm_to_arg1	
+	call _mov_res_to_arg2
+	call _store_or_assign_arg1_by_mod
+	mov r8,0x81
+	call print
+	
+	pop rbp
+
 	ret
 	
 _0x82_arith_imm:
@@ -105,21 +136,34 @@ _0x83_arith_imm:
 	call _mov_rm_to_arg1	
 	call _mov_res_to_arg2
 	call _store_or_assign_arg1_by_mod
-	mov r8,0x83
-	call print
-	
 	pop rbp
 	ret
 
 _0x84_test:
 	ret
 _0x85_test:
+
+	push rbp
+	add byte [_rip],1	
+	call _get_mod_op_rm
+	call _set_scale_index_base
+	call _fetch_displacement_by_mod
+	call _and
+	call _mov_rm_to_arg1
+	call _set_reg_to_arg2
+	call _store_or_assign_arg1_by_mod
+	
+	mov r8,0x85
+	call print
+	
+	pop rbp
 	ret
 
 _0x86_xchg:
 	ret
 
 _0x87_xchg:
+	
 	ret
 	
 _0x88_mov:

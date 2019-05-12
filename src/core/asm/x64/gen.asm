@@ -67,6 +67,8 @@
 	extern _context._res
 	extern _context._sib
 	extern _context._sib_displacement
+	extern _context._override
+	extern _context._override_reg
 	
 	extern _context._dflag
 	extern _context._aflag
@@ -345,6 +347,15 @@ _sib_fetch32_displacement:
 _fetch_displacement_by_mod:
 	
 	push rbp
+	;; check override segment
+	mov byte al,[_context._override]
+	cmp al,0xff
+	jne _fetch_displacement_by_mod._no_override
+	;; get the value of segment register.
+	mov rax,[_context._override_reg]
+	add [_context._rm],rax
+._no_override:
+	mov byte [_context._override],0x00
 	;; SIB check
 	mov byte al,[_context._sib]
 	cmp al,0xff

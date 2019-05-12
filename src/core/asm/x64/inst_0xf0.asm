@@ -18,8 +18,14 @@
 	global _0xfe_op
 	global _0xff_op
 
+	extern _exec_one
+	
 	extern _op_f6_f_base
-	extern _op_fe_f_base	
+	extern _op_fe_f_base
+
+	extern _context._repz
+	extern _context._repnz
+	extern _context._lock	
 	
 	extern print
 	extern _rax
@@ -81,15 +87,19 @@ _0xf0_prefix_lock:
 _0xf1_icebp:
 	add r8,0xf1
 	call print
-
 	ret
+
+;;; repnz stops when cz register is 0 & flag register is 0. 
 _0xf2_prefix_repnz:
-	mov r8,0xf2
-	call print
-
-	ret
+	add dword [_rip],1
+	mov byte [_context._repnz],0xff
+	jmp _exec_one
+	
 _0xf3_prefix_repz:
-	ret
+	add dword [_rip],1
+	mov byte [_context._repz],0xff
+	jmp _exec_one
+
 _0xf4_hlt:
 	ret
 _0xf5_cmc:

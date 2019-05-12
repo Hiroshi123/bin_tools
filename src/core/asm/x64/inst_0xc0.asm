@@ -31,6 +31,8 @@
 	extern _context._imm_op
 	
 	extern _context._internal_arg1
+	extern _context._internal_arg2
+
 	extern _gen_pop
 
 	extern _get_mod_op_rm
@@ -85,7 +87,7 @@ _0xc3_ret:
 	mov r8,[_rsp]
 	call print	
 	mov rax,_rip
-	mov [_context._internal_arg1],rax
+	mov [_context._internal_arg2],rax
 	call _gen_pop
 	mov r8,[_rsp]
 	call print

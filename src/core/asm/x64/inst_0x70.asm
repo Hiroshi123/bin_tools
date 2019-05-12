@@ -21,14 +21,14 @@
 
 	extern _rip
 	extern _eflags
-	extern _set_eflags
-	extern setrip
-
+	;; extern _set_eflags
+	;; extern setrip
+	
 	extern _fetch8
 	extern _context._res
 	extern print
 	
-%include "constant.asm"	
+%include "constant.asm"
 	
 ;;; jmp instruction
 	
@@ -165,4 +165,15 @@ _add_rip:
 	add [_rip],eax
 	pop rbp
 	ret
-	
+
+_set_eflags:
+	push qword [_eflags]
+	popf
+	ret
+
+setrip:
+	add [_rip],rdi
+	ret
+
+
+

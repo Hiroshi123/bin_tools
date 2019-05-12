@@ -25,6 +25,13 @@
 	global _eflags	
 	global _rip
 	global _low_rip
+
+	global _cs
+	global _ds
+	global _es
+	global _fs
+	global _gs
+	global _ss	
 	
 	global __rax
 	global __rdx
@@ -56,7 +63,9 @@
 	global _context
 	global _context._opcode
 	global _context._opcode_table
-
+	global _context._override
+	global _context._override_reg
+	
 	global _context._rex	
 	global _context._mod
 	global _context._reg
@@ -67,6 +76,11 @@
 	global _context._aflag	
 	global _context._data_prefix
 	global _context._addr_prefix
+	global _context._repz
+	global _context._repnz
+	global _context._lock
+	global _context._vex
+	
 	global _context._arg1
 	global _context._arg2
 	global _context._res
@@ -121,6 +135,13 @@ _r15:	dq 0
 _eflags:dq 0
 _rip:	dq 0
 _low_rip:dq 0
+
+_cs:	dq 0
+_ds:	dq 0
+_es:	dq 0
+_fs:	dq 0
+_gs:	dq 0
+_ss:	dq 0
 
 ;;;  this is auxietrary set of registers
 __rax:	dq 0
@@ -212,7 +233,7 @@ _opcode_table:
 	dq _0x33_xor
 	dq _0x34_xor
 	dq _0x35_xor
-	dq _0x00_add
+	dq _0x36_prefix_seg_ss
 	dq _0x00_add
 
 	;; 0x38 cmp
@@ -465,6 +486,11 @@ _context:
 ._rex: db 0
 ._data_prefix: db 0
 ._addr_prefix: db 0
+._repz: db 0
+._repnz: db 0
+._lock: db 0
+._vex: db 0
+._override: db 0
 ._mod:
 	db 0
 ._reg:
@@ -496,6 +522,8 @@ _context:
 ._internal_arg2:
 	dq 0
 ._sib_displacement:
+	dq 0
+._override_reg:
 	dq 0
 
 ;;; debugging purpose for temporaily storing the fetched instruction
@@ -792,23 +820,23 @@ _extend_opcode_table:
 	dq 0
 	dq 0
 	;; 0x0f80
-	dq 0
-	dq 0
-	dq 0
-	dq 0
-	dq 0
-	dq 0
-	dq 0
-	dq 0
+	dq _0x0f80_jo
+	dq _0x0f81_jno
+	dq _0x0f82_jnae
+	dq _0x0f83_jnc
+	dq _0x0f84_je
+	dq _0x0f85_jne
+	dq _0x0f86_jna
+	dq _0x0f87_jnbe
 	;; 0x0f88
-	dq 0
-	dq 0
-	dq 0
-	dq 0
-	dq 0
-	dq 0
-	dq 0
-	dq 0
+	dq _0x0f88_js
+	dq _0x0f89_jns
+	dq _0x0f8a_jpe
+	dq _0x0f8b_jpo
+	dq _0x0f8c_jnl
+	dq _0x0f8d_jng
+	dq _0x0f8e_jng
+	dq _0x0f8f_jnle
 	;; 0x0f90
 	dq 0
 	dq 0
@@ -1001,20 +1029,23 @@ _extend_opcode_table:
 	extern _0x23_and
 	extern _0x24_and
 	extern _0x25_and
-
+	extern _0x26_prefix_seg_es
+	
 	extern _0x28_sub
 	extern _0x29_sub
 	extern _0x2a_sub
 	extern _0x2b_sub
 	extern _0x2c_sub
 	extern _0x2d_sub
-
+	extern _0x2e_prefix_seg_cs
+	
 	extern _0x30_xor
 	extern _0x31_xor
 	extern _0x32_xor
 	extern _0x33_xor
 	extern _0x34_xor
 	extern _0x35_xor
+	extern _0x36_prefix_seg_ss
 
 	;; 0x38 cmp
 	extern _0x38_cmp
@@ -1023,6 +1054,7 @@ _extend_opcode_table:
 	extern _0x3b_cmp
 	extern _0x3c_cmp
 	extern _0x3d_cmp
+	extern _0x3e_prefix_seg_ds
 	
 	extern _0x40_set_rex
 	extern _0x41_set_rex
@@ -1235,6 +1267,23 @@ _extend_opcode_table:
 	extern _0xfd_std
 	extern _0xfe_op
 	extern _0xff_op
+
+	extern _0x0f80_jo
+	extern _0x0f81_jno
+	extern _0x0f82_jnae
+	extern _0x0f83_jnc
+	extern _0x0f84_je
+	extern _0x0f85_jne
+	extern _0x0f86_jna
+	extern _0x0f87_jnbe
+	extern _0x0f88_js
+	extern _0x0f89_jns
+	extern _0x0f8a_jpe
+	extern _0x0f8b_jpo
+	extern _0x0f8c_jnl
+	extern _0x0f8d_jng
+	extern _0x0f8e_jng
+	extern _0x0f8f_jnle
 
 	extern _0x0fb6_movzbS
 	extern _0x0fbe_movsbS

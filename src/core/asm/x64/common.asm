@@ -26,6 +26,7 @@
 	global _set_imm_op_base
 	global _set_scale_index_base
 	global _set_base_reg
+	global _select_reg
 	
 	extern get_diff_host_guest_addr
 	
@@ -34,7 +35,8 @@
 	extern _context
 	extern _context._opcode
 	extern _context._opcode_table
-	
+
+	extern _context._override
 	extern _context._rex
 	extern _context._mod
 	extern _context._reg
@@ -122,8 +124,8 @@ _init_regs:
 _exec_one:
 
 	push rbp
-	;; for debuging, offset should be reset
-	mov byte [_debug._offset],0
+	;; ;; for debuging, offset should be reset
+	;; mov byte [_debug._offset],0
 
 	;; debugging purpose to be stopped when not yet implemented.
 	call __fetch8
@@ -497,7 +499,7 @@ _get_mod_reg_rm:
 	call _set_rm
 	call _set_dflag
 	call _set_aflag
-
+	
 	pop rbp
 	ret
 
@@ -629,6 +631,26 @@ _get_rm_base:
 	mov rax,_r8
 	mov rax,_r8
 
+;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+_select_reg:
+	lea r12,[_select_reg.done1]
+	mov r8b,[_context._rex]
+	and r8b,0b00000001
+	cmp r8b,0b00000001
+	jne _set_base_reg
+	jmp _set_base_reg_ex
+.done1:
+	;; 2. get kind of register
+	mov r9,0x00
+	mov r9b,[_context._opcode]
+	;; only rightest 3bit is needed for register selection.
+	and r9b,0b00000111
+	;; you need to shift left 3times considering size of each register.
+	shl r9b,3
+	add r8b,r9b
+	ret
+	
 ;;; this is just a wrapper of get_diff_host_guest_addr
 ;;; which basically calculates diff of host & guest addr.
 
@@ -641,94 +663,3 @@ _get_host_addr_from_guest:
 	pop rbp
 	ret
 	
-;;; jmp instruction
-
-_0x80_jo:
-	call _set_eflags	
-	jo setrip
-	ret
-	
-_0x81_jno:
-	call _set_eflags
-	jno setrip
-	ret
-
-_0x82_jnae:
-	call _set_eflags
-	jnae setrip
-	ret
-
-_0x83_jnc:
-	call _set_eflags
-	jnc setrip
-	ret
-
-_0x84_je:
-	call _set_eflags
-	je setrip
-	ret
-	
-_0x85_jne:
-	call _set_eflags
-	jne setrip
-	ret
-
-_0x86_jna:
-	call _set_eflags
-	jna setrip
-	ret
-
-_0x87_jnbe:
-	call _set_eflags
-	jnbe setrip
-	ret
-
-_0x88_js:
-	call _set_eflags
-	js setrip
-	ret
-
-_0x89_jns:
-	call _set_eflags
-	jns setrip
-	ret
-
-_0x8a_jpe:
-	call _set_eflags
-	jpe setrip
-	ret
-
-_0x8b_jpo:
-	call _set_eflags
-	jpo setrip
-	ret
-
-_0x8c_jnl:
-	call _set_eflags
-	jnl setrip
-	ret
-
-_0x8d_jng:
-	call _set_eflags
-	jng setrip
-	ret
-
-_0x8e_jng:
-	call _set_eflags
-	jng setrip
-	ret
-
-_0x8f_jnle:
-	call _set_eflags
-	jnle setrip
-	ret
-
-_set_eflags:
-	push qword [_eflags]
-	popf
-	ret
-
-setrip:
-	add [_rip],rdi
-	ret
-

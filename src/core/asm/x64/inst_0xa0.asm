@@ -1,4 +1,5 @@
 
+	default rel
 
 	section .text
 	global _0xa0_mov
@@ -18,6 +19,18 @@
 	global _0xae_scasS
 	global _0xaf_scasS
 
+	extern _rip
+	extern _rax
+	extern _rcx
+	extern _rdi
+	extern print
+
+	extern _set_dflag
+	extern _select_reg
+	extern _context._arg1
+	extern _context._arg2
+	extern _store
+	
 _0xa0_mov:
 	ret
 _0xa1_mov:
@@ -41,7 +54,36 @@ _0xa9_test:
 _0xaa_stosS:
 	ret
 _0xab_stosS:
+	push rbp
+	add dword [_rip],1
+	call _set_dflag
+	call _select_reg
+	mov r8,0xab
+	call print
+	mov r8,[_rax]
+	call print
+	mov r8,[_rdi]
+	call print
+	mov r8,[_rcx]
+	
+._done1:
+
+	;; store value
+	mov rax,[_rax]
+	mov rdi,[_rdi]
+	mov [_context._arg1],rdi
+	mov [_context._arg2],rax
+	call _store
+	;; update destination memory
+	add dword [_rdi],0x08
+	;; if rcx is still above 0, go on.
+	sub byte [_rcx],0x01
+	mov rcx,[_rcx]
+	test rcx,rcx
+	jne _0xab_stosS._done1
+	pop rbp	
 	ret
+	
 _0xac_lodsS:
 	ret
 _0xad_lodsS:

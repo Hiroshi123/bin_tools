@@ -63,7 +63,14 @@
 	
 	global _and
 	global _or
+
 	global _xor
+	global _xor8
+	global _xor16
+	global _xor32
+	global _xor64
+	
+	
 	global _cmp
 
 	global _rol
@@ -128,7 +135,7 @@
 	extern _op_shl_base
 
 %include "constant.asm"
-	
+
 ;;; this fetch 8 does not increment instruction pointer aiming for debugging purpose.
 __fetch8:
 	push rbp
@@ -169,7 +176,7 @@ _fetch8:
 	mov [rdx],al
 	add byte [_debug._offset],1
 	;; increment
-	add byte [_rip],1
+	add dword [_rip],1
 	pop rbp
 	ret
 
@@ -186,7 +193,7 @@ _fetch16:
 	mov [rdx],ax
 	add byte [_debug._offset],2
 	;; 
-	add byte [_rip],2
+	add dword [_rip],2
 	pop rbp
 	ret
 
@@ -203,7 +210,7 @@ _fetch32:
 	mov [rdx],eax
 	add byte [_debug._offset],4
 	;; 
-	add byte [_rip],4
+	add dword [_rip],4
 	pop rbp
 	ret
 
@@ -219,9 +226,8 @@ _fetch64:
 	add dl,[_debug._offset]
 	mov [rdx],rax
 	add byte [_debug._offset],8
-	;; 
-
-	add byte [_rip],8
+	;; incrementation
+	add dword [_rip],8
 	pop rbp
 	ret
 
@@ -240,8 +246,6 @@ _load:
 	
 _load8:
 	push rbp
-	mov r8,0x33
-	call print
 	mov qword [_context._res],0x00
 	mov rax,[_context._arg1]
 	call _get_host_addr_from_guest	
@@ -250,11 +254,6 @@ _load8:
 	
 	mov byte [_context._res],dl
 	
-	mov r8,rax
-	call print	
-	
-	mov r8,[_context._res]
-	call print
 	pop rbp
 	ret
 	
@@ -484,8 +483,26 @@ _or:
 	ret
 
 _xor:
+	push rbp
+	mov rax,[_context._arg1]
+	mov rdx,[_context._arg2]
+	xor rax,rdx
+	mov [_context._res],rax
+	pop rbp	
 	ret
-	
+
+_xor8:
+	ret
+
+_xor16:
+	ret
+
+_xor32:
+	ret
+
+_xor64:
+	ret
+
 _cmp:
 	push rbp
 	mov rax,[_context._arg1]	
@@ -510,12 +527,11 @@ _cmp:
 	
 	pop rbp
 	ret
-
+	
 _set_zeroflags:
 	mov qword [_eflags],eflags_zf
 	;; or qword [_eflags],eflags_zf
 	jmp r15
-
 	
 _update_eflags:
 	mov qword [_eflags],0x00
@@ -578,6 +594,7 @@ _shl8:
 	ret
 
 _test:
+	
 	ret
 
 _not:
@@ -623,15 +640,17 @@ _call:
 	mov rdi,[_rip]	
 	mov rsi,[_context._res]	
 	call _find_f_addr
+	
 	mov r8,rax
 	call print
 	
 	;; before adding rax, you need to store rip to be returned on it.
-	mov rdx,[_rip]
-	mov [_rip],rax
+
+	;; mov rdx,[_rip]
+	;; mov [_rip],rax
 	
-	mov [_context._internal_arg1],rdx
-	call _gen_push
+	;; mov [_context._internal_arg1],rdx
+	;; call _gen_push
 	
 	pop rbp
 	

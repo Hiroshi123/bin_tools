@@ -90,8 +90,9 @@ _0xe8_call:
 	mov rax,[_context._arg2]	
 	;; before adding rax, you need to store rip to be returned on it.
 	mov rdx,[_rip]
-	
-	add [_rip],rax
+
+	;; cannot be rax
+	add [_rip],eax
 	
 	mov [_context._internal_arg1],rdx
 	call _gen_push
@@ -117,11 +118,31 @@ _0xea_jmp:
 _0xeb_jmp:
 	push rbp
 	add byte [_rip],1
+	mov qword [_context._res],0
 	call _fetch8
-	mov rax,[_context._res]
-	add [_rip],rax
+	mov rax,0
+	mov al,[_context._res]
+	;; if 8th bit is set,
+	mov dl,al
+	and dl,0b10000000
+	cmp dl,0b10000000
+	je _do_sub
+	mov r8,rax
+	call print
+	add byte [_rip],al
 	pop rbp
 	ret
+
+_do_sub:
+	mov r8,rax
+	call print	
+	neg al
+	mov r8,rax
+	call print
+	sub [_rip],ax
+	pop rbp
+	ret
+
 	
 _0xec_port_io:
 	ret
