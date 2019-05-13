@@ -3,12 +3,20 @@
 
 	section .text
 
-	global _0x00_add
-	global _0x01_add
-	global _0x02_add
-	global _0x03_add
-	global _0x04_add
-	global _0x05_add
+	global _0x10_adc
+	global _0x11_adc
+	global _0x12_adc
+	global _0x13_adc
+	global _0x14_adc
+	global _0x15_adc
+	
+	;; 0x18 sbb
+	global _0x18_sbb
+	global _0x19_sbb
+	global _0x1a_sbb
+	global _0x1b_sbb
+	global _0x1c_sbb
+	global _0x1d_sbb
 	
 	extern _rip
 
@@ -72,7 +80,7 @@
 
 	extern _fetch_displacement_by_mod
 	
-_0x00_add:
+_0x10_adc:
 	push rbp
 	add byte [_rip],1
 	;; scale_index_base	
@@ -98,7 +106,7 @@ _0x00_add:
 	pop rbp
 	ret
 	
-_0x01_add:
+_0x11_adc:
 	push rbp
 	add byte [_rip],1	
 	call _get_mod_reg_rm
@@ -119,16 +127,24 @@ _0x01_add:
 	pop rbp
 	ret
 
-_0x02_add:
+_0x12_adc:
 	ret
-_0x03_add:
+_0x13_adc:
 	ret
-_0x04_add:
+_0x14_adc:
 	ret
-_0x05_add:
-	ret
-
-_0x08_sub:
+_0x15_adc:
 	ret
 
-	
+_0x18_sbb:
+	ret
+_0x19_sbb:
+	ret
+_0x1a_sbb:
+	ret
+_0x1b_sbb:
+	ret
+_0x1c_sbb:
+	ret
+_0x1d_sbb:
+	ret

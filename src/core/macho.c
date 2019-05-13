@@ -1,5 +1,7 @@
 
 #include "macho.h"
+#include "memory.h"
+
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,13 +11,19 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
+uint32_t GUEST_UPPER_UPPER32;
+
 const char check_macho(const uint32_t* p) {
   return *p == MH_MAGIC_64;
 }
 
 // what it does is just copying data from A to B.
 
-void read_macho (void* ss, info_on_macho* macho) {
+void map_lc_segment64() {
+  
+}
+
+void read_macho (void* ss, info_on_macho* macho, uint8_t do_map) {
   
   _mach_header_64* mh = (_mach_header_64 *)ss;  
   /* printf("%d:%d:%d\n",mh->filetype, mh->ncmds,mh->sizeofcmds);   */
@@ -24,7 +32,7 @@ void read_macho (void* ss, info_on_macho* macho) {
   }
   // now load_command will be started from here.
   _load_command* p = (_load_command*)(mh+1);
-  char c = 0;  
+  uint8_t c = 0;
   _segment_command_64* seg;
   _section_64* sec;
   uint32_t nsyms;
@@ -34,12 +42,12 @@ void read_macho (void* ss, info_on_macho* macho) {
   // you are not able to set the final pointer that you should
   // reach at the end of the loop.
   for (;c<mh->ncmds;c++,p = (_load_command*)((char*)p + p->cmdsize)) {
-#ifdef DEBUG  
+#ifdef DEBUG
     printf("load_commands:%u,%d\n",p->cmd, p->cmdsize);
 #endif
     // after detecting kinds of the load command, you need to cast
     // the pointer of the load commands to the each specific commands,
-    switch (p->cmd) {
+    switch (p->cmd) {      
     case LC_SYMTAB: {
       _symtab_command* _sym1 = (_symtab_command *)p;
 #ifdef DEBUG
@@ -65,15 +73,45 @@ void read_macho (void* ss, info_on_macho* macho) {
     }
     case LC_SEGMENT_64: {
       seg = (_segment_command_64*)p;
+
+      // page zero seems to be set as the beginning of section intending setting the
+      // offset of virtual address.
+      // This mapping should be seperated from normal mapping as its range is large and
+      // initialize as 0.
+      if (do_map && !strcmp(seg->segname,"__PAGEZERO")) {
+	GUEST_UPPER_UPPER32 = seg->vmaddr + seg->filesize;
+	if (0xffffffff & seg->vmaddr) {
+	  fprintf(stderr, "address is starting from non zero\n");
+	}
+      } else if (do_map && !strcmp(seg->segname,"__TEXT")) {
+	uint32_t guest_addr = seg->vmaddr - GUEST_UPPER_UPPER32;
+	uint32_t map_size = ((seg->filesize + 0x1000) & 0xfffff000);
+	uint32_t flags = 0; // tmp maxprot(initprot) should be fed here.
+	uint64_t name_or_parent_addr;
+	heap* h = guest_mmap
+	  (guest_addr, map_size, flags, name_or_parent_addr);
+	memcpy(h->begin,(size_t)mh + seg->fileoff,seg->filesize);
+	
+      } else if (do_map && !strcmp(seg->segname,"__LINKEDIT")) {
+	uint32_t guest_addr = seg->vmaddr - GUEST_UPPER_UPPER32;
+	uint32_t map_size = ((seg->filesize + 0x1000) & 0xfffff000);
+	uint32_t flags = 0; // tmp maxprot(initprot) should be fed here.
+	uint64_t name_or_parent_addr;
+	heap* h = guest_mmap
+	  (guest_addr, map_size, flags, name_or_parent_addr);	
+	memcpy(h->begin,(size_t)mh + seg->fileoff,seg->filesize);
+      }
+      
       _section_64* sec_begin = (_section_64*)(seg+1);
-      _section_64* sec_end = (_section_64*)((size_t)sec_begin + seg->nsects * sizeof(_section_64));      
-      for (sec=sec_begin;sec!=sec_end;sec++) {
-	if (!strcmp(sec->sectname,"__text")) {
+      _section_64* sec_end = (_section_64*)((size_t)sec_begin + seg->nsects * sizeof(_section_64));
+      
+      for (sec=sec_begin;sec!=sec_end;sec++) {	
+        if (!strcmp(sec->sectname,"__text")) {
 	  macho->text_begin = (size_t)mh + sec->offset;
 	  macho->text_end = (size_t)macho->text_begin+sec->size;
 	  // relocation information needs to be retrived.
 	  macho->reloff = (size_t)mh + sec->reloff;
-	  macho->nreloc = sec->nreloc;	  
+	  macho->nreloc = sec->nreloc;
 	}
 	// this is stubs section which behaves procedure linkage table on elf format.	  
 	if (sec->flags && (S_SYMBOL_STUBS || S_ATTR_SOME_INSTRUCTIONS) ==
@@ -91,13 +129,22 @@ void read_macho (void* ss, info_on_macho* macho) {
       break;
     }
     case LC_DYLD_INFO_ONLY:
+      // this is the load command where export symbols are defined.
       break;
     case LC_LOAD_DYLINKER:
       break;
     case LC_LOAD_DYLIB:
       break;
-    case LC_MAIN:
+    case LC_MAIN:{
+      struct entry_point_command* entry_cmd = (struct entry_point_command*)p;
+      macho->entry = (uint32_t) (0xffffffff & entry_cmd->entryoff);
+      macho->stacksize = (uint32_t) (0xffffffff & entry_cmd->stacksize);
       break;
+    }
+    case LC_FUNCTION_STARTS:
+      break;
+    case LC_DATA_IN_CODE:
+      break;      
     case LC_VERSION_MIN_MACOSX:
       break;
     }

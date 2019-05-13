@@ -2,7 +2,9 @@
 #include "pe.h"
 #include "memory.h"
 #include "objformat.h"
+#include "macro.h"
 #include <stdlib.h>
+
 
 // this must be set as 32bit as always guest address is represented as 32bit.
 static uint32_t CURRENT_MODULE_TAIL;
@@ -435,8 +437,9 @@ p_host get_image_directory_head(p_host head) {
 }
 
 // you need to provide a guest address which tells you if it is within current IAT.
-char _check_on_iat(p_guest rip, p_guest query) {
-  
+
+char EXPORT(check_on_iat)
+  (p_guest rip, p_guest query) {
   // get actual value of virtual address of import section on host address
   p_host* v_addr;
   heap* h = get_parent_heap_from_guest(rip);  
@@ -478,8 +481,9 @@ p_host get_dll_name(p_guest v_addr, p_host idata_section, p_host f_name) {
   return NULL;//f_name;
 }
 
-p_host _find_f_addr(p_guest rip, p_guest query) {
-
+p_host  EXPORT(find_f_addr)
+(p_guest rip, p_guest query) {
+  
   p_host* v_addr;
   heap* h1 = get_parent_heap_from_guest(rip);  
   p_host ide = get_image_directory_head(h1->begin);

@@ -28,7 +28,7 @@
 	global _set_base_reg
 	global _select_reg
 	
-	extern get_diff_host_guest_addr
+	extern _get_diff_host_guest_addr
 	
 	extern _opcode_table
 	extern _debug._offset
@@ -658,7 +658,7 @@ _get_host_addr_from_guest:
 	push rbp
 	mov [_context._internal_arg1],rax
 	mov rdi,rax
-	call get_diff_host_guest_addr
+	call _get_diff_host_guest_addr
 	add rax,[_context._internal_arg1]
 	pop rbp
 	ret

@@ -1,7 +1,8 @@
 
-
+#include "macro.h"
 #include "memory.h"
 #include "pe.h"
+#include "macho.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -16,60 +17,38 @@ heap *HEAP_HEADER_ADDR_P;
 heap *HEAP_HEADER_ADDR_TAIL;
 size_t PAGE_SIZE;
 
-extern uint64_t _rax;
-extern uint64_t _rcx;
-extern uint64_t _rdx;
-extern uint64_t _rbx;
-extern uint64_t _rsp;
-extern uint64_t _rbp;
-extern uint64_t _rsi;
-extern uint64_t _rdi;
-extern uint64_t _r8;
-extern uint64_t _r9;
-extern uint64_t _r10;
-extern uint64_t _r11;
-extern uint64_t _r12;
-extern uint64_t _r13;
-extern uint64_t _r14;
-extern uint64_t _r15;
-extern uint64_t _eflags;
-extern uint64_t _rip;
+extern uint64_t EXPORT(rax);
+extern uint64_t EXPORT(rcx);
+extern uint64_t EXPORT(rdx);
+extern uint64_t EXPORT(rbx);
+extern uint64_t EXPORT(rsp);
+extern uint64_t EXPORT(rbp);
+extern uint64_t EXPORT(rsi);
+extern uint64_t EXPORT(rdi);
+extern uint64_t EXPORT(r8);
+extern uint64_t EXPORT(r9);
+extern uint64_t EXPORT(r10);
+extern uint64_t EXPORT(r11);
+extern uint64_t EXPORT(r12);
+extern uint64_t EXPORT(r13);
+extern uint64_t EXPORT(r14);
+extern uint64_t EXPORT(r15);
+extern uint64_t EXPORT(eflags);
+extern uint64_t EXPORT(rip);
 
-extern void* _0x00_add;
-extern void* _0x01_add;
-extern void* _0x02_add;
-extern void* _0x03_add;
-extern void* _0x04_add;
-
-extern void* _0x48_set_rex;
-extern void* _0x55_push;
-extern void* _0x89_mov;
-
-extern void* _0xc3_ret;
-
-extern void* _0xe6_port_io;
-extern void* _0xe7_port_io;
-extern void* _0xe8_call;
-extern void* _0xff_op;
 
 extern void _hello_world();
-extern void _initialize_v_regs();
-extern void _set_rsp(void*);
-extern void _set_rip(void*);
+extern void EXPORT(_initialize_v_regs());
+extern void EXPORT(_set_rsp(void*));
+extern void EXPORT(_set_rip(void*));
 
-extern void* _get_rip();
-extern void* _get_rsp();
+/* extern void* _get_rip(); */
+/* extern void* _get_rsp(); */
 
-extern void _exec_one();
-extern void* _get_host_rsp();
-extern void* _get_host_rax();
+extern void EXPORT(exec_one());
 
 extern uint64_t* _opcode_table;
 
-void __f1() {
-  void* a = _get_host_rsp();
-  printf("%x\n",a);
-}
 
 void __f2() {
 
@@ -90,26 +69,25 @@ void print_memory(void* guest_addr) {
 
 void print_regs() {
 
-  printf("[rax]:%x,",_rax);
-  printf("[rcx]:%x,",_rcx);
-  printf("[rdx]:%x,",_rdx);
-  printf("[rbx]:%x,",_rbx);
-  printf("[rdi]:%x,",_rdi);
-  printf("[rsi]:%x\n",_rsi);
+  printf("[rax]:%x,",EXPORT(rax));
+  printf("[rcx]:%x,",EXPORT(rcx));
+  printf("[rdx]:%x,",EXPORT(rdx));
+  printf("[rbx]:%x,",EXPORT(rbx));
+  printf("[rdi]:%x,",EXPORT(rdi));
+  printf("[rsi]:%x\n",EXPORT(rsi));
 
-  printf("[r8]:%x,",_r8);
-  printf("[r9]:%x,",_r9);
-  printf("[r10]:%x,",_r10);
-  printf("[r11]:%x,",_r11);
-  printf("[r12]:%x,",_r12);
-  printf("[r13]:%x,",_r13);
-  printf("[r14]:%x,",_r14);
-  printf("[r15]:%x\n",_r15);
+  printf("[r8]:%x,",EXPORT(r8));
+  printf("[r9]:%x,",EXPORT(r9));
+  printf("[r10]:%x,",EXPORT(r10));
+  printf("[r11]:%x,",EXPORT(r11));
+  printf("[r12]:%x,",EXPORT(r12));
+  printf("[r13]:%x,",EXPORT(r13));
+  printf("[r14]:%x,",EXPORT(r14));
+  printf("[r15]:%x\n",EXPORT(r15));
   
-  
-  printf("[rbp]:%x\n",_rbp);    
-  printf("[rsp]:%x\n",_rsp);
-  printf("[rip]:%x\n",_rip);
+  printf("[rbp]:%x\n",EXPORT(rbp));    
+  printf("[rsp]:%x\n",EXPORT(rsp));
+  printf("[rip]:%x\n",EXPORT(rip));
   
 }
 
@@ -118,7 +96,7 @@ heap* stack_map(void* stack_addr) {
   // stack Reserved
   void* stack_head = (uint64_t)stack_addr & 0xfffff000;
   uint32_t map_size = ((0 + 0x1000) & 0xfffff000);  
-  heap* h = guest_mmap(stack_head, map_size); 
+  heap* h = guest_mmap(stack_head, map_size, 0, 0); 
   return h;
 }
 
@@ -138,26 +116,30 @@ int main(int argc,char** argv) {
   printf("%x,%x,%d\n",p, *p,a);
   printf("%d,%x\n",h->page_num,h->begin);
   uint32_t start_addr;
-
-  start_addr = load_pe(p);
+  if (a == 2) {
+    info_on_macho i;
+    read_macho(h->begin,&i, 1);
+    start_addr = i.entry;
+  }
+  
   void* stack_addr = 0x7ffffff8;
   stack_map(stack_addr);
-  _hello_world();
-  _initialize_v_regs();
+  EXPORT(hello_world());
+  EXPORT(initialize_v_regs());
   // guest address is set.
-  _set_rsp(stack_addr);
-  _set_rip(start_addr);
+  EXPORT(set_rsp(stack_addr));
+  EXPORT(set_rip(start_addr));
   
   printf("intial--------------\n");  
   print_regs();
   int count = 0;
-  for (;count < 6;count++) {
+  for (;count < 1;count++) {
     
-    _exec_one();
+    EXPORT(exec_one());
     printf("--------------%d.--------------\n",count);
     print_regs();
     printf("-------------stack-------------:\n");
-    uint64_t* p = _rsp;
+    uint64_t* p = EXPORT(rsp);
     for (;p<=stack_addr;p++) {
       print_memory(p);
     }
@@ -165,3 +147,4 @@ int main(int argc,char** argv) {
   }
   
 }
+

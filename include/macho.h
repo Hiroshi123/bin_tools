@@ -33,20 +33,26 @@
  * <mach/machine.h> is needed here for the cpu_type_t and cpu_subtype_t types
  * and contains the constants for the possible values of these types.
  */
-#include <mach/machine.h>
+/* #include <mach/machine.h> */
+
+/* typedef integer_t cpu_type_t; */
+/* typedef integer_t cpu_subtype_t; */
+
+typedef uint32_t cpu_type_t;
+typedef uint32_t cpu_subtype_t;
 
 /*
  * <mach/vm_prot.h> is needed here for the vm_prot_t type and contains the 
  * constants that are or'ed together for the possible values of this type.
  */
-#include <mach/vm_prot.h>
+/* #include <mach/vm_prot.h> */
 
 /*
  * <machine/thread_status.h> is expected to define the flavors of the thread
  * states and the structures of those flavors for each machine.
  */
-#include <mach/machine/thread_status.h>
-#include <architecture/byte_order.h>
+/* #include <mach/machine/thread_status.h> */
+/* #include <architecture/byte_order.h> */
 
 /*
  * The 32-bit mach header appears at the very beginning of the object file for
@@ -338,6 +344,9 @@ union lc_str {
  * section structures directly follow the segment command and their size is
  * reflected in cmdsize.
  */
+
+typedef int vm_prot_t;
+
 struct segment_command { /* for 32-bit architectures */
 	uint32_t	cmd;		/* LC_SEGMENT */
 	uint32_t	cmdsize;	/* includes sizeof section structs */
@@ -1610,6 +1619,12 @@ typedef struct {
   // finally string table.
   const char* str_begin;
   const char* str_end;
+
+  uint32_t entry;
+  uint32_t stacksize;
+
+  uint32_t dataoff;
+  uint32_t function_start;
   
 } info_on_macho;
 

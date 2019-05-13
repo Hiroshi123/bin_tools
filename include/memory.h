@@ -24,7 +24,7 @@ typedef struct __attribute__((__packed__)) {
   union {
     uint64_t name_addr;
     uint64_t parent_addr;
-  }
+  };
 } heap;
 
 heap* init_map_file(const char *const fname);

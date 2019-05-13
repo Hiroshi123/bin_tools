@@ -9,6 +9,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
+#include "macro.h"
 #include "memory.h"
 
 // static char COUNT = 0;
@@ -130,7 +131,8 @@ heap* guest_mmap(void* guest_addr, uint32_t map_size, uint32_t flags, uint64_t n
   
 }
 
-void* get_diff_host_guest_addr(void* guest_addr) {
+void* EXPORT(get_diff_host_guest_addr)
+  (void* guest_addr) {
 
   heap* h = HEAP_HEADER_ADDR_HEAD;
   heap* h_end = HEAP_HEADER_ADDR_P;
@@ -200,7 +202,7 @@ void get_host_head(void* guest_addr, void** host_head_addr) {
       }
     }
   }
-  return NULL;
+  return;
 }
 
 void get_host_head_from_host(void* host_addr, void** host_head_addr) {
