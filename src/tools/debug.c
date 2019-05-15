@@ -1,6 +1,7 @@
 
 #include "macro.h"
 #include "memory.h"
+#include "elf.h"
 #include "pe.h"
 #include "macho.h"
 #include "objformat.h"
@@ -48,12 +49,7 @@ extern void EXPORT(_set_rip(void*));
 extern void EXPORT(exec_one());
 
 extern uint64_t* _opcode_table;
-extern uint8_t _debug;
-
-void __f2() {
-
-
-}
+extern uint8_t EXPORT(debug);
 
 void print_memory(void* guest_addr) {
 
@@ -69,8 +65,8 @@ void print_memory(void* guest_addr) {
 
 void print_inst() {
   printf("[instruction] : ");
-  uint8_t* p = &_debug;
-  uint8_t* s = (uint8_t*)(&_debug + 0x10);
+  uint8_t* p = &EXPORT(debug);
+  uint8_t* s = (uint8_t*)(&EXPORT(debug) + 0x10);
   uint8_t* e = p + *s - 1;
   for (;p<e;p++) printf("%x,",*p);  
   printf("%x\n",*p);
@@ -124,7 +120,10 @@ int main(int argc,char** argv) {
   uint8_t* p = (uint8_t*)h->begin;
   enum OBJECT_FORMAT o = detect_format(p);
   uint32_t start_addr;
-  if (o == MACHO) {
+  if (o == ELF) {
+    info_on_elf e1;
+    read_elf(h->begin,&e1);
+  } else if (o == MACHO) {
     info_on_macho i;
     read_macho(h->begin,&i, 1);
     start_addr = i.entry;
