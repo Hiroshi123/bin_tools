@@ -3,6 +3,7 @@
 #include "memory.h"
 #include "pe.h"
 #include "macho.h"
+#include "objformat.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -36,7 +37,6 @@ extern uint64_t EXPORT(r15);
 extern uint64_t EXPORT(eflags);
 extern uint64_t EXPORT(rip);
 
-
 extern void _hello_world();
 extern void EXPORT(_initialize_v_regs());
 extern void EXPORT(_set_rsp(void*));
@@ -48,7 +48,7 @@ extern void EXPORT(_set_rip(void*));
 extern void EXPORT(exec_one());
 
 extern uint64_t* _opcode_table;
-
+extern uint8_t _debug;
 
 void __f2() {
 
@@ -57,7 +57,7 @@ void __f2() {
 
 void print_memory(void* guest_addr) {
 
-  uint64_t diff = get_diff_host_guest_addr(guest_addr);
+  uint64_t diff = EXPORT(get_diff_host_guest_addr(guest_addr));
   uint8_t* host_addr = (uint8_t*)((uint64_t)guest_addr + diff);  
   printf("%x(%x),0x",guest_addr,host_addr);
   uint8_t* end = host_addr + 8;
@@ -65,6 +65,16 @@ void print_memory(void* guest_addr) {
     printf("%02x",*host_addr);
   }
   printf("\n");
+}
+
+void print_inst() {
+  printf("[instruction] : ");
+  uint8_t* p = &_debug;
+  uint8_t* s = (uint8_t*)(&_debug + 0x10);
+  uint8_t* e = p + *s - 1;
+  for (;p<e;p++) printf("%x,",*p);  
+  printf("%x\n",*p);
+  *s = 0;
 }
 
 void print_regs() {
@@ -112,14 +122,16 @@ int main(int argc,char** argv) {
   
   heap * h = init_map_file(argv[1]);
   uint8_t* p = (uint8_t*)h->begin;
-  uint8_t a = detect_format(p);
-  printf("%x,%x,%d\n",p, *p,a);
-  printf("%d,%x\n",h->page_num,h->begin);
+  enum OBJECT_FORMAT o = detect_format(p);
   uint32_t start_addr;
-  if (a == 2) {
+  if (o == MACHO) {
     info_on_macho i;
     read_macho(h->begin,&i, 1);
     start_addr = i.entry;
+  } else if(o == PE) {
+    start_addr = load_pe(h->begin);
+  } else {
+    fprintf(stderr,"format error\n");
   }
   
   void* stack_addr = 0x7ffffff8;
@@ -131,13 +143,14 @@ int main(int argc,char** argv) {
   EXPORT(set_rip(start_addr));
   
   printf("intial--------------\n");  
-  print_regs();
+  print_regs();  
   int count = 0;
   for (;count < 1;count++) {
     
     EXPORT(exec_one());
     printf("--------------%d.--------------\n",count);
     print_regs();
+    print_inst();
     printf("-------------stack-------------:\n");
     uint64_t* p = EXPORT(rsp);
     for (;p<=stack_addr;p++) {

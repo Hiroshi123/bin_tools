@@ -2,9 +2,7 @@
 #include "pe.h"
 #include "memory.h"
 #include "objformat.h"
-#include "macro.h"
 #include <stdlib.h>
-
 
 // this must be set as 32bit as always guest address is represented as 32bit.
 static uint32_t CURRENT_MODULE_TAIL;
@@ -16,38 +14,7 @@ const char check_pe(const uint16_t* p) {
   return *p == 0x5a4d;
 }
 
-uint64_t map_pe32(IMAGE_DOS_HEADER* p_dos_header, void* image_base, uint64_t dll_name_addr) {
-  
-  IMAGE_NT_HEADERS32* nt_header32 = (IMAGE_NT_HEADERS32*)((uint8_t*)p_dos_header + p_dos_header->e_lfanew);
-  printf("!%x,%d\n",&nt_header32->OptionalHeader.Magic,sizeof(nt_header32));
-  return 0;
-}
-
-uint64_t map_pe64(IMAGE_DOS_HEADER* p_dos_header, void* image_base, uint64_t dll_name_addr) {
-  
-  IMAGE_NT_HEADERS64* nt_header = (IMAGE_NT_HEADERS64*)((uint8_t*)p_dos_header + p_dos_header->e_lfanew);
-  if (!image_base) {
-    image_base = nt_header->OptionalHeader.ImageBase;
-  }
-#ifndef DEBUG
-  printf("--------------------------------------------------------\n");
-  printf("number of sections: %d\n", nt_header->FileHeader.NumberOfSections);
-  printf("number of symbols: %d\n", nt_header->FileHeader.NumberOfSymbols);  
-  printf("base of code: 0x%x\n", nt_header->OptionalHeader.BaseOfCode);
-  printf("size of code: 0x%x\n", nt_header->OptionalHeader.SizeOfCode);
-  printf("address of entry point: %x\n" ,nt_header->OptionalHeader.AddressOfEntryPoint);
-  printf("size of initialized data:%d\n", nt_header->OptionalHeader.SizeOfUninitializedData);
-  printf("size of image:%d\n", nt_header->OptionalHeader.SizeOfImage);
-  uint8_t data_directory_num = 0;  
-  for (;data_directory_num<16;data_directory_num++) {
-    printf("---------------Optional Header-------------------\n");
-    printf("%d,VirtualAddress:%x\tSize:%d\n",
-	   data_directory_num,
-	   nt_header->OptionalHeader.DataDirectory[data_directory_num].VirtualAddress,
-	   nt_header->OptionalHeader.DataDirectory[data_directory_num].Size);
-  }
-#endif
-  
+uint64_t map_pe(p_guest section_head, p_guest image_base, uint64_t dll_name_addr) {
   IMAGE_SECTION_HEADER* s = (IMAGE_SECTION_HEADER*)(nt_header + 1);
   heap* h1;
   uint32_t map_size = ((0 + 0x1000) & 0xfffff000);
@@ -106,6 +73,61 @@ uint64_t map_pe64(IMAGE_DOS_HEADER* p_dos_header, void* image_base, uint64_t dll
   return (uint64_t) image_base;
 }
 
+p_guest retrive_nt_header_32(IMAGE_DOS_HEADER* p_dos_header, p_guest* image_base) {
+
+  IMAGE_NT_HEADERS32* nt_header = (IMAGE_NT_HEADERS32*)((uint8_t*)p_dos_header + p_dos_header->e_lfanew);
+  if (!image_base) {
+    image_base = nt_header->OptionalHeader.ImageBase;
+  }
+#ifndef DEBUG
+  printf("--------------------------------------------------------\n");
+  printf("number of sections: %d\n", nt_header->FileHeader.NumberOfSections);
+  printf("number of symbols: %d\n", nt_header->FileHeader.NumberOfSymbols);  
+  printf("base of code: 0x%x\n", nt_header->OptionalHeader.BaseOfCode);
+  printf("size of code: 0x%x\n", nt_header->OptionalHeader.SizeOfCode);
+  printf("address of entry point: %x\n" ,nt_header->OptionalHeader.AddressOfEntryPoint);
+  printf("size of initialized data:%d\n", nt_header->OptionalHeader.SizeOfUninitializedData);
+  printf("size of image:%d\n", nt_header->OptionalHeader.SizeOfImage);
+  uint8_t data_directory_num = 0;
+  for (;data_directory_num<16;data_directory_num++) {
+    printf("---------------Optional Header-------------------\n");
+    printf("%d,VirtualAddress:%x\tSize:%d\n",
+	   data_directory_num,
+	   nt_header->OptionalHeader.DataDirectory[data_directory_num].VirtualAddress,
+	   nt_header->OptionalHeader.DataDirectory[data_directory_num].Size);
+  }
+#endif
+  // should return section head of guest address.
+  return nt_header+1;
+}
+
+p_guest retrive_nt_header_64(IMAGE_DOS_HEADER* p_dos_header, p_guest* image_base) {
+  
+  IMAGE_NT_HEADERS64* nt_header = (IMAGE_NT_HEADERS64*)((uint8_t*)p_dos_header + p_dos_header->e_lfanew);
+  if (!image_base) {
+    image_base = nt_header->OptionalHeader.ImageBase;
+  }
+#ifndef DEBUG
+  printf("--------------------------------------------------------\n");
+  printf("number of sections: %d\n", nt_header->FileHeader.NumberOfSections);
+  printf("number of symbols: %d\n", nt_header->FileHeader.NumberOfSymbols);  
+  printf("base of code: 0x%x\n", nt_header->OptionalHeader.BaseOfCode);
+  printf("size of code: 0x%x\n", nt_header->OptionalHeader.SizeOfCode);
+  printf("address of entry point: %x\n" ,nt_header->OptionalHeader.AddressOfEntryPoint);
+  printf("size of initialized data:%d\n", nt_header->OptionalHeader.SizeOfUninitializedData);
+  printf("size of image:%d\n", nt_header->OptionalHeader.SizeOfImage);
+  uint8_t data_directory_num = 0;
+  for (;data_directory_num<16;data_directory_num++) {
+    printf("---------------Optional Header-------------------\n");
+    printf("%d,VirtualAddress:%x\tSize:%d\n",
+	   data_directory_num,
+	   nt_header->OptionalHeader.DataDirectory[data_directory_num].VirtualAddress,
+	   nt_header->OptionalHeader.DataDirectory[data_directory_num].Size);
+  }
+#endif
+  return nt_header+1;
+}
+
 // look for edata section from subject image base.
 // [image base] -> guest(or host) of edata section, VirtualAddress
 
@@ -121,13 +143,15 @@ void* map_pe_for_check_export
   IMAGE_DOS_HEADER* dos_header = (IMAGE_DOS_HEADER*)head;
   uint16_t lfanew = dos_header->e_lfanew;
   uint16_t* v = (uint16_t*)((uint8_t*)dos_header + dos_header->e_lfanew + 0x18);
-  uint64_t guest_image_base;
+  p_guest guest_image_base;
   void** vv;
   nt_header v_;
   void* guest_export_addr;
+  p_guest section_head;
   uint64_t next_map = ((CURRENT_MODULE_TAIL + 0x1000) & 0xfffff000);    
   if (*v == 0x10b) {
-    guest_image_base = map_pe32(dos_header, next_map, dll_name_addr);
+    section_head = retrive_nt_header_32(dos_header, &guest_image_base);
+    map_pe(section_head, guest_image_base, dll_name_addr);
     get_diff_host_guest_addr_(guest_image_base, &vv);
     v_.nt_header32 = (IMAGE_NT_HEADERS32*)((uint8_t*)v - 0x18);
     guest_export_addr =
@@ -137,7 +161,8 @@ void* map_pe_for_check_export
     *image_base = guest_image_base;
 
   } else if (*v == 0x20b) {
-    guest_image_base = map_pe64(dos_header, next_map, dll_name_addr);
+    section_head = retrive_nt_header_64(dos_header, &guest_image_base);
+    map_pe(section_head, guest_image_base, dll_name_addr);
     get_diff_host_guest_addr_(guest_image_base, &vv);
     v_.nt_header64 = (IMAGE_NT_HEADERS64*)((uint8_t*)vv + lfanew);
     guest_export_addr =
@@ -437,9 +462,8 @@ p_host get_image_directory_head(p_host head) {
 }
 
 // you need to provide a guest address which tells you if it is within current IAT.
-
-char EXPORT(check_on_iat)
-  (p_guest rip, p_guest query) {
+char _check_on_iat(p_guest rip, p_guest query) {
+  
   // get actual value of virtual address of import section on host address
   p_host* v_addr;
   heap* h = get_parent_heap_from_guest(rip);  
@@ -481,9 +505,8 @@ p_host get_dll_name(p_guest v_addr, p_host idata_section, p_host f_name) {
   return NULL;//f_name;
 }
 
-p_host  EXPORT(find_f_addr)
-(p_guest rip, p_guest query) {
-  
+p_host _find_f_addr(p_guest rip, p_guest query) {
+
   p_host* v_addr;
   heap* h1 = get_parent_heap_from_guest(rip);  
   p_host ide = get_image_directory_head(h1->begin);

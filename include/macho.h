@@ -1628,4 +1628,5 @@ typedef struct {
   
 } info_on_macho;
 
+const char check_macho(const uint32_t* p);
 
