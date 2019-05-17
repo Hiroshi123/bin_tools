@@ -14,16 +14,23 @@ const char check_pe(const uint16_t* p) {
   return *p == 0x5a4d;
 }
 
-uint64_t map_pe(p_guest section_head, p_guest image_base, uint64_t dll_name_addr) {
-  IMAGE_SECTION_HEADER* s = (IMAGE_SECTION_HEADER*)(nt_header + 1);
+uint64_t map_pe
+(
+ p_host p_dos_header, p_host section_head, uint32_t section_num,
+ p_guest image_base, uint64_t dll_name_addr) {
+  IMAGE_SECTION_HEADER* s = (IMAGE_SECTION_HEADER*)section_head;
   heap* h1;
   uint32_t map_size = ((0 + 0x1000) & 0xfffff000);
   h1 = guest_mmap(image_base,map_size,1,dll_name_addr);
+  printf("a:%lx,%lx,%lx\n",h1->begin,p_dos_header,s);
+  uint32_t len = (uint32_t)s - (uint32_t)p_dos_header;
   memcpy
     (h1->begin,
      p_dos_header,
-     (uint64_t)s - (uint64_t)p_dos_header
+     len
      );
+  printf("b:%lx,%d\n",s,section_num);
+
 #ifndef DEBUG
   printf("---------------image section-------------------\n");
   printf("characteristics:%x\n", s->Characteristics);
@@ -33,11 +40,9 @@ uint64_t map_pe(p_guest section_head, p_guest image_base, uint64_t dll_name_addr
   printf("-----------------------------------------------\n");
   
 #endif
-  // mmap section header.
-  int sec_num = nt_header->FileHeader.NumberOfSections;
-  IMAGE_SECTION_HEADER* end = s + sec_num;
+  IMAGE_SECTION_HEADER* section_end = s + section_num;
   heap* h2;
-  for (;s<end;s++) {
+  for (;s<section_end;s++) {
     map_size = ((s->SizeOfRawData + 0x1000) & 0xfffff000);
     // guest map also have to have some flags...
     h2 = guest_mmap(image_base + s->VirtualAddress, map_size ,0 ,h1 );
@@ -45,6 +50,7 @@ uint64_t map_pe(p_guest section_head, p_guest image_base, uint64_t dll_name_addr
       (h2->begin,
        (uint8_t*)p_dos_header + s->PointerToRawData,
        s->SizeOfRawData);
+    printf("c\n");
     if (image_base + s->VirtualAddress + s->SizeOfRawData
 	> CURRENT_MODULE_TAIL) {
       CURRENT_MODULE_TAIL = image_base + s->VirtualAddress +
@@ -73,12 +79,15 @@ uint64_t map_pe(p_guest section_head, p_guest image_base, uint64_t dll_name_addr
   return (uint64_t) image_base;
 }
 
-p_guest retrive_nt_header_32(IMAGE_DOS_HEADER* p_dos_header, p_guest* image_base) {
+p_host retrive_nt_header_32(IMAGE_DOS_HEADER* p_dos_header, p_guest* image_base, uint32_t* sec_num) {
 
   IMAGE_NT_HEADERS32* nt_header = (IMAGE_NT_HEADERS32*)((uint8_t*)p_dos_header + p_dos_header->e_lfanew);
   if (!image_base) {
     image_base = nt_header->OptionalHeader.ImageBase;
   }
+  // mmap section header.
+  *sec_num = nt_header->FileHeader.NumberOfSections;
+  
 #ifndef DEBUG
   printf("--------------------------------------------------------\n");
   printf("number of sections: %d\n", nt_header->FileHeader.NumberOfSections);
@@ -101,12 +110,17 @@ p_guest retrive_nt_header_32(IMAGE_DOS_HEADER* p_dos_header, p_guest* image_base
   return nt_header+1;
 }
 
-p_guest retrive_nt_header_64(IMAGE_DOS_HEADER* p_dos_header, p_guest* image_base) {
+p_host retrive_nt_header_64(IMAGE_DOS_HEADER* p_dos_header, p_guest* image_base, uint32_t* sec_num) {
   
   IMAGE_NT_HEADERS64* nt_header = (IMAGE_NT_HEADERS64*)((uint8_t*)p_dos_header + p_dos_header->e_lfanew);
-  if (!image_base) {
-    image_base = nt_header->OptionalHeader.ImageBase;
+  if (image_base) {
+    *image_base = nt_header->OptionalHeader.ImageBase;
   }
+  
+  *sec_num = nt_header->FileHeader.NumberOfSections;
+  printf("aaa\n");
+  /* *section_head = (nt_header+1); */
+  printf("aaa\n");
 #ifndef DEBUG
   printf("--------------------------------------------------------\n");
   printf("number of sections: %d\n", nt_header->FileHeader.NumberOfSections);
@@ -125,7 +139,8 @@ p_guest retrive_nt_header_64(IMAGE_DOS_HEADER* p_dos_header, p_guest* image_base
 	   nt_header->OptionalHeader.DataDirectory[data_directory_num].Size);
   }
 #endif
-  return nt_header+1;
+  printf("!%lx\n",nt_header+1);
+  return nt_header+1;//nt_header->OptionalHeader.ImageBase;
 }
 
 // look for edata section from subject image base.
@@ -143,16 +158,18 @@ void* map_pe_for_check_export
   IMAGE_DOS_HEADER* dos_header = (IMAGE_DOS_HEADER*)head;
   uint16_t lfanew = dos_header->e_lfanew;
   uint16_t* v = (uint16_t*)((uint8_t*)dos_header + dos_header->e_lfanew + 0x18);
-  p_guest guest_image_base;
-  void** vv;
+  
+  void** host_image_base;
   nt_header v_;
   void* guest_export_addr;
-  p_guest section_head;
-  uint64_t next_map = ((CURRENT_MODULE_TAIL + 0x1000) & 0xfffff000);    
+  p_host section_head = 0;
+  uint32_t sec_num;
+  p_guest guest_image_base = ((CURRENT_MODULE_TAIL + 0x1000) & 0xfffff000);    
+
   if (*v == 0x10b) {
-    section_head = retrive_nt_header_32(dos_header, &guest_image_base);
-    map_pe(section_head, guest_image_base, dll_name_addr);
-    get_diff_host_guest_addr_(guest_image_base, &vv);
+    section_head = retrive_nt_header_32(dos_header, NULL, &sec_num);
+    map_pe(dos_header, section_head, sec_num, guest_image_base, dll_name_addr);
+    get_diff_host_guest_addr_(guest_image_base, &host_image_base);
     v_.nt_header32 = (IMAGE_NT_HEADERS32*)((uint8_t*)v - 0x18);
     guest_export_addr =
       guest_image_base
@@ -161,10 +178,10 @@ void* map_pe_for_check_export
     *image_base = guest_image_base;
 
   } else if (*v == 0x20b) {
-    section_head = retrive_nt_header_64(dos_header, &guest_image_base);
-    map_pe(section_head, guest_image_base, dll_name_addr);
-    get_diff_host_guest_addr_(guest_image_base, &vv);
-    v_.nt_header64 = (IMAGE_NT_HEADERS64*)((uint8_t*)vv + lfanew);
+    section_head = retrive_nt_header_64(dos_header ,NULL ,&sec_num);
+    map_pe(dos_header, section_head, sec_num, guest_image_base, dll_name_addr);
+    get_diff_host_guest_addr_(guest_image_base, &host_image_base);
+    v_.nt_header64 = (IMAGE_NT_HEADERS64*)((uint8_t*)host_image_base + lfanew);
     guest_export_addr =
       guest_image_base
       + v_.nt_header64->OptionalHeader.DataDirectory[0].VirtualAddress;
@@ -198,7 +215,6 @@ void* map_pe_for_check_export
 p_guest find_f_from_export_directory
 (
  uint32_t edata_virtual_address_offset,
- uint64_t image_base,
  void* edata_addr,
  char* query,
  char* forward
@@ -227,7 +243,7 @@ p_guest find_f_from_export_directory
     /* 	   module_base_for_edata_section,module_base_for_edata_section + *addr_name); */
     if (!strcmp(query, module_base_for_edata_section + *addr_name)) {
       
-      p_guest r = image_base + *(addr_function + *(addr_ordinal + count));      
+      p_guest r = *(addr_function + *(addr_ordinal + count));      
       /* printf("match:%d,%d,%x,%s\n", */
       /* 	     count, */
       /* 	     *(addr_ordinal + count), */
@@ -279,17 +295,17 @@ void iterate_import_directory(uint64_t module_base_for_idata_section, void* iid_
     return;
   }
   void** edata_virtual_address_offset;
-  void** image_base;
+  p_host image_base;
   void* edata_addr =
     map_pe_for_check_export
     (filename,
      h->begin,
      &edata_virtual_address_offset,
      &image_base);
-  
+  printf("base:%lx,%lx,%lx\n",image_base, edata_virtual_address_offset, edata_addr);
   char first = 1;
   for (;*int_entry;int_entry++, iat_entry++) {
-    printf("%x,%s\n",int_entry,module_base_for_idata_section + *int_entry + 2);
+    printf("!!!%x,%s\n",int_entry,module_base_for_idata_section + *int_entry + 2);
     char forward;
     // you need to add HINT which is 2byte on image import by name struct
     void* query = module_base_for_idata_section + *int_entry + 2;
@@ -297,11 +313,11 @@ void iterate_import_directory(uint64_t module_base_for_idata_section, void* iid_
       p_guest r = find_f_from_export_directory
 	(
 	 edata_virtual_address_offset,
-	 image_base,
 	 edata_addr,
 	 query,
 	 &forward);
       p_host* vv;
+      printf("r:%x\n",r);
       get_diff_host_guest_addr_(image_base + r, &vv);
       if (forward == 1) {
 	printf("forward::%lx,%s\n",vv,vv);
@@ -346,7 +362,7 @@ void iterate_import_directory(uint64_t module_base_for_idata_section, void* iid_
   // 6.search export entry
   // 7.fill the retrived value from export table in import address table accordingly.
   
-  // if everything had been done, import resolution had been done.  
+  // if everything had been done, import resolution had been done.
   
 }
 
@@ -359,15 +375,20 @@ uint32_t load_pe(void* head) {
   uint16_t* nt_optional_header_head =
     (uint16_t*)((uint8_t*)dos_header + lfanew + 0x18);
   nt_header host_nt_header;
-  void* guest_image_base;
+  p_guest guest_image_base;
   void** tmp;
   void* import_addr;
   uint32_t distance_from_image_base;
   // guest memory should be always represented as 32bit for descrimination from
   // pointer of host address.
+  uint32_t sec_num;
+  p_host section_head;
   uint32_t start_addr;
   if (*nt_optional_header_head == 0x10b) {
-    guest_image_base = map_pe32(dos_header, NULL, 0);
+    section_head = retrive_nt_header_32(dos_header, &guest_image_base, &sec_num);
+    map_pe(dos_header, section_head, sec_num, guest_image_base, 0);
+    
+    // guest_image_base = map_pe32(dos_header, NULL, 0);
     get_diff_host_guest_addr_(guest_image_base, &tmp);
     host_nt_header.nt_header32 = (IMAGE_NT_HEADERS32*)((uint8_t*)tmp + lfanew);
     import_addr =
@@ -381,7 +402,9 @@ uint32_t load_pe(void* head) {
     /* CURRENT_IMAGE_DIRECTORY_HEAD = 0xffffffff & */
     /*   host_nt_header.nt_header32->OptionalHeader.DataDirectory[0].VirtualAddress;     */
   } else if (*nt_optional_header_head == 0x20b) {
-    guest_image_base = map_pe64(dos_header, NULL, 0);
+    section_head = retrive_nt_header_64(dos_header ,&guest_image_base ,&sec_num);
+    map_pe(dos_header, section_head, sec_num, guest_image_base, 0);
+    // guest_image_base = map_pe64(dos_header, NULL, 0);
     get_diff_host_guest_addr_(guest_image_base, &tmp);
     host_nt_header.nt_header64 = (IMAGE_NT_HEADERS64*)((uint8_t*)tmp + lfanew);
     import_addr =
@@ -392,8 +415,6 @@ uint32_t load_pe(void* head) {
     start_addr =
       host_nt_header.nt_header64->OptionalHeader.ImageBase + 
       host_nt_header.nt_header64->OptionalHeader.AddressOfEntryPoint;
-    
-    printf("addr!!!!!%x\n",&host_nt_header.nt_header64->OptionalHeader.DataDirectory[1].VirtualAddress);
     /* CURRENT_IMAGE_DIRECTORY_HEAD = 0xffffffff & */
     /*   host_nt_header.nt_header64->OptionalHeader.DataDirectory[0].VirtualAddress; */
   } else {
@@ -417,26 +438,9 @@ uint32_t load_pe(void* head) {
   /*   (module_base_for_idata_section, */
   /*    (uint8_t*)idata_section_head + 0x14); */
 
-  /* CURRENT_MODULE_BASE = guest_image_base; */
-  
-  printf("import:::%x\n",import_addr);
-
   return start_addr;  
   
   // IMAGE_IMPORT_DESCRIPTOR* iid = (IMAGE_IMPORT_DESCRIPTOR*)idata_section_head;
-  
-  /* printf("ddd:%lx,%lx,%lx,%lx\n", */
-  /* 	 idata_section_head, */
-  /* 	 &idata_section_head, */
-  /* 	 iid, */
-  /* 	 &iid); */
-  
-  /* iid++; */
-  /* printf("ddd:%lx,%lx,%lx,%lx\n", */
-  /* 	 idata_section_head, */
-  /* 	 &idata_section_head, */
-  /* 	 iid, */
-  /* 	 &iid); */
 
   /* /\* *iid++; *\/ */
   /* iterate_import_directory(distance_from_image_base, iid); */
@@ -532,28 +536,11 @@ p_host _find_f_addr(p_guest rip, p_guest query) {
   if (!h2) {
     printf("error\n");
   }
-  printf("%x\n",h2->begin);
   uint32_t* ied = (uint32_t*)get_image_directory_head(h2->begin);
-
-  /* IMAGE_DOS_HEADER* dos_header = (IMAGE_DOS_HEADER*)h->guest_addr; */
-  /* uint16_t* nt_optional_header_head = */
-  /*   (uint16_t*)((uint8_t*)dos_header + dos_header->e_lfanew + 0x18);   */
-  /* uint32_t v_addr; */
-  /* if (*nt_optional_header_head == 0x10) { */
-  /*   IMAGE_NT_HEADERS32* tmp = (IMAGE_NT_HEADERS32*)nt_optional_header_head; */
-  /*   v_addr = tmp->OptionalHeader.DataDirectory[0].VirtualAddress; */
-  /* } else if (*nt_optional_header_head == 0x20) { */
-  /*   IMAGE_NT_HEADERS64* tmp = (IMAGE_NT_HEADERS64*)nt_optional_header_head; */
-  /*   v_addr = tmp->OptionalHeader.DataDirectory[0].VirtualAddress; */
-  /* } */
-  
-  /* p_host get_image_directory_head(p_host head); */
-  
   p_host* edata_addr;
-  get_diff_host_guest_addr_((uint8_t*)h2->guest_addr + *ied, &edata_addr);
-  
+  get_diff_host_guest_addr_((uint8_t*)h2->guest_addr + *ied, &edata_addr);  
   char* forward;
-  p_host r = find_f_from_export_directory(*ied, h2->guest_addr, edata_addr, f_name, &forward);
+  p_host r = find_f_from_export_directory(*ied, edata_addr, f_name, &forward);
   printf("r:%x\n",r);
   return r;
 }
