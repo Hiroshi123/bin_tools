@@ -27,8 +27,9 @@
 	global _fetch_displacement_by_mod
 	
 	;; fetch immidiate
-	global _fetch8_imm_set_to_arg2:
-	global _fetch32_imm_set_to_arg2:
+	global _fetch8_imm_set_to_arg2
+	global _fetch8_imm_set_to_arg2_with_sign
+	global _fetch32_imm_set_to_arg2
 
 	;; store or assign
 	global _store_or_assign_arg1_by_mod
@@ -258,6 +259,9 @@ _load_rm_by_mod:
 ;;; it is supposed to store.
 
 _mod00_fetch_displacement:
+	mov rax,[_context._rm]
+	mov rax,[rax]
+	mov [_context._rm],rax
 	ret
 
 _mod01_fetch_displacement:
@@ -460,6 +464,23 @@ _set_arg1_reg_arg2_rm:
 	mov [_context._arg2],rax
 	ret
 	
+_fetch8_imm_set_to_arg2_with_sign:
+	push rbp
+	call _fetch8
+	mov al,[_context._res]
+	mov rdx,0x00
+	and al,0x80
+	cmp al,0x80
+	jne _fetch8_imm_set_to_arg2_with_sign.done1
+	mov  rdx,0xffffffffffffff00
+.done1:
+	mov al,[_context._res]
+	mov dl,al
+	mov [_context._arg2],rdx
+	mov rdx,0
+	pop rbp
+	ret
+
 _fetch8_imm_set_to_arg2:
 	push rbp
 	call _fetch8

@@ -42,19 +42,9 @@ __attribute__((destructor)) void unset_heap_header() {
   }
 }
 
-heap *init_map_file(const char *const fname) {
+heap* map_file(const int fd, uint32_t size) {
 
-  // printf("%s\n",tolower(fname));
-  const int fd = open(fname, O_RDWR);
-  if (fd == -1)
-    return 0;
-  struct stat stbuf;
-  if (fstat(fd, &stbuf) == -1) {
-    close(fd);
-    return 0;
-  }
-  const size_t map_size = ((stbuf.st_size + 0x1000) & 0xfffff000);
-  printf("map:%x,%x\n",stbuf.st_size,map_size);
+  const size_t map_size = ((size + 0x1000) & 0xfffff000);
   void *begin = mmap(NULL, map_size, PROT_READ/*|PROT_WRITE*/|PROT_EXEC,
                      MAP_PRIVATE, fd, 0);
   if (begin == MAP_FAILED) {
@@ -65,7 +55,7 @@ heap *init_map_file(const char *const fname) {
   heap *h = (heap *)HEAP_HEADER_ADDR_P;
   h->begin = begin;
   h->page_num = (uint16_t)0x1000;
-  h->page_num += stbuf.st_size;
+  h->page_num += size;
   h->guest_addr = -1;
   // TODO.
   // PROT & MAP flags for mmap is scheduled to be condensed as 4byte.
@@ -75,6 +65,20 @@ heap *init_map_file(const char *const fname) {
   HEAP_HEADER_ADDR_P += 1;
   return h;
 }
+
+heap *init_map_file(const char *const fname) {
+
+  const int fd = open(fname, O_RDWR);
+  if (fd == -1)
+    return 0;
+  struct stat stbuf;
+  if (fstat(fd, &stbuf) == -1) {
+    close(fd);
+    return 0;
+  }
+  return map_file(fd, stbuf.st_size);
+}
+
 
 heap* get_page(uint8_t num) {
   
@@ -147,7 +151,7 @@ void* EXPORT(get_diff_host_guest_addr)
       for (;page < h->page_num;page++) {
 	if (guest_begin == h->guest_addr + page * PAGE_SIZE) {
 	  uint64_t diff = (uint64_t)h->begin - ((uint64_t)guest_begin - (uint64_t) page * PAGE_SIZE);
-	  printf("diff:%lx\n",h->begin);
+	  /* printf("!!diff:%lx,%lx\n",h->begin,diff); */
 	  return (void*)diff;
 	}
       }

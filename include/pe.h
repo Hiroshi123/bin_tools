@@ -324,9 +324,6 @@ typedef union {
   IMAGE_NT_HEADERS64* nt_header64;
 } nt_header;
 
-
-const char check_coff(const uint16_t* p);
-const char check_pe(const uint16_t* p);
 char _check_on_iat(p_guest rip, p_guest query);
 /* p_host get_dll_name(p_host idata_section, p_host f_name); */
 p_host _find_f_addr(p_guest rip, p_guest query);

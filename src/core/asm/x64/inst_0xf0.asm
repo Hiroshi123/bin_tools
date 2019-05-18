@@ -18,14 +18,8 @@
 	global _0xfe_op
 	global _0xff_op
 
-	extern _exec_one
-	
 	extern _op_f6_f_base
-	extern _op_fe_f_base
-
-	extern _context._repz
-	extern _context._repnz
-	extern _context._lock	
+	extern _op_fe_f_base	
 	
 	extern print
 	extern _rax
@@ -77,7 +71,7 @@
 
 	extern _op01_f_base
 	extern _set_imm_op_base
-	
+
 _0xf0_prefix_lock:
 	
 	add r8,0xf0
@@ -87,19 +81,15 @@ _0xf0_prefix_lock:
 _0xf1_icebp:
 	add r8,0xf1
 	call print
+
 	ret
-
-;;; repnz stops when cz register is 0 & flag register is 0. 
 _0xf2_prefix_repnz:
-	add dword [_rip],1
-	mov byte [_context._repnz],0xff
-	jmp _exec_one
-	
-_0xf3_prefix_repz:
-	add dword [_rip],1
-	mov byte [_context._repz],0xff
-	jmp _exec_one
+	mov r8,0xf2
+	call print
 
+	ret
+_0xf3_prefix_repz:
+	ret
 _0xf4_hlt:
 	ret
 _0xf5_cmc:
@@ -202,22 +192,9 @@ _0xfe_op:
 	ret
 
 ;;; inc/dec/call/jmp/push
-;;; when you jmp to absolute position, if it will retrieve the value on .rdata
-;;; when you load dll or exe, you just mark where is iat which needs to be filled out
-;;; as it is referred from calling to other function of another dll.
-;;; From abs jmp/call side, if you try to check the value of iat, and it still holds the
-;;; reference to int, it does not read the value of iat.
-;;; Instead pause the execution of the instruction until loader should handle resolution.
-;;; loader will look for the name of function and dll which contains it.
-;;; resolve only the function.
 
-;;; what you need to implement.
-;;; 1. checking of range of IAT
-;;; 2. resolution which targets only one pair of function assuming the dll had been already mapped.
 
-;;; [memory access]
 ;;; 
-	
 _0xff_op:
 
 	push rbp
@@ -234,10 +211,12 @@ _0xff_op:
 	call _set_scale_index_base
 	;; 
 	call _fetch_displacement_by_mod
-	
-	;; call _load_rm_by_mod
-	;; call _mov_res_to_arg1
-	call _mov_rm_to_arg1
+	;; if mod == 00 or 01 or 10, you need memory access.
+	call _load_rm_by_mod
+	call _mov_res_to_arg1
+	mov r8,0xff
+	call print	
+	;; call _mov_rm_to_arg1
 	call [_context._imm_op]
 
 	;; storing will be done by

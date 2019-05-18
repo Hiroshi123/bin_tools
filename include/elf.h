@@ -3178,7 +3178,6 @@ typedef struct {
   char *str_p;
 } info_on_elf;
 
-const char check_elf(const uint8_t *const e);
 
 void retrieve_info_from_sht(const char*const page_for_elf,
 			    info_on_elf *_e);

@@ -1,25 +1,72 @@
 
 #include "elf.h"
+#include "memory.h"
+#include "types.h"
 #include <string.h>
 #include <stdio.h>
 
-const char check_elf(const uint8_t*const e) {
-  return (e[EI_MAG0] == ELFMAG0 && e[EI_MAG1] == ELFMAG1 &&
-          e[EI_MAG2] == ELFMAG2 && e[EI_MAG3] == ELFMAG3);
+#define DEBUG
+
+p_guest load_elf32(uint8_t* page_head) {
+  
+  Elf32_Ehdr* ehdr = (Elf32_Ehdr *)page_head;
+  printf("aa");
+  printf("%lx\n",ehdr->e_entry);
+  printf("%x\n",ehdr->e_phoff);
+  
+  Elf32_Phdr* phdr = (uint8_t*)ehdr + ehdr->e_phoff;
+  
+  printf("%x,%x\n", phdr->p_vaddr, phdr->p_paddr);
+  
+  // loader will load all of segments...
+  
+  /* printf("%x,%x\n",(uint8_t*)ehdr + phdr->p_paddr + phdr->p_offset, */
+  /* 	 *((uint8_t*)ehdr + phdr->p_offset + 1)); */
+  /* uint8_t entry_off = ehdr->e_entry - phdr->p_paddr; */
+  /* printf("%lx\n",*((uint8_t*)ehdr) + phdr->p_offset + entry_off); */
+  
+  heap* h1;
+  // you should also read offset from file to be mapped directly.
+  uint32_t map_size = ((phdr->p_memsz + 0x1000) & 0xfffff000);
+  p_guest image_base = phdr->p_vaddr;// + phdr->p_vaddr;
+  h1 = guest_mmap(image_base,map_size,1,0);
+  memcpy
+    (h1->begin,
+     page_head + phdr->p_offset,
+     phdr->p_filesz
+     );
+  
+  printf("!%x,%x\n",h1->begin,*(page_head + phdr->p_offset));
+  printf("%x,%x\n",ehdr->e_entry + phdr->p_vaddr,ehdr->e_entry);
+  return ehdr->e_entry + phdr->p_vaddr - phdr->p_paddr;// + phdr->p_vaddr;
+}
+
+void load_elf(uint8_t* page_head) {
+  if (*((uint8_t*)page_head + 4) == 1) {    
+    load_elf32(page_head);
+  } else if (*((uint8_t*)page_head + 4) == 2) {
+    
+  }
 }
 
 char read_elf(const char *const page_for_elf,
                             info_on_elf *_e) {
-  
   // filling all of offset information in a prepared struct from a file which
   // are mapped.
   memset(_e ,0 , sizeof(info_on_elf));
+  
+  printf("%x\n",*((uint8_t*)page_for_elf + 4));
+  if (*((uint8_t*)page_for_elf + 4) == 1) {
+    printf("!!%x\n",*((uint8_t*)page_for_elf + 4));  
+    // read_elf32(page_for_elf, _e);
+    return 2;
+  }
   _e->ehdr_p = (Elf64_Ehdr *)page_for_elf;
   _e->phdr_p = (Elf64_Phdr *)(page_for_elf + _e->ehdr_p->e_phoff);
   _e->shdr_head = (Elf64_Shdr *)(page_for_elf + _e->ehdr_p->e_shoff);
   _e->shdr_tail = (Elf64_Shdr *)
     ((size_t)_e->shdr_head +
-     _e->ehdr_p->e_shentsize * _e->ehdr_p->e_shnum);  
+     _e->ehdr_p->e_shentsize * _e->ehdr_p->e_shnum);
   _e->shstr_offset = (char *)
     ((Elf64_Shdr *)
      ((size_t)_e->shdr_head +

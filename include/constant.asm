@@ -28,3 +28,12 @@
 
 ;;; carry flag & zero flag
 %define eflags_czf 0x0041
+
+%ifidn __OUTPUT_FORMAT__, macho64
+	%define SYSCALL_WRITE 0x2000004
+%elifidn __OUTPUT_FORMAT__, elf64 
+	%define SYSCALL_WRITE 0x1
+%endif
+
+%define STDOUT 1
+

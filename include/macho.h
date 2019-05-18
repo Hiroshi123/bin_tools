@@ -1577,6 +1577,7 @@ struct nlist_64 {
     uint64_t n_value;      /* value of this symbol (or stab offset) */
 };
 
+typedef struct mach_header _mach_header;
 typedef struct mach_header_64 _mach_header_64;
 typedef struct load_command _load_command;
 typedef struct segment_command_64 _segment_command_64;
@@ -1628,5 +1629,4 @@ typedef struct {
   
 } info_on_macho;
 
-const char check_macho(const uint32_t* p);
 

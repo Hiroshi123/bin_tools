@@ -6,6 +6,7 @@
 #include "macho.h"
 #include "objformat.h"
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdint.h>
 
@@ -92,7 +93,7 @@ void print_regs() {
   printf("[r15]:%x\n",EXPORT(r15));
   
   printf("[rbp]:%x\n",EXPORT(rbp));    
-  printf("[rsp]:%x\n",EXPORT(rsp));
+  printf("[rsp]:%lx\n",EXPORT(rsp));
   printf("[rip]:%x\n",EXPORT(rip));
   
 }
@@ -108,32 +109,42 @@ heap* stack_map(void* stack_addr) {
 
 int main(int argc,char** argv) {
   
-  char* t1 = argv[1];
-  for (;*t1!=0;t1++) {
-    printf("%x,%c\n",*t1,tolower(*t1));
-    *t1 = tolower(*t1); 
+  int fd = open(argv[1], O_RDONLY);
+  
+  /* uint8_t* p = (uint8_t*)h->begin; */
+  uint32_t header_size = 0;
+  enum OBJECT_FORMAT o = detect_format(fd, &header_size);
+  printf("%lx\n",header_size);
+
+  struct stat stbuf;
+  if (fstat(fd, &stbuf) == -1) {
+    close(fd);
+    return 0;
   }
-  
-  printf("%s,%c\n",argv[1],tolower(argv[1]));
-  
-  heap * h = init_map_file(argv[1]);
-  uint8_t* p = (uint8_t*)h->begin;
-  enum OBJECT_FORMAT o = detect_format(p);
+  heap * h = map_file(fd, stbuf.st_size);
+  // heap * h = map_file(fd, header_size);
   uint32_t start_addr;
-  if (o == ELF) {
+  if (o == ELF32) {
     info_on_elf e1;
-    read_elf(h->begin,&e1);
-  } else if (o == MACHO) {
+    start_addr = load_elf32(h->begin);    
+    // read_elf(h->begin,&e1);    
+  } else if (o == MACHO32) {
     info_on_macho i;
-    read_macho(h->begin,&i, 1);
+    load_macho32(h->begin,&i);
     start_addr = i.entry;
-  } else if(o == PE) {
-    start_addr = load_pe(h->begin);
+  } else if (o == MACHO64) {
+    info_on_macho i;
+    load_macho64(h->begin,&i);
+    start_addr = i.entry;
+  } else if(o == PE32) {
+    // start_addr = load_pe(h->begin);
+  } else if(o == PE64) {
+    // start_addr = load_pe(h->begin);
   } else {
     fprintf(stderr,"format error\n");
   }
-  
-  void* stack_addr = 0x7ffffff8;
+  // 0x7ffffff8;
+  void* stack_addr = 0x8010a5c0;
   stack_map(stack_addr);
   EXPORT(hello_world());
   EXPORT(initialize_v_regs());
@@ -142,10 +153,9 @@ int main(int argc,char** argv) {
   EXPORT(set_rip(start_addr));
   
   printf("intial--------------\n");  
-  print_regs();  
+  print_regs();
   int count = 0;
-  for (;count < 1;count++) {
-    
+  for (;count < 41;count++) {
     EXPORT(exec_one());
     printf("--------------%d.--------------\n",count);
     print_regs();

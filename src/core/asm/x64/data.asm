@@ -31,7 +31,9 @@
 	global _es
 	global _fs
 	global _gs
-	global _ss	
+	global _ss
+
+	global _cr0
 	
 	global __rax
 	global __rdx
@@ -109,8 +111,9 @@
 	global _add_base
 	global _sub_base
 	global _assign_base
-
-	
+	global _and_base
+	global _or_base
+	global _xor_base	
 	
 _reg_names:  db "rax rdx rcx rbx rsi rdi r8 r9 r10 r11 r12 r13 r14 r15 eflags rip rsp rbp "
 	
@@ -136,6 +139,7 @@ _eflags:dq 0
 _rip:	dq 0
 _low_rip:dq 0
 
+;;; segment register
 _cs:	dq 0
 _ds:	dq 0
 _es:	dq 0
@@ -143,6 +147,23 @@ _fs:	dq 0
 _gs:	dq 0
 _ss:	dq 0
 
+;;; control register
+_cr0:	dq 0
+_cr1:	dq 0
+_cr2:	dq 0
+_cr3:	dq 0
+_cr4:	dq 0
+_cr5:	dq 0
+_cr6:	dq 0
+_cr7:	dq 0
+
+_cr8:	dq 0
+
+_xcr0:	dq 0
+
+;;; Extended Feature Enable Register if AMD K6
+_efer:	dq 0
+	
 ;;;  this is auxietrary set of registers
 __rax:	dq 0
 __rcx:	dq 0
@@ -655,6 +676,24 @@ _assign_base:
 	dq _assign32
 	dq _assign64
 
+_and_base:
+	dq _and8
+	dq _and16
+	dq _and32
+	dq _and64
+
+_or_base:
+	dq _or8
+	dq _or16
+	dq _or32
+	dq _or64
+
+_xor_base:
+	dq _xor8
+	dq _xor16
+	dq _xor32
+	dq _xor64
+	
 msg1: db "Hello, world!", 10
 .len: equ $ - msg1
 
@@ -712,10 +751,10 @@ _extend_opcode_table:
 	dq 0
 	dq 0
 	;; 0x0f20
-	dq 0
-	dq 0
-	dq 0
-	dq 0
+	dq _0x0f20_mov_crn
+	dq _0x0f21_mov_drn
+	dq _0x0f22_mov_crn
+	dq _0x0f23_mov_drn
 	dq 0
 	dq 0
 	dq 0
@@ -1293,6 +1332,11 @@ _extend_opcode_table:
 	extern _0xfe_op
 	extern _0xff_op
 
+	extern _0x0f20_mov_crn
+	extern _0x0f21_mov_drn
+	extern _0x0f22_mov_crn
+	extern _0x0f23_mov_drn
+	
 	extern _0x0f80_jo
 	extern _0x0f81_jno
 	extern _0x0f82_jnae
@@ -1344,6 +1388,21 @@ _extend_opcode_table:
 	extern _sub16
 	extern _sub32
 	extern _sub64
+
+	extern _and8
+	extern _and16
+	extern _and32
+	extern _and64
+	
+	extern _or8
+	extern _or16
+	extern _or32
+	extern _or64	
+
+	extern _xor8
+	extern _xor16
+	extern _xor32
+	extern _xor64
 
 	extern _shl0
 	extern _shl1

@@ -31,8 +31,20 @@
 	
 	extern print
 	extern _exec_one
+	
+	extern _context._arg1
+	extern _context._arg2
+	extern _context._res
+
+	extern _context._internal_arg1
+	
 	extern _context._override
 	extern _context._override_reg
+
+	extern _fetch
+	extern _fetch32
+
+	extern _gen_push
 	
 _0x60_pusha:
 	ret
@@ -81,6 +93,13 @@ _0x67_prefix_addr:
 	ret
 	
 _0x68_push_iv:
+	push rbp
+	add dword [_rip],0x1
+	call _fetch32
+	mov rax,[_context._res]
+	mov [_context._internal_arg1],rax
+	call _gen_push
+	pop rbp
 	ret
 	
 _0x69_imul:

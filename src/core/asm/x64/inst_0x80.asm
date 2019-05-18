@@ -65,12 +65,15 @@
 	extern _assign
 	
 	extern _fetch8_imm_set_to_arg2
+	extern _fetch8_imm_set_to_arg2_with_sign
+
 	extern _fetch32_imm_set_to_arg2
 
 	extern _fetch_displacement_by_mod
 
 	extern _op01_f_base
 	extern _set_imm_op_base
+	extern _set_dflag_as_1byte
 	
 ;;; 0x80
 
@@ -110,15 +113,16 @@ _0x81_arith_imm:
 	
 _0x82_arith_imm:
 	ret
-	
+
+;;; 0x83 feeds just imm 1byte to the register which can contain longer bytes.
+;;; Note that the all rest of bytes are sign extended.
+
 _0x83_arith_imm:
 	
 	push rbp
 	add byte [_rip],1
 
-	mov r8,0x83
-	call print
-
+	
 	;; tmp
 	mov r8,_op01_f_base	
 	call _set_imm_op_base
@@ -128,14 +132,24 @@ _0x83_arith_imm:
 	call _fetch_displacement_by_mod
 	
 	call _load_rm_by_mod
-	call _mov_res_to_arg1	
-	call _fetch8_imm_set_to_arg2
+	call _mov_res_to_arg1
+	call _fetch8_imm_set_to_arg2_with_sign
 
+	mov r8,0x83
+	call print
+	
+	mov r8,[_context._arg2]
+	call print
+		
 	call [_context._imm_op]
 	
-	call _mov_rm_to_arg1	
+	mov r8,[_context._res]
+	call print
+	
+	call _mov_rm_to_arg1
 	call _mov_res_to_arg2
 	call _store_or_assign_arg1_by_mod
+
 	pop rbp
 	ret
 
@@ -233,6 +247,9 @@ _0x8c_mov_seg:
 	ret
 _0x8d_lea:
 	push rbp
+	mov r8,0x8d
+	call print
+
 	add byte [_rip],1
 	call _get_mod_reg_rm
 	call _set_scale_index_base
@@ -243,8 +260,6 @@ _0x8d_lea:
 	call _mov_reg_to_arg1
 	call _assign
 
-	mov r8,0x8d
-	call print
 	pop rbp
 	ret
 _0x8e_mov_seg:

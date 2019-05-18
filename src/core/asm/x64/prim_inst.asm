@@ -10,6 +10,10 @@
 	extern _fetch_base
 	extern _add_base
 	extern _sub_base
+	extern _and_base
+	extern _or_base
+	extern _xor_base
+
 	extern _assign_base
 
 	extern _check_on_iat
@@ -62,7 +66,16 @@
 	global _idiv
 	
 	global _and
+	global _and8
+	global _and16
+	global _and32
+	global _and64
+	
 	global _or
+	global _or8
+	global _or16
+	global _or32
+	global _or64	
 
 	global _xor
 	global _xor8
@@ -314,6 +327,10 @@ _store32:
 	call _get_host_addr_from_guest
 	mov rdx,[_context._arg2]
 	mov [rax],rdx
+	mov r8,[_context._arg1]
+	call print	
+	mov r8,0x22
+	call print
 	pop rbp	
 	ret
 	
@@ -371,7 +388,7 @@ _assign16:
 	
 _assign32:
 	push rbp
-	mov r8,[_context._arg1]
+	mov r8,0x77
 	call print
 	mov r8,[_context._arg2]
 	call print
@@ -477,19 +494,66 @@ _sub64:
 	ret
 
 _and:
+	push rbp
+	mov ax,0
+	mov al,[_context._dflag]
+	lea rdx,[_and_base]
+	add dx,ax
+	call [rdx]
+	pop rbp
 	ret
 
+_and8:
+	ret
+_and16:
+	ret
+_and32:
+	mov dword eax,[_context._arg1]
+	mov dword edx,[_context._arg2]	
+	and eax,edx
+	mov [_context._res],eax
+	ret
+_and64:
+	ret
+	
 _or:
+	push rbp
+	mov ax,0
+	mov al,[_context._dflag]
+	lea rdx,[_or_base]
+	add dx,ax
+	call [rdx]
+	pop rbp
 	ret
 
+_or8:
+	ret
+
+_or16:
+	ret
+
+_or32:
+	ret
+
+_or64:
+	ret
+	
 _xor:
 	push rbp
-	mov rax,[_context._arg1]
-	mov rdx,[_context._arg2]
-	xor rax,rdx
-	mov [_context._res],rax
-	pop rbp	
+	mov ax,0
+	mov al,[_context._dflag]
+	lea rdx,[_xor_base]
+	add dx,ax
+	call [rdx]
+	pop rbp
 	ret
+	;; push rbp
+	;; mov rax,[_context._arg1]
+	;; mov rdx,[_context._arg2]
+	;; xor rax,rdx
+	;; mov [_context._res],rax
+	;; pop rbp	
+	;; ret
 
 _xor8:
 	ret
@@ -624,6 +688,8 @@ _inc:
 _dec:
 	ret
 
+
+	
 _call:
 	push rbp
 	;; addition of displacement & register is assumed to be set on
@@ -641,9 +707,6 @@ _call:
 	mov rsi,[_context._res]	
 	call _find_f_addr
 	
-	mov r8,rax
-	call print
-	
 	;; before adding rax, you need to store rip to be returned on it.
 
 	;; mov rdx,[_rip]
@@ -653,12 +716,29 @@ _call:
 	;; call _gen_push
 	
 	pop rbp
-	
 	ret
 	
 _jmp:
+	mov r8,[_context._arg1]
+	call print
+	
+	mov rax,[_context._arg1]
+	mov [_rip],rax
+	
+	;; call _check_on_iat
+	
+	mov r8,0x99
+	call print
 	ret
 
-_push:
+;;; if you 
+_push:	
+	mov rax,[_context._arg1]
+	mov [_context._internal_arg1],rax
+	call _gen_push
+	mov r8,0x99
+	call print
 	ret
 	
+
+

@@ -33,6 +33,9 @@
 	extern _load_rm_by_mod
 
 	extern _store_or_assign_arg1_by_mod
+
+	extern _set_dflag
+	extern _fetch
 	
 	extern _mov_reg_to_arg1	
 	extern _mov_reg_to_arg2
@@ -51,6 +54,9 @@
 	
 	extern print
 
+	extern _context._arg1
+	extern _context._arg2
+	
 	extern  _context._mod	
 	extern  _context._reg
 	extern  _context._rm
@@ -80,6 +86,8 @@
 	extern _add32
 	extern _add64
 
+	extern _assign
+	
 	extern _fetch_displacement_by_mod
 	extern _extend_opcode_table
 	extern _exec_one
@@ -104,10 +112,6 @@ _0x00_add:
 	call _mov_rm_to_arg1
 	call _mov_res_to_arg2
 	call _store_or_assign_arg1_by_mod	
-
-	mov r8,[_rax]
-	call print
-
 	pop rbp
 	ret
 	
@@ -125,9 +129,6 @@ _0x01_add:
 	call _mov_rm_to_arg1
 	call _mov_res_to_arg2
 	call _store_or_assign_arg1_by_mod	
-	
-	mov r8,0x01
-	call print
 	pop rbp
 	ret
 
@@ -151,13 +152,22 @@ _0x0b_or:
 _0x0c_or:
 	ret
 _0x0d_or:
+	push rbp
+	add byte [_rip],1
+	call _set_dflag
+	call _fetch
+	lea rax,[_context._arg1]
+	mov rax,_rax
+	call _mov_res_to_arg2
+	call _assign
+	pop rbp
 	ret
 	
 _0x0f:
 	add byte [_rip],0x01
 	mov rax,_extend_opcode_table
-	mov [_context._opcode_table],rax
+	mov [_context._opcode_table],rax	
 	jmp _exec_one
 	ret
-	
+
 	

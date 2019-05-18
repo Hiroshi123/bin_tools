@@ -17,6 +17,7 @@
 	global _get_mod_reg_rm
 	global _get_mod_op_rm
 	global _set_dflag
+	global _set_dflag_as_1byte
 	global _set_aflag
 	
 	global _set_eflags
@@ -27,6 +28,8 @@
 	global _set_scale_index_base
 	global _set_base_reg
 	global _select_reg
+
+	global _get_cr_reg_rm
 	
 	extern _get_diff_host_guest_addr
 	
@@ -73,8 +76,10 @@
 	extern _r14
 	extern _r15
 	extern _rip
-	extern _eflags	
+	extern _eflags
 
+	extern _cr0
+	
 	extern print
 	
 	extern _sub
@@ -126,11 +131,12 @@ _exec_one:
 	push rbp
 	;; ;; for debuging, offset should be reset
 	;; mov byte [_debug._offset],0
+	mov r8,0x1
+	call print
 
 	;; debugging purpose to be stopped when not yet implemented.
 	call __fetch8
-
-	mov r8,0x1
+	mov r8,0x2
 	call print
 
 	mov rbx,0x00
@@ -503,12 +509,49 @@ _get_mod_reg_rm:
 	pop rbp
 	ret
 
+_get_cr_reg_rm:
+	push rbp
+	;; fetched mod/reg/rm data is set on al(1byte)
+	call _fetch8
+	mov al,[_context._res]
+	mov bl,[_context._rex]
+
+	call _set_cr_reg
+	call _set_rm
+	call _set_dflag
+	call _set_aflag
+	
+	pop rbp
+	ret
+
+
 _set_mod:
 	mov r8b,al
 	and r8b, 0b11000000
 	;; shift should be 3 step right as it should set 8bit between each steps.
 	shr r8b, 0x03
 	mov [_context._mod],r8b
+	ret
+	
+;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+_set_cr_reg:
+	push rbp
+	;; 1. get base of reg
+	;; simply feeds address of cr0
+	mov r8,_cr0
+	;; 2.get kind of reg
+	mov r9w,0x00
+	mov r9b,al
+	and r9b,0b00111000
+	;; you do not need to shift as reg kind should
+	;; be multipled by 8 regarding the size of each register.
+	;; shr r9b,3
+	add r8w,r9w
+	;; 3.get reg size
+	;; call set_register_size
+	;; finally fill the vaue on to the memory of reg.
+	mov [_context._reg],r8
+	pop rbp
 	ret
 	
 ;; set an offset of register
@@ -524,12 +567,13 @@ _set_reg:
 	jmp _set_base_reg
 	;; 2.get kind of reg
 .done1:
+	mov r9w,0x00
 	mov r9b,al
 	and r9b,0b00111000
 	;; you do not need to shift as reg kind should
 	;; be multipled by 8 regarding the size of each register.
 	;; shr r9b,3
-	add r8b,r9b
+	add r8w,r9w
 	;; 3.get reg size
 	;; call set_register_size
 	;; finally fill the vaue on to the memory of reg.
@@ -573,11 +617,12 @@ _set_rm:
 	jmp _set_base_reg_ex
 .done1:
 	;; 2. get kind of rm
+	mov r9w,0x00
 	mov r9b,al
 	and r9b,0b00000111
 	;; you need to shift left 3times considering size of each register.
 	shl r9b,3
-	add r8b,r9b
+	add r8w,r9w
 	;; 3. get size of rm
 	;; call set_register_size
 	mov [_context._rm],r8
@@ -610,6 +655,10 @@ _set_dflag:
 	ret
 .done2:
 	mov byte [_context._dflag],0x10
+	ret
+
+_set_dflag_as_1byte:
+	mov byte [_context._dflag],0x0
 	ret
 	
 _set_aflag:

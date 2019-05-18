@@ -1,6 +1,7 @@
 
 #include "macho.h"
 #include "memory.h"
+#include "objformat.h"
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -13,9 +14,6 @@
 
 uint32_t GUEST_UPPER_UPPER32;
 
-const char check_macho(const uint32_t* p) {
-  return *p == MH_MAGIC_64;
-}
 
 // what it does is just copying data from A to B.
 
@@ -23,9 +21,8 @@ void map_lc_segment64() {
   
 }
 
-void read_macho (void* ss, info_on_macho* macho, uint8_t do_map) {
-  
-  _mach_header_64* mh = (_mach_header_64 *)ss;  
+void read_macho64(void* head, info_on_macho* macho, uint8_t do_map) {
+  _mach_header_64* mh = (_mach_header_64 *)head;
   /* printf("%d:%d:%d\n",mh->filetype, mh->ncmds,mh->sizeofcmds);   */
   if (mh->magic != MH_MAGIC_64) {
     printf("error\n");
@@ -149,6 +146,17 @@ void read_macho (void* ss, info_on_macho* macho, uint8_t do_map) {
       break;
     }
   }
+}
+
+void load_macho32(void* p, info_on_macho* macho) {
+
+  // not yet...
+  // read_macho64(p, macho, 1);
+}
+
+
+void load_macho64(void* p, info_on_macho* macho) {
+  read_macho64(p, macho, 1);
 }
 
 // this funciton is relocation between 2 macho files.

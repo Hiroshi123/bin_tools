@@ -48,6 +48,9 @@
 	global _initialize_v_regs
 	global _test_on_real_cpu
 	extern _exec
+
+%include "constant.asm"
+
 print:
 	push rbp
 	lea r10,[_reg_size8+0x0a]
@@ -273,9 +276,8 @@ _reg_regain:
 	ret
 	
 _write:
-	;; mov rax, 0x2000004	;write
-	mov rax, 0x0000001	;write
-	mov rdi, 1 ; stdout
+	mov rax, SYSCALL_WRITE
+	mov rdi, STDOUT
 	lea rsi, [_reg_size8]
 	mov rdx, 0x0b
 	;; rcx,r8,r9 is another register

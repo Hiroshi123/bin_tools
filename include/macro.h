@@ -1,8 +1,8 @@
 
 
 #if defined(__APPLE__)
-# define EXPORT(s) s
+#define EXPORT(s) s
 #else
-# define EXPORT(s) _##s
+#define EXPORT(s) _##s
 #endif
 
