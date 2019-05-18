@@ -11,3 +11,7 @@
 !/doc/Doxyfile
 #*
 #.*
+.#
+
+tmp
+_tmp
