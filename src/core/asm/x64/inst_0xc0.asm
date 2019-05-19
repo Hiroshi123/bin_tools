@@ -107,14 +107,11 @@ _0xc5_lds:
 _0xc6_mov:
 	
 	push rbp
-	mov r8,0xc6
-	call print
 	add byte [_rip],1
 	;; _rip are assumed to be on mod/reg/rm
 	call _get_mod_reg_rm
 	;; set dflag as 0 which means register size will be 1byte.
 	mov byte [_context._dflag],0x00
-
 	;; _rip are assumed to be on next of mod/reg/rm to be fetched..
 	call _set_scale_index_base
 	;; displacement fetch (mod/reg/rm are no longer on the range of an eye)
@@ -128,8 +125,6 @@ _0xc6_mov:
 	
 _0xc7_mov:
 	push rbp
-	mov r8,0xc7
-	call print
 	add byte [_rip],1
 	;; _rip are assumed to be on mod/reg/rm
 	call _get_mod_reg_rm
@@ -137,21 +132,8 @@ _0xc7_mov:
 	call _set_scale_index_base
 	;; displacement fetch (mod/reg/rm are no longer on the range of an eye)
 	call _fetch_displacement_by_mod	
-	;; mov r8,[_context._arg1]
-	;; call print
-	;; mov r8,0xc7
-	;; call print
-	;; fetch imm
 	call _fetch32_imm_set_to_arg2
-	mov r8,0x55
-	call print
-	mov r8,[_context._rm]
-	call print
-
 	call _mov_rm_to_arg1
-	mov r8,[_context._arg1]
-	call print
-
 	call _store_or_assign_arg1_by_mod
 	pop rbp
 	ret

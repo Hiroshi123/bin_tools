@@ -67,11 +67,16 @@
 	extern _assign
 	
 	extern _fetch8_imm_set_to_arg2
+	extern _fetch32_imm_set_to_arg2
 	extern _fetch_displacement_by_mod
 
 	extern _op01_f_base
 	extern _set_imm_op_base
 
+	extern _test
+	extern _not
+	extern _neg
+	
 _0xf0_prefix_lock:
 	
 	add r8,0xf0
@@ -99,13 +104,20 @@ _0xf5_cmc:
 ;;; It means reg is assumed from the opcode.
 
 ;;; test/not/neg/mul/imul/div/idiv
+;;; in case of f6/f7, there is no 
+;;; test is the only op which requires fetching imm32.
+;;; not / neg needs only 1 operand.
+;;; mul/imul/div/idiv requires 2 operand.
+;;; register which was supposed to be indicated by reg
+;;; is fixed on al/ax/eax/rax.
 
 _0xf6_op:
-	
+	test rdx,0x77
 	mov r8,0xf6
 	call print
 	ret
-	
+
+;;; test/not/neg/mul/imul/div/idiv
 _0xf7_op:
 	push rbp
 	add byte [_rip],1
@@ -122,9 +134,10 @@ _0xf7_op:
 	call _fetch_displacement_by_mod
 	
 	call _load_rm_by_mod
-	call _mov_res_to_arg1	
-	;; call _fetch8_imm_set_to_arg2
-
+	;; note that the register that "load by mod" is put
+	;; depends on opcode, which are determined by following.
+	call _compensate_reg_f6f7
+	
 	call [_context._imm_op]
 	
 	call _mov_rm_to_arg1	
@@ -132,6 +145,34 @@ _0xf7_op:
 	call _store_or_assign_arg1_by_mod
 	
 	pop rbp
+	ret
+	
+;;; if reg == test, fetch 32bit
+;;; if 
+_compensate_reg_f6f7:
+	mov rax,[_context._imm_op]
+	mov rdx,_test
+	cmp rax,rdx
+	je _compensate_reg_f6f7._test
+	mov rdx,_not	
+	cmp rax,rdx
+	je _compensate_reg_f6f7._not_neg
+	mov rdx,_neg
+	cmp rax,rdx
+	je _compensate_reg_f6f7._not_neg
+	;; else, set rax to reg
+	call _mov_res_to_arg2
+	mov  rdx,_rax
+	mov  [_context._reg],rdx
+	call _mov_reg_to_arg1
+	ret
+	
+._test:
+	call _mov_res_to_arg1
+	call _fetch32_imm_set_to_arg2
+	ret
+._not_neg:
+	call _mov_res_to_arg1
 	ret
 	
 _0xf8_clc:
@@ -159,6 +200,12 @@ _0xfd_std:
 	call print
 	ret
 
+;;; inc/dec/call/jmp/push
+;;; this fe/ff does not require any immidiate fetch.
+;;; it does not have reg specification as all of them does require just 1 operand.
+;;; Nevertheless note that you need to load displacement
+;;; if mod == 00 / 01 / 10, you need to load
+	
 _0xfe_op:
 	
 	push rbp

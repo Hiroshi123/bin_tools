@@ -57,10 +57,11 @@
 	global _opcode_table
 	global _extend_opcode_table
 	
-	;; global _write
 	global _debug
 	global _debug._inst
 	global _debug._offset
+
+	global _processor
 	
 	global _context
 	global _context._opcode
@@ -90,6 +91,8 @@
 	global _context._internal_arg1
 	global _context._internal_arg2
 	global _context._rip_rel
+
+	global _dflag_len
 
 	;; immidiate operation
 	global _op01_f_base
@@ -184,6 +187,12 @@ __r15:	dq 0
 __eflags:dq 0
 __rip:	dq 0
 
+_dflag_len:
+	dq 1
+	dq 2
+	dq 4
+	dq 8
+	
 ;; _rsp:	dq 0
 	
 _opcode_table:
@@ -496,7 +505,8 @@ _opcode_table:
 	;; dq _0x0c_add
 	;; dq _0x0d_add
 	
-
+_processor:
+	db 0
 	
 ;;; Note that as reg/rm represents pointer to the register which is created by
 ;;; get_mod_reg_rm function, it contains dword size, and the rest of data is just 1byte.
@@ -582,7 +592,7 @@ _op_shift_base:
 	dq _shl
 	;; sar
 	dq _shr
-	
+
 _op_f6_f_base:
 	dq _test
 	dq 0

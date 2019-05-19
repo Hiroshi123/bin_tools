@@ -141,7 +141,6 @@ void* EXPORT(get_diff_host_guest_addr)
   heap* h = HEAP_HEADER_ADDR_HEAD;
   heap* h_end = HEAP_HEADER_ADDR_P;
   void* guest_begin = (uint64_t)guest_addr & 0xfffff000;
-
   for (;h!=h_end;h++) {
     /* printf("%x\n",h->begin); */
     if (h->guest_addr != -1) {
@@ -151,7 +150,6 @@ void* EXPORT(get_diff_host_guest_addr)
       for (;page < h->page_num;page++) {
 	if (guest_begin == h->guest_addr + page * PAGE_SIZE) {
 	  uint64_t diff = (uint64_t)h->begin - ((uint64_t)guest_begin - (uint64_t) page * PAGE_SIZE);
-	  /* printf("!!diff:%lx,%lx\n",h->begin,diff); */
 	  return (void*)diff;
 	}
       }

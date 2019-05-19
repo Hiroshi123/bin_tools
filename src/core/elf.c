@@ -35,6 +35,9 @@ p_guest load_elf32(uint8_t* page_head) {
      page_head + phdr->p_offset,
      phdr->p_filesz
      );
+
+  uint32_t bss_size = phdr->p_filesz - phdr->p_filesz;
+  memset(h1->begin + bss_size, 0, bss_size);
   
   printf("!%x,%x\n",h1->begin,*(page_head + phdr->p_offset));
   printf("%x,%x\n",ehdr->e_entry + phdr->p_vaddr,ehdr->e_entry);

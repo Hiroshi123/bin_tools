@@ -34,8 +34,10 @@
 	
 	extern _context._arg1
 	extern _context._arg2
-	extern _context._res
 
+	extern _context._data_prefix
+	extern _context._res
+	
 	extern _context._internal_arg1
 	
 	extern _context._override
@@ -74,6 +76,11 @@ _0x65_prefix_seg_gs:
 	jmp _exec_one
 	
 _0x66_prefix_data:
+
+	push rbp
+	mov byte [_context._data_prefix],0xff
+	
+	pop rbp
 	;; mov cs,[fs:2]
 	;; mov ds,rdx
 	;; mov ds,edx

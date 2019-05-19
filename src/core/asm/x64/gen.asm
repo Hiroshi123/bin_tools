@@ -57,6 +57,8 @@
 	global _sib_no_fetch_displacement	
 	global _sib_fetch8_displacement
 	global _sib_fetch32_displacement
+
+	extern _processor
 	
 	extern _mod_load_base
 	extern _mod_fetch_base
@@ -367,14 +369,23 @@ _fetch_displacement_by_mod:
 	;; RIP relative offset check
 	mov byte al,[_context._rip_rel]
 	cmp al,0xff
-	je _fetch_displacement_by_mod.rip_relative_offset
-	
+	jne _fetch_displacement_by_mod._no_offset
+	;; if processor mode is x64 then it is rip offset
+	cmp byte [_processor],0x64
+	je _fetch_displacement_by_mod._x64
+._x32:
+	call _fetch_absolute_offset
+	jmp _fetch_displacement_by_mod.end
+._x64:
+	call _fetch_rip_relative_offset
+	jmp _fetch_displacement_by_mod.end
+._no_offset:
 	mov ax,0
 	lea rdx,[_mod_fetch_base]
 	mov al ,[_context._mod]
 	add dx,ax
 	call [rdx]
-	
+.end:
 	pop rbp
 	ret
 	
@@ -385,27 +396,31 @@ _fetch_displacement_by_mod:
 	pop rbp
 	ret
 
-.rip_relative_offset:
+_fetch_absolute_offset:
+	push rbp
 	mov byte [_context._rip_rel],0x00
 	call _fetch32
-	mov r8,[_context._res]
+	mov rax,[_context._res]
+	mov [_context._rm],rax
+	mov r8,rax
 	call print
-	;; call _mov_rm_to_arg1
-	;; mov rax,[_rip]
+	mov r8,0x77
+	call print
+
+	pop rbp
+	ret
+	
+_fetch_rip_relative_offset:
+	mov byte [_context._rip_rel],0x00
+	call _fetch32
 	mov rax,[_rip]	
 	mov [_context._arg1],rax
 	call _mov_res_to_arg2
 	call _add64
-	mov r8,[_context._arg1]
-	call print
-	mov r8,[_context._res]
-	call print
 	mov rax,[_context._res]
 	mov [_context._rm],rax
-	mov r8,0x78
-	call print
-	pop rbp
-	ret
+	ret	
+	;; pop rbp
 	
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

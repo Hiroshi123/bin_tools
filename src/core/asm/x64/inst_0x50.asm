@@ -29,12 +29,13 @@
 	extern _context._arg2
 	extern _context._opcode
 	extern _context._rex	
-
-	extern _store64
-	extern _assign64
-	extern _add64
-	extern _sub64
-	extern _load64
+	extern _context._dflag
+	
+	extern _store
+	extern _assign
+	extern _add
+	extern _sub
+	extern _load
 	extern _mov_res_to_arg2
 
 	extern _context._internal_arg1
@@ -45,6 +46,11 @@
 	extern _rip
 	extern _r8
 	extern _select_reg
+
+	extern _set_dflag
+	extern _reset_dflag_when_x64
+
+	extern _dflag_len
 	
 _0x50_push:
 	push rbp
@@ -216,25 +222,40 @@ _0x5f_pop:
 ;;; 2. assign the value on rsp.
 ;;; 3. store the value which is given on [_context._internal_arg1].
 
+;;; Note push is processor dependent operation.
+;;; simple 0x50 stores 4bytes on x86, and 8bytes on x86-64 no matter what
+;;; values are set on rex prefix.
+;;; Both of them, takes data_prefix account of its calculation, and let the length
+;;; 16bit if it is set.
+;;; It means you need to read processor_mode when performing below.
 _gen_push:
 	
 	push rbp
-		
+	call _set_dflag
+	call _reset_dflag_when_x64	
+
 	mov rax,[_rsp]
 	mov qword [_context._arg1],rax
-	mov qword [_context._arg2],0x08
-	call _sub64
+	
+	lea rax,[_dflag_len]
+	mov dx,0x00
+	mov dl,[_context._dflag]
+	add ax,dx
+	mov rax,[rax]
+	mov qword [_context._arg2],rax
+
+	call _sub
 	
 	mov rax,_rsp
 	mov [_context._arg1],rax
 	call _mov_res_to_arg2
-	call _assign64
+	call _assign
 	
 	mov rax,[_context._internal_arg1]
 	mov [_context._arg2],rax
 	mov rax,[_rsp]
 	mov [_context._arg1],rax
-	call _store64
+	call _store
 	
 	pop rbp
 	ret
@@ -247,24 +268,38 @@ _gen_push:
 _gen_pop:
 	
 	push rbp
+	call _set_dflag
+	call _reset_dflag_when_x64	
+
 	mov rax,[_rsp]
 	mov [_context._arg1],rax
-	call _load64
+	call _load
 
 	mov rax,[_context._internal_arg2]
 	mov [_context._arg1],rax
 	call _mov_res_to_arg2
-	call _assign64
+	call _assign
 
 	mov rax,[_rsp]
 	mov qword [_context._arg1],rax
-	mov qword [_context._arg2],0x08
-	call _add64
+	;; mov al,[_context._dflag]
+	;; shr al,0x03
+	;; mov qword [_context._arg2],0x00
+	;; mov [_context._arg2],al
+
+	lea rax,[_dflag_len]
+	mov dx,0x00
+	mov dl,[_context._dflag]
+	add ax,dx
+	mov rax,[rax]
+	mov qword [_context._arg2],rax
+	
+	call _add
 	
 	mov rax,_rsp
 	mov [_context._arg1],rax
 	call _mov_res_to_arg2
-	call _assign64
+	call _assign
 
 	pop rbp	
 	ret

@@ -18,6 +18,7 @@
 	global _get_mod_op_rm
 	global _set_dflag
 	global _set_dflag_as_1byte
+	global _reset_dflag_when_x64
 	global _set_aflag
 	
 	global _set_eflags
@@ -30,6 +31,8 @@
 	global _select_reg
 
 	global _get_cr_reg_rm
+
+	extern _processor
 	
 	extern _get_diff_host_guest_addr
 	
@@ -657,6 +660,19 @@ _set_dflag:
 	mov byte [_context._dflag],0x10
 	ret
 
+;;; the objective of this funcion is for being made used by push op.
+;;; if dflag is set as 32bit length, it will let 64bit if processor_mode is 64bit.
+_reset_dflag_when_x64:
+	cmp byte [_processor],0x64
+	jne _reset_dflag_when_x64.done1
+	cmp byte [_context._dflag],0x10
+	jne _reset_dflag_when_x64.done1
+	mov byte [_context._dflag],0x18
+	ret
+.done1:
+	ret
+
+	
 _set_dflag_as_1byte:
 	mov byte [_context._dflag],0x0
 	ret

@@ -262,31 +262,34 @@ _load8:
 	mov qword [_context._res],0x00
 	mov rax,[_context._arg1]
 	call _get_host_addr_from_guest	
-	mov rdx,0
-	mov dl,[rax]
-	
-	mov byte [_context._res],dl
+	mov dl,[rax]	
+	mov [_context._res],dl
 	
 	pop rbp
 	ret
 	
 _load16:
+	push rbp
+	mov qword [_context._res],0x00
+	mov rax,[_context._arg1]
+	call _get_host_addr_from_guest	
+	mov dx,[rax]
+	mov [_context._res],dx
+	pop rbp
 	ret
 	
 _load32:
 	push rbp
 	mov rax,[_context._arg1]
-	;; this is util function which will 
 	call _get_host_addr_from_guest
-	mov rax,[rax]
-	mov [_context._res],rax
+	mov eax,[rax]
+	mov [_context._res],eax
 	pop rbp
 	ret
 	
 _load64:
 	push rbp
 	mov rax,[_context._arg1]
-	;; this is util function which will 
 	call _get_host_addr_from_guest
 	mov rax,[rax]
 	mov [_context._res],rax
@@ -307,8 +310,8 @@ _store8:
 	push rbp
 	mov rax,[_context._arg1]
 	call _get_host_addr_from_guest
-	mov rdx,[_context._arg2]
-	mov byte [rax],dl
+	mov dl,[_context._arg2]
+	mov [rax],dl
 	pop rbp
 	ret
 	
@@ -316,8 +319,8 @@ _store16:
 	push rbp
 	mov rax,[_context._arg1]
 	call _get_host_addr_from_guest
-	mov rdx,[_context._arg2]
-	mov [rax],rdx
+	mov dx,[_context._arg2]
+	mov [rax],dx
 	pop rbp	
 	ret
 	
@@ -325,12 +328,8 @@ _store32:
 	push rbp
 	mov rax,[_context._arg1]
 	call _get_host_addr_from_guest
-	mov rdx,[_context._arg2]
-	mov [rax],rdx
-	mov r8,[_context._arg1]
-	call print	
-	mov r8,0x22
-	call print
+	mov edx,[_context._arg2]
+	mov [rax],edx
 	pop rbp	
 	ret
 	
@@ -353,10 +352,6 @@ _store64:
 _assign:
 	push rbp
 	mov ax,0
-;;; 
-	mov r8,0x88
-	call print
-
 	lea rdx,[_assign_base]
 	mov al,[_context._dflag]
 	add dx,ax
@@ -370,28 +365,20 @@ _assign8:
 	mov rax,[_context._arg1]
 	mov cl,[_context._arg2]
 	mov [rax],cl
-	mov r8,0xb6
-	call print
-	
-	mov r8,[_context._arg1]
-	call print
-	mov r8,[_context._rm]
-	call print
-	mov r8,[_context._arg2]
-	call print
-	
 	pop rbp
 	ret
 	
 _assign16:
+	push rbp
+	mov rcx,0
+	mov rax,[_context._arg1]
+	mov cx,[_context._arg2]
+	mov [rax],cx
+	pop rbp
 	ret
 	
 _assign32:
 	push rbp
-	mov r8,0x77
-	call print
-	mov r8,[_context._arg2]
-	call print
 	mov rax,[_context._arg1]
 	mov ecx,[_context._arg2]
 	mov [rax],ecx
@@ -658,7 +645,9 @@ _shl8:
 	ret
 
 _test:
-	
+
+	mov r8,0x66
+	call print
 	ret
 
 _not:

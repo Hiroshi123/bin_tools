@@ -47,10 +47,14 @@ _0xa6_cmpsS:
 	ret
 _0xa7_cmpsS:
 	ret
+
+;;; this test also requires imm and fixed al
 _0xa8_test:
 	ret
+;;; this test also requires imm and fixed ax/eax
 _0xa9_test:
 	ret
+
 _0xaa_stosS:
 	ret
 _0xab_stosS:

@@ -20,6 +20,8 @@ heap *HEAP_HEADER_ADDR_P;
 heap *HEAP_HEADER_ADDR_TAIL;
 size_t PAGE_SIZE;
 
+extern uint8_t EXPORT(processor);
+
 extern uint64_t EXPORT(rax);
 extern uint64_t EXPORT(rcx);
 extern uint64_t EXPORT(rdx);
@@ -131,15 +133,19 @@ int main(int argc,char** argv) {
   } else if (o == MACHO32) {
     info_on_macho i;
     load_macho32(h->begin,&i);
+    EXPORT(processor) = 0x32;
     start_addr = i.entry;
   } else if (o == MACHO64) {
     info_on_macho i;
     load_macho64(h->begin,&i);
+    EXPORT(processor) = 0x64;
     start_addr = i.entry;
   } else if(o == PE32) {
-    // start_addr = load_pe(h->begin);
+    EXPORT(processor) = 0x32;
+    start_addr = load_pe(h->begin);
   } else if(o == PE64) {
-    // start_addr = load_pe(h->begin);
+    EXPORT(processor) = 0x64;
+    start_addr = load_pe(h->begin);
   } else {
     fprintf(stderr,"format error\n");
   }
@@ -155,7 +161,7 @@ int main(int argc,char** argv) {
   printf("intial--------------\n");  
   print_regs();
   int count = 0;
-  for (;count < 41;count++) {
+  for (;count < 70;count++) {
     EXPORT(exec_one());
     printf("--------------%d.--------------\n",count);
     print_regs();

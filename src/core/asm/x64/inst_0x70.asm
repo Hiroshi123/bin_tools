@@ -33,37 +33,54 @@
 ;;; jmp instruction
 	
 _0x70_jo:
-	call _set_eflags	
-	jo setrip
+	push rbp
+	add dword [_rip],0x1
+	call _fetch8
+	mov eax,[_eflags]
+	and eax,eflags_of
+	cmp eax,eflags_of
+	je  _add_rip
+	pop rbp
 	ret
 	
 _0x71_jno:
-	call _set_eflags
-	jno setrip
+	push rbp
+	add dword [_rip],0x1
+	call _fetch8
+	mov eax,[_eflags]
+	and eax,eflags_cf
+	cmp eax,eflags_cf
+	jne  _add_rip
+	pop rbp
 	ret
 ;;; CF (x < 0)
 _0x72_jnae:
-	call _set_eflags
-	jnae setrip
+	push rbp
+	add dword [_rip],0x1
+	call _fetch8
+	mov eax,[_eflags]
+	and eax,eflags_cf
+	cmp eax,eflags_cf
+	je  _add_rip
+	pop rbp
 	ret
 
 ;;; CF (x > 0)
 _0x73_jnc:
-	call _set_eflags
-	jnc setrip
+	push rbp
+	add dword [_rip],0x1
+	call _fetch8
+	mov eax,[_eflags]
+	and eax,eflags_cf
+	cmp eax,eflags_cf
+	jne _add_rip
+	pop rbp
 	ret
 	
 ;;; je is equal to 0 which means zero flag is set
 _0x74_je:
 	push rbp
-	add byte [_rip],1
-
-	mov r8,0x77
-	call print
-	
-	mov r8d,[_eflags]
-	call print
-	
+	add byte [_rip],1	
 	call _fetch8
 	mov eax,[_eflags]
 	and eax,eflags_zf
@@ -77,8 +94,14 @@ _0x74_je:
 ;;; jne means the result of the last instruction was not 0
 ;;; meaning zero flag is not set
 _0x75_jne:
-	call _set_eflags
-	jne setrip
+	push rbp
+	add byte [_rip],1	
+	call _fetch8
+	mov eax,[_eflags]
+	and eax,eflags_zf
+	cmp eax,eflags_zf
+	jne _add_rip
+	pop rbp
 	ret
 ;;; CF or ZF is set >= 0
 _0x76_jna:
