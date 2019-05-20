@@ -3,6 +3,7 @@
 #include "macro.h"
 #include "memory.h"
 #include "objformat.h"
+#include <fcntl.h>
 #include <stdlib.h>
 
 // this must be set as 32bit as always guest address is represented as 32bit.
@@ -284,8 +285,15 @@ void iterate_import_directory(uint64_t module_base_for_idata_section, void* iid_
   // struct of an entry of import name table & import address table.
   uint64_t* int_entry = module_base_for_idata_section + iid->u.OriginalFirstThunk;
   uint64_t* iat_entry = module_base_for_idata_section + iid->FirstThunk;
-  heap * h = init_map_file(filename);
-  uint8_t res = detect_format((uint8_t*)h->begin);
+  int fd = open(filename, O_RDONLY);
+  uint32_t h_size;
+  enum OBJECT_FORMAT res = detect_format(fd, &h_size);
+  struct stat stbuf;
+  if (fstat(fd, &stbuf) == -1) {
+    close(fd);
+    return 0;
+  }
+  heap * h = map_file(fd, stbuf.st_size);
   if (res != PE64) {
     printf("format error\n");
     return;

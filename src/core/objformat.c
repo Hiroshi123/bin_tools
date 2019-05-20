@@ -26,6 +26,7 @@ enum OBJECT_FORMAT check_elf(const uint32_t fd, uint8_t* e, uint32_t* size) {
       return ELF64;
     }
   }
+  return NONE;
  error:
   fprintf(stderr,"file read error\n");
   return NONE;
@@ -44,6 +45,7 @@ enum OBJECT_FORMAT check_macho(const uint32_t fd, const uint32_t* p, uint32_t* s
     *size = mh.sizeofcmds + sizeof(_mach_header_64);
     return MACHO64;
   }
+  return NONE;
 }
 
 enum OBJECT_FORMAT check_pe(const uint32_t fd, const uint16_t* p, uint32_t* size) {
@@ -54,27 +56,29 @@ enum OBJECT_FORMAT check_pe(const uint32_t fd, const uint16_t* p, uint32_t* size
     if (lseek(fd,0x3c - 0x04,SEEK_CUR) == -1) goto error;
     uint32_t e_lfanew;
     if (!read(fd, &e_lfanew, sizeof(e_lfanew))) goto error;
-    if (lseek(fd,e_lfanew,SEEK_CUR) == -1) goto error;
+    if (lseek(fd,e_lfanew,SEEK_SET) == -1) goto error;
     uint32_t signature;
     if (!read(fd, &signature, sizeof(signature))) goto error;
-    if (signature != 0x00) goto error;
+    if (signature != 0x4550) goto error;
     uint16_t machine_t;
     if (!read(fd, &machine_t, sizeof(machine_t))) goto error;
     uint16_t number_of_sections;
     if (!read(fd, &number_of_sections, sizeof(number_of_sections))) goto error;
     uint32_t _size = 0x40 + e_lfanew + 0x18 + number_of_sections * sizeof(IMAGE_SECTION_HEADER);
-    if (machine_t == 0x70650000) {
+    printf("sig:%x\n",machine_t);
+    if (machine_t == 0x86) {
       *size = _size + sizeof(IMAGE_NT_HEADERS32);
       return PE32;
-    } else if (machine_t == 0x20b) {
+    } else if (machine_t == 0x8664) {
       *size = _size + sizeof(IMAGE_NT_HEADERS64);
       return PE64;
     } else {
       goto error;
     }
   }
+  return NONE;
  error:
-  fprintf(stderr,"file read error\n");
+  fprintf(stderr,"file read error..\n");
   return NONE;
 }
 
@@ -86,9 +90,9 @@ enum OBJECT_FORMAT detect_format(const int fd, uint32_t* h_size) {
   if (o) goto done;
   o = check_macho(fd, p, h_size);
   if (o) goto done;
-  // o = check_pe(p, h_size);
+  o = check_pe(fd, p, h_size);
   if (o) goto done;
-  // o = check_coff(p, h_size);
+  /* o = check_coff(p, h_size); */
 
  done:
   return o;
