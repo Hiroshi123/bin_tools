@@ -28,13 +28,18 @@ typedef struct __attribute__((__packed__)) {
   };
 } heap;
 
+heap* get_page(uint8_t num);
 heap* init_map_file(const char *const fname);
 heap* map_file(const int fd, uint32_t size);
 heap* guest_mmap(void* guest_addr, uint32_t map_size, uint32_t flags, uint64_t name_or_parent_addr);
 void* EXPORT(get_diff_host_guest_addr(void* guest_addr));
 void  EXPORT(get_diff_host_guest_addr_(void* guest_addr, void** host_addr));
-void get_host_head(void* guest_addr, void** host_addr);
+/* void get_host_head(void* guest_addr, void** host_addr); */
+p_host get_host_head(p_guest guest_addr);
+
 void get_host_head_from_host(void* host_addr, void** host_head_addr);
+p_host get_host_addr(p_guest guest_addr);
+
 heap* get_current_meta_addr();
 heap* search_page_by_name(char* query);
 

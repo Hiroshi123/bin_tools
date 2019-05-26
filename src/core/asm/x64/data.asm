@@ -62,6 +62,7 @@
 	global _debug._offset
 
 	global _processor
+	global _objformat
 	
 	global _context
 	global _context._opcode
@@ -116,7 +117,8 @@
 	global _assign_base
 	global _and_base
 	global _or_base
-	global _xor_base	
+	global _xor_base
+
 	
 _reg_names:  db "rax rdx rcx rbx rsi rdi r8 r9 r10 r11 r12 r13 r14 r15 eflags rip rsp rbp "
 	
@@ -506,6 +508,10 @@ _opcode_table:
 	;; dq _0x0d_add
 	
 _processor:
+	db 0
+_cpl:
+	db 0
+_objformat:
 	db 0
 	
 ;;; Note that as reg/rm represents pointer to the register which is created by

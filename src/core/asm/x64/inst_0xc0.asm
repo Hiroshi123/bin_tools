@@ -55,9 +55,15 @@
 
 	extern _set_imm_op_base
 	extern _op_shift_base
-
-
+	
 	extern _load_rm_by_mod
+	extern _select_reg
+	extern _gen_push
+
+	extern _assign
+	extern _fetch
+	extern _fetch8
+	extern _sub
 	
 _0xc0_shift:
 	ret
@@ -87,16 +93,9 @@ _0xc2_ret:
 _0xc3_ret:
 	
 	push rbp
-	mov r8,0xc3
-	call print
-	mov r8,[_rsp]
-	call print	
 	mov rax,_rip
 	mov [_context._internal_arg2],rax
 	call _gen_pop
-	mov r8,[_rsp]
-	call print
-	
 	pop rbp
 	ret
 _0xc4_les:
@@ -137,10 +136,48 @@ _0xc7_mov:
 	call _store_or_assign_arg1_by_mod
 	pop rbp
 	ret
+
+;;; enter is combination of
+;;; 1.push rbp
+;;; 2.mov rbp,rsp
+;;; 3.sub rsp, N
+
 _0xc8_enter:
+	add dword [_rip],0x1
+	;; push
+	call _select_reg
+	mov r8,[r8]
+	mov [_context._internal_arg1],r8
+	call _gen_push
+	;; mov rbp,rsp
+	mov rax,_rbp
+	mov [_context._arg1],rax
+	mov rax,[_rsp]
+	mov [_context._arg2],rax
+	call _assign
+	;; sub rsp,N
+	call _fetch8
+	call _mov_res_to_arg2
+	mov rax,[_rsp]
+	mov [_context._arg1],rax	
+	call _sub
 	ret
+
+;;; 1.mov esp, ebp
+;;; 2.pop ebp
 _0xc9_leave:
+	add dword [_rip],0x1
+	call _select_reg
+	mov rax,_rsp
+	mov [_context._arg1],rax
+	mov rax,[_rbp]
+	mov [_context._arg2],rax
+	call _assign
+	mov r8,[r8]
+	mov [_context._internal_arg1],r8
+	call _gen_pop
 	ret
+
 _0xca_lret:
 	ret
 _0xcb_lret:

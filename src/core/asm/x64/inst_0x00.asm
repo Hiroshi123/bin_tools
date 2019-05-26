@@ -86,7 +86,14 @@
 	extern _add32
 	extern _add64
 
+	extern _or
+	extern _or8
+
+	extern _fetch
+	extern _fetch8
+	
 	extern _assign
+	extern _assign8
 	
 	extern _fetch_displacement_by_mod
 	extern _extend_opcode_table
@@ -95,18 +102,12 @@
 _0x00_add:
 	push rbp
 	add byte [_rip],1
-	;; scale_index_base	
-	mov qword [_rax],2
-	mov qword [_rcx],3
-	
 	call _get_mod_reg_rm
-
-	;; mov r8,[_context._reg]
-	;; call print
-	mov rax,_rcx
-	;; [_context._reg]
 	call _set_scale_index_base
-	call _load_arg1_by_mod
+	call _fetch_displacement_by_mod
+	call _mov_rm_to_arg1
+	call _load_rm_by_mod
+	call _mov_res_to_arg1
 	call _set_reg_to_arg2
 	call _add8
 	call _mov_rm_to_arg1
@@ -136,9 +137,31 @@ _0x02_add:
 	ret
 _0x03_add:
 	ret
+;;; 0x04,0x05 does not need anything about 
 _0x04_add:
+	add byte [_rip],1
+	call _fetch8
+	call _mov_res_to_arg2
+	mov rax,[_rax]
+	mov [_context._arg1],rax
+	call _add8
+	mov rax,_rax
+	mov [_context._arg1],rax
+	call _mov_res_to_arg2
+	call _assign8
 	ret
 _0x05_add:
+	add byte [_rip],1
+	call _set_dflag
+	call _fetch
+	call _mov_res_to_arg2
+	mov rax,[_rax]
+	mov [_context._arg1],rax
+	call _add
+	mov rax,_rax
+	mov [_context._arg1],rax
+	call _mov_res_to_arg2
+	call _assign
 	ret
 
 _0x08_or:
@@ -150,17 +173,30 @@ _0x0a_or:
 _0x0b_or:
 	ret
 _0x0c_or:
+	add byte [_rip],1
+	call _set_dflag
+	call _fetch8
+	call _mov_res_to_arg2
+	mov rax,[_rax]
+	mov [_context._arg1],rax
+	call _or8
+	mov rax,_rax
+	mov [_context._arg1],rax
+	call _mov_res_to_arg2
+	call _assign8
 	ret
 _0x0d_or:
-	push rbp
 	add byte [_rip],1
 	call _set_dflag
 	call _fetch
-	lea rax,[_context._arg1]
+	call _mov_res_to_arg2
+	mov rax,[_rax]
+	mov [_context._arg1],rax
+	call _or
 	mov rax,_rax
+	mov [_context._arg1],rax
 	call _mov_res_to_arg2
 	call _assign
-	pop rbp
 	ret
 	
 _0x0f:

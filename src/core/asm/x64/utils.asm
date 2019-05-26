@@ -276,7 +276,7 @@ _reg_regain:
 	ret
 	
 _write:
-	mov rax, SYSCALL_WRITE
+	mov rax, SYS_write
 	mov rdi, STDOUT
 	lea rsi, [_reg_size8]
 	mov rdx, 0x0b
@@ -286,4 +286,23 @@ _write:
 	ret
 
 
+;; long thread_create(void (*)(void))
+thread_create:
+	push rdi
+	call stack_create
+	lea rsi, [rax + STACK_SIZE - 8]
+	pop qword [rsi]
+	mov rdi, THREAD_FLAGS
+	;; mov rax, SYS_clone
+	syscall
+	ret
 
+;; void *stack_create(void)
+stack_create:
+	mov rdi, 0
+	mov rsi, STACK_SIZE
+	mov rdx, PROT_WRITE | PROT_READ
+	mov r10, MAP_ANONYMOUS | MAP_PRIVATE | MAP_GROWSDOWN
+	mov rax, SYS_mmap
+	syscall
+	ret

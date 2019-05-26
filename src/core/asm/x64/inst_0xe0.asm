@@ -37,6 +37,8 @@
 
 	extern _gen_push
 	extern _fetch8
+
+	extern _add_edge
 	
 _0xe0_loopnz:
 	add r8,0xe0
@@ -87,12 +89,21 @@ _0xe8_call:
 	;; mov rax,[_rip]
 	;; mov [_context._arg1],rax	
 	;; call _add32
-	mov rax,[_context._arg2]	
+	
+	mov rdi,[_context._arg2]
+	mov rsi,0x88
+	call _add_edge
+		
+	mov rax,[_context._arg2]
+	
+	
 	;; before adding rax, you need to store rip to be returned on it.
 	mov rdx,[_rip]
 
 	;; cannot be rax
 	add [_rip],eax
+	;; when you add [rip]
+	;; original rip and
 	
 	mov [_context._internal_arg1],rdx
 	call _gen_push
@@ -142,7 +153,6 @@ _do_sub:
 	sub [_rip],ax
 	pop rbp
 	ret
-
 	
 _0xec_port_io:
 	ret

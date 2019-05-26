@@ -10,7 +10,8 @@
 	global _0x24_and
 	global _0x25_and
 	global _0x26_prefix_seg_es
-
+	global _0x27_bcd_daa
+	
 	global _0x28_sub
 	global _0x29_sub
 	global _0x2a_sub
@@ -18,6 +19,7 @@
 	global _0x2c_sub
 	global _0x2d_sub
 	global _0x2e_prefix_seg_cs
+	global _0x27_bcd_das
 	
 	extern _rip
 
@@ -141,6 +143,9 @@ _0x26_prefix_seg_es:
 	mov [_context._override_reg],rax
 	jmp _exec_one	
 
+_0x27_bcd_daa:
+	ret
+
 _0x28_sub:
 	push rbp
 	pop rbp
@@ -189,6 +194,9 @@ _0x2e_prefix_seg_cs:
 	mov rax,_cs
 	mov [_context._override_reg],rax
 	jmp _exec_one	
+
+_0x2f_bcd_das:
+	ret
 
 ___f:
 	push rbp

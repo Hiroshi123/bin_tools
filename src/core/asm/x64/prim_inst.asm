@@ -83,9 +83,12 @@
 	global _xor32
 	global _xor64
 	
-	
 	global _cmp
-
+	global _cmp8
+	global _cmp16
+	global _cmp32
+	global _cmp64
+	
 	global _rol
 	global _ror
 	global _shl
@@ -96,6 +99,8 @@
 	global _call
 	global _jmp
 	global _push
+
+	global _xchg
 	
 	global _shl0
 	global _shl1
@@ -244,7 +249,6 @@ _fetch64:
 	pop rbp
 	ret
 
-	
 ;;;  you have	
 
 _load:
@@ -572,11 +576,18 @@ _cmp:
 	cmp eax,0
 	je _set_zeroflags
 .done1:
-	
 	mov r8,[_eflags]
-	call print
-	
+	call print	
 	pop rbp
+	ret
+
+_cmp8:
+	ret
+_cmp16:
+	ret
+_cmp32:
+	ret
+_cmp64:
 	ret
 	
 _set_zeroflags:
@@ -729,5 +740,17 @@ _push:
 	call print
 	ret
 	
+_xchg:
+	mov rax,[_context._arg1]
+	mov rax,[rax]
+	mov rdx,[_context._arg2]
+	mov rdx,[rdx]
+	mov [_context._arg1],rdx
+	mov [_context._arg2],rax
+	ret
 
 
+;; set_eflag
+_set_eflag:
+	
+	

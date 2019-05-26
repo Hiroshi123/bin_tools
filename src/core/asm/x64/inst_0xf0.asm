@@ -63,6 +63,8 @@
 	extern _context._arg2
 	extern _context._res
 	extern _context._imm_op
+	extern _context._repz
+	extern _context._repnz
 	
 	extern _assign
 	
@@ -72,31 +74,46 @@
 
 	extern _op01_f_base
 	extern _set_imm_op_base
-
+	
 	extern _test
 	extern _not
 	extern _neg
+	extern _eflags
+
+	extern _exec_one
 	
+%include "constant.asm"
+
+;;; next instruction of lock will be done wihtout interrupt.
+;;; essential functionality is asserting or locking bus.
+;;; read/modify/write instruction often consumed more than 1 cycle, and
+;;; allows another instruction comes into the memory btweeen read and write.
 _0xf0_prefix_lock:
 	
 	add r8,0xf0
 	call print
 
 	ret
+;;; exits to external debugger??
 _0xf1_icebp:
 	add r8,0xf1
 	call print
-
 	ret
-_0xf2_prefix_repnz:
-	mov r8,0xf2
-	call print
 
+_0xf2_prefix_repnz:
+	add dword [_rip],1
+	mov byte [_context._repz],0xff
+	jmp _exec_one
 	ret
 _0xf3_prefix_repz:
+	add dword [_rip],1
+	mov byte [_context._repz],0xff
+	jmp _exec_one
 	ret
+;;; privileged instruction which is allowed only for stage on ring 0.
 _0xf4_hlt:
 	ret
+;;; complement carry flag
 _0xf5_cmc:
 	ret
 
@@ -174,27 +191,41 @@ _compensate_reg_f6f7:
 ._not_neg:
 	call _mov_res_to_arg1
 	ret
-	
+
+;;; clear carry flag
+;;; 
 _0xf8_clc:
 	mov r8,0xf8
 	call print
 
 	ret
+;;; set carry flag 
 _0xf9_stc:
 	ret
+;;; clear interrupt flag
+;;; valid if cpl is less than iopl.
+;;; it is used for before accessing port-mapped io memory
+;;; to prevent inconsistant access.
 _0xfa_cli:
 	mov r8,0xfa
 	call print
 
 	ret
+;;; set interrupt flag
 _0xfb_sti:
-	mov r8,0xfb
-	call print
+	add dword [_rip],1
+	mov rax,eflags_df
+	or [_eflags],rax
 	ret
+;;; clear direction flag
 _0xfc_cld:
-	mov r8,0xfc
-	call print
+	add dword [_rip],1
+	mov rax,eflags_df
+	not rax
+	and [_eflags],rax
 	ret
+
+;;; set direction flag
 _0xfd_std:
 	mov r8,0xfd
 	call print

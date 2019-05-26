@@ -6,6 +6,9 @@
 #include <fcntl.h>
 #include <stdlib.h>
 
+#include <sys/mman.h>
+#include <sys/stat.h>
+
 // this must be set as 32bit as always guest address is represented as 32bit.
 static uint32_t CURRENT_MODULE_TAIL;
 /* static uint32_t CURRENT_MODULE_BASE; */
@@ -232,7 +235,7 @@ p_guest find_f_from_export_directory
     module_base_for_edata_section + ied->AddressOfNameOrdinals;
   uint32_t count = 0;
   void** vv;
-  void** v1;
+  void* v1;
   void** v2;
   for (;addr_name!=addr_name_end;addr_name++,count++) {
     /* printf("!%s\n",query); */
@@ -249,7 +252,7 @@ p_guest find_f_from_export_directory
       /* 	     (uint64_t*)vv */
       /* 	     //module_base_for_code_section + *(addr_function + *(addr_ordinal + count)) */
       /* 	     ); */
-      get_host_head(r ,&v1);
+      v1 = get_host_head(r);
       get_host_head_from_host(&ied->Characteristics ,&v2);      
       *forward = (v1 == v2) ? 1 : 0;
       return r;
@@ -291,7 +294,7 @@ void iterate_import_directory(uint64_t module_base_for_idata_section, void* iid_
   struct stat stbuf;
   if (fstat(fd, &stbuf) == -1) {
     close(fd);
-    return 0;
+    return;
   }
   heap * h = map_file(fd, stbuf.st_size);
   if (res != PE64) {

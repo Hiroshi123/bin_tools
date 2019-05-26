@@ -27,6 +27,8 @@
 	extern _fetch8
 	extern _context._res
 	extern print
+
+	extern _context._arg1
 	
 %include "constant.asm"
 	
@@ -48,11 +50,12 @@ _0x71_jno:
 	add dword [_rip],0x1
 	call _fetch8
 	mov eax,[_eflags]
-	and eax,eflags_cf
-	cmp eax,eflags_cf
+	and eax,eflags_of
+	cmp eax,eflags_of
 	jne  _add_rip
 	pop rbp
 	ret
+
 ;;; CF (x < 0)
 _0x72_jnae:
 	push rbp
@@ -103,6 +106,7 @@ _0x75_jne:
 	jne _add_rip
 	pop rbp
 	ret
+
 ;;; CF or ZF is set >= 0
 _0x76_jna:
 	call _set_eflags
@@ -116,45 +120,82 @@ _0x77_ja:
 
 ;;; sign flag is set
 _0x78_js:
-	call _set_eflags
-	js setrip
+	push rbp
+	add byte [_rip],1	
+	call _fetch8
+	mov eax,[_eflags]
+	and eax,eflags_sf
+	cmp eax,eflags_sf
+	je  _add_rip
+	pop rbp
 	ret
 
 ;;; sign flag is not set
 _0x79_jns:
-	call _set_eflags
-	jns setrip
+	push rbp
+	add byte [_rip],1	
+	call _fetch8
+	mov eax,[_eflags]
+	and eax,eflags_sf
+	cmp eax,eflags_sf
+	jne _add_rip
+	pop rbp
 	ret
+
 ;;; partiy flag is set(even parity)
 _0x7a_jpe:
-	call _set_eflags
-	jpe setrip
+	push rbp
+	add byte [_rip],1	
+	call _fetch8
+	mov eax,[_eflags]
+	and eax,eflags_pf
+	cmp eax,eflags_pf
+	je  _add_rip
+	pop rbp
 	ret
 
 ;;; partiy flag is not set(odd parity)
 _0x7b_jpo:
-	call _set_eflags
-	jpo setrip
+	push rbp
+	add byte [_rip],1	
+	call _fetch8
+	mov eax,[_eflags]
+	and eax,eflags_pf
+	cmp eax,eflags_pf
+	jne _add_rip
+	pop rbp
 	ret
 
 ;;; sign <> overflow
 _0x7c_jnge:
-	call _set_eflags
-	jnl setrip
+	add byte [_rip],1
+	call _fetch8
+	mov rax,[_eflags]
+	and rax,eflags_sof
+	cmp rax,eflags_sf
+	je _add_rip
+	cmp rax,eflags_of
+	je  _add_rip
 	ret
-
-;;; sign <> overflow
+	
+;;; sign == overflow
+;;; sign == overflow
 _0x7d_jge:
-	call _set_eflags
-	jng setrip
+	add byte [_rip],1
+	call _fetch8
+	mov rax,[_eflags]
+	and rax,eflags_sof
+	cmp rax,eflags_sof
+	je _add_rip
+	cmp rax,0
+	jne _add_rip
 	ret
-
+	
 ;;; zero or sign <> overflow
 _0x7e_jng:
 
 	push rbp
 	add byte [_rip],1
-	
 	call _fetch8
 	
 	mov rax,[_eflags]
@@ -174,12 +215,27 @@ _0x7e_jng:
 	pop rbp
 	ret
 
-;;; zero sign overflow
+;;; zero == 0
+;;; sign == overflow
 _0x7f_jnle:
-	call _set_eflags
-	jnle setrip
-	ret
+	push rbp
+	add byte [_rip],1
+	call _fetch8
 	
+	mov rax,[_eflags]
+	
+	and rax,eflags_zf
+	cmp rax,eflags_zf
+	je _0x7f_jnle.done
+	mov rax,[_eflags]
+	and rax,eflags_sof
+	cmp rax,eflags_sof
+	je _add_rip
+	cmp rax,0
+	je _add_rip
+.done:
+	pop rbp
+	ret
 
 ;;; this is temporary implementation to change ip.
 ;;; needs to be set more properly later on.
@@ -190,10 +246,24 @@ _add_rip:
 	ret
 
 _set_eflags:
-	push qword [_eflags]
-	popf
+	mov rax,[_eflags]
+	mov rdx,[_context._arg1]
+	or rax,rdx
 	ret
 
+_unset_eflags:
+	mov rax,[_eflags]
+	mov rdx,[_context._arg1]
+	not rdx
+	and rax,rdx
+	ret
+
+_check_eflags:
+	mov rax,[_eflags]
+	and rax,[_context._arg1]
+	cmp rax,[_context._arg1]
+	ret
+	
 setrip:
 	add [_rip],rdi
 	ret

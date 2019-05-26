@@ -44,6 +44,7 @@
 	extern _context._override_reg
 
 	extern _fetch
+	extern _fetch8
 	extern _fetch32
 
 	extern _gen_push
@@ -113,14 +114,21 @@ _0x69_imul:
 	ret
 
 _0x6a_push_iv:
+	add dword [_rip],0x1
+	call _fetch8
+	mov rax,[_context._res]
+	mov [_context._internal_arg1],rax
+	call _gen_push
 	ret
 
 _0x6b_imul:
 	ret
 
+;;; ins,outs instruction
+;;; which will deal with IO port with string instruction.
 _0x6c_insS:
 	ret
-	
+
 _0x6d_insS:
 	ret
 

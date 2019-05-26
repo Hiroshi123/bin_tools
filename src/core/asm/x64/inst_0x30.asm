@@ -10,6 +10,7 @@
 	global _0x34_xor
 	global _0x35_xor
 	global _0x36_prefix_seg_ss
+	global _0x37_bcd_aaa
 
 	global _0x38_cmp
 	global _0x39_cmp
@@ -18,6 +19,7 @@
 	global _0x3c_cmp
 	global _0x3d_cmp
 	global _0x3e_prefix_seg_ds
+	global _0x3f_bcd_aas
 	
 	extern _rip
 
@@ -131,11 +133,6 @@ _0x32_xor:
 	pop rbp
 	ret
 _0x33_xor:
-	push rbp
-
-	mov r8,0x33
-	call print
-
 	add byte [_rip],1	
 	call _get_mod_reg_rm
 	call _set_scale_index_base
@@ -148,8 +145,6 @@ _0x33_xor:
 	call _mov_rm_to_arg1
 	call _mov_res_to_arg2
 	call _store_or_assign_arg1_by_mod	
-
-	pop rbp
 	ret
 _0x34_xor:
 	push rbp
@@ -165,6 +160,10 @@ _0x36_prefix_seg_ss:
 	mov rax,_ss
 	mov [_context._override_reg],rax
 	jmp _exec_one
+
+_0x37_bcd_aaa:
+	ret
+
 _0x38_cmp:
 	push rbp
 	pop rbp
@@ -212,7 +211,10 @@ _0x3e_prefix_seg_ds:
 	mov rax,_ds
 	mov [_context._override_reg],rax
 	jmp _exec_one	
-	
+
+_0x3f_bcd_aas:
+	ret
+
 ___f:
 	push rbp
 	add byte [_rip],1	

@@ -28,7 +28,6 @@
  */
 #include <stdint.h>
 
-
 /*
  * <mach/machine.h> is needed here for the cpu_type_t and cpu_subtype_t types
  * and contains the constants for the possible values of these types.

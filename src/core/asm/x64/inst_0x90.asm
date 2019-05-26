@@ -19,28 +19,89 @@
 	global _0x9f_lahf
 	
 	extern print
+	extern _xchg
 	
 	extern _rip
 	extern _set_dflag
+
+	extern _context._arg1
+	extern _context._arg2
+	extern _context._internal_arg1	
+	extern _context._internal_arg2
+	
+	extern _rax
+	extern _select_reg
+
+	extern _gen_push
+	extern _gen_pop
+	
+	extern _eflags
 	
 _0x90_nop:
-	mov r8,0x90
-	call print
-	add byte [_rip],0x01
+	add dword [_rip],0x01
 	ret
 _0x91_xchg_eax:
+	add dword [_rip],0x01
+	call _set_dflag
+	call _select_reg
+	mov [_context._arg2],r8
+	mov rax,_rax
+	mov [_context._arg1],rax
+	call _xchg
 	ret
 _0x92_xchg_eax:
+	add dword [_rip],0x01
+	call _set_dflag
+	call _select_reg
+	mov [_context._arg2],r8
+	mov rax,_rax
+	mov [_context._arg1],rax
+	call _xchg
 	ret
 _0x93_xchg_eax:
+	add dword [_rip],0x01
+	call _set_dflag
+	call _select_reg
+	mov [_context._arg2],r8
+	mov rax,_rax
+	mov [_context._arg1],rax
+	call _xchg
 	ret
 _0x94_xchg_eax:
+	add dword [_rip],0x01
+	call _set_dflag
+	call _select_reg
+	mov [_context._arg2],r8
+	mov rax,_rax
+	mov [_context._arg1],rax
+	call _xchg
 	ret
 _0x95_xchg_eax:
+	add dword [_rip],0x01
+	call _set_dflag
+	call _select_reg
+	mov [_context._arg2],r8
+	mov rax,_rax
+	mov [_context._arg1],rax
+	call _xchg
 	ret
 _0x96_xchg_eax:
+	add dword [_rip],0x01
+	call _set_dflag
+	call _select_reg
+	mov [_context._arg2],r8
+	mov rax,_rax
+	mov [_context._arg1],rax
+	call _xchg
 	ret
 _0x97_xchg_eax:
+	add dword [_rip],0x01
+	call _set_dflag
+	call _select_reg
+	mov [_context._arg2],r8
+	mov rax,_rax
+	mov [_context._arg1],rax
+	call _xchg	
 	ret
 
 ;;; conversion op
@@ -77,11 +138,33 @@ _0x9a_lcall:
 _0x9b_fwait:
 	ret
 _0x9c_pushf:
+	add dword [_rip],0x1
+	mov rax,[_eflags]
+	mov [_context._internal_arg1],rax
+	call _gen_push
 	ret
 _0x9d_popf:
-	ret
-_0x9e_sahf:
-	ret
-_0x9f_lahf:
+	add dword [_rip],0x1
+	mov rax,[_eflags]
+	mov [_context._internal_arg2],rax
+	call _gen_pop
 	ret
 
+;;; Store AH into flags
+;;; this operation is valid only for x86-32.
+;;; And be careful not all of flag values are fed to eflags register.
+;;; SF(7), ZF(6), AF(4), PF(2), and CF(0)
+_0x9e_sahf:
+	add dword [_rip],0x1
+	mov rax,[_rax]
+	mov [_eflags],rax
+	ret
+
+;;; Load flags into AH.
+;;; this operation is valid only for x86-32.
+_0x9f_lahf:
+	add dword [_rip],0x1
+	mov rax,0
+	mov ah,[_eflags]
+	mov [_rax],rax
+	ret

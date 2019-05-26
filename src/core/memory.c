@@ -79,9 +79,7 @@ heap *init_map_file(const char *const fname) {
   return map_file(fd, stbuf.st_size);
 }
 
-
 heap* get_page(uint8_t num) {
-  
   int map_size = PAGE_SIZE*num;
   int fd = -1;
   void *begin = mmap(NULL,map_size , PROT_READ|PROT_WRITE|PROT_EXEC,
@@ -92,7 +90,7 @@ heap* get_page(uint8_t num) {
   h->flags = 1;
   h->file = (uint16_t)fd;
   h->guest_addr = -1;
-  HEAP_HEADER_ADDR_P = h + 1;  
+  HEAP_HEADER_ADDR_P += 1;  
   return h;
 }
 
@@ -187,24 +185,49 @@ void get_diff_host_guest_addr_(void* guest_addr, void** host_addr) {
   }
 }
 
-void get_host_head(void* guest_addr, void** host_head_addr) {
+// [Caution] :: you need to make sure that you included header proerply when you return
+// 64bit pointer, otherwise it will be truncated.
+p_host get_host_addr(p_guest guest_addr) {
   
   heap* h = HEAP_HEADER_ADDR_HEAD;
   heap* h_end = HEAP_HEADER_ADDR_P;
-  void* guest_begin = (uint64_t)guest_addr & 0xfffff000;  
+  uint32_t guest_begin = guest_addr & 0xfffff000;
+  uint32_t page = 0;
+
+  for (;h!=h_end;h++) {
+    if (h->guest_addr != -1) {
+      page = 0;
+      for (;page < h->page_num;page++) {
+	if (guest_begin == h->guest_addr + page * PAGE_SIZE) {
+	  /* uint64_t diff = (uint64_t)h->begin - ((uint64_t)guest_begin - (uint64_t) page * PAGE_SIZE); */
+	  uint32_t dd = page * PAGE_SIZE;
+	  uint16_t guest_in_page_offset = guest_addr - guest_begin;
+	  return h->begin + dd + guest_in_page_offset;
+	}
+      }
+    }
+  }
+  return 0;
+}
+
+p_host get_host_head(p_guest guest_addr/*, void** host_head_addr*/) {
+  
+  heap* h = HEAP_HEADER_ADDR_HEAD;
+  heap* h_end = HEAP_HEADER_ADDR_P;
+  uint32_t guest_begin = guest_addr & 0xfffff000;  
   uint32_t page = 0;
   for (;h!=h_end;h++) {
     if (h->guest_addr != -1) {
       page = 0;
       for (;page < h->page_num;page++) {
 	if (guest_begin == h->guest_addr + page * PAGE_SIZE) {
-	  *host_head_addr = h->begin;
-	  return;
+	  // *host_head_addr = h->begin;
+	  return h->begin;
 	}
       }
     }
   }
-  return;
+  return 0;
 }
 
 void get_host_head_from_host(void* host_addr, void** host_head_addr) {

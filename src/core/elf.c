@@ -7,52 +7,80 @@
 
 #define DEBUG
 
-p_guest load_elf32(uint8_t* page_head) {
+p_guest load_elf32(uint8_t* page_head, info_on_elf32* _e) {
   
   Elf32_Ehdr* ehdr = (Elf32_Ehdr *)page_head;
-  printf("aa");
-  printf("%lx\n",ehdr->e_entry);
-  printf("%x\n",ehdr->e_phoff);
-  
   Elf32_Phdr* phdr = (uint8_t*)ehdr + ehdr->e_phoff;
-  
-  printf("%x,%x\n", phdr->p_vaddr, phdr->p_paddr);
-  
-  // loader will load all of segments...
-  
-  /* printf("%x,%x\n",(uint8_t*)ehdr + phdr->p_paddr + phdr->p_offset, */
-  /* 	 *((uint8_t*)ehdr + phdr->p_offset + 1)); */
-  /* uint8_t entry_off = ehdr->e_entry - phdr->p_paddr; */
-  /* printf("%lx\n",*((uint8_t*)ehdr) + phdr->p_offset + entry_off); */
-  
+  Elf32_Phdr* phdr_end = phdr + ehdr->e_phnum;
   heap* h1;
   // you should also read offset from file to be mapped directly.
   uint32_t map_size = ((phdr->p_memsz + 0x1000) & 0xfffff000);
-  p_guest image_base = phdr->p_vaddr;// + phdr->p_vaddr;
-  h1 = guest_mmap(image_base,map_size,1,0);
-  memcpy
-    (h1->begin,
-     page_head + phdr->p_offset,
-     phdr->p_filesz
-     );
-
-  uint32_t bss_size = phdr->p_filesz - phdr->p_filesz;
-  memset(h1->begin + bss_size, 0, bss_size);
-  
-  printf("!%x,%x\n",h1->begin,*(page_head + phdr->p_offset));
-  printf("%x,%x\n",ehdr->e_entry + phdr->p_vaddr,ehdr->e_entry);
-  return ehdr->e_entry + phdr->p_vaddr - phdr->p_paddr;// + phdr->p_vaddr;
+  uint32_t bss_size;
+  p_guest start_addr;
+  for (;phdr!=phdr_end;phdr++) {
+    h1 = guest_mmap(phdr->p_vaddr,map_size,1,0);
+    memcpy
+      (h1->begin,
+       page_head + phdr->p_offset,
+       phdr->p_filesz
+       );
+    bss_size = phdr->p_filesz - phdr->p_filesz;
+    if (bss_size > 0) {
+      memset(h1->begin + bss_size, 0, bss_size);
+    }
+    // if (ehdr->e_entry ) {
+    _e->text_v_addr = phdr->p_vaddr;
+    _e->text_p_addr = phdr->p_paddr;
+    start_addr = ehdr->e_entry + phdr->p_vaddr - phdr->p_paddr;
+    // }
+  }
+  return start_addr;
 }
 
 void load_elf(uint8_t* page_head) {
   if (*((uint8_t*)page_head + 4) == 1) {    
-    load_elf32(page_head);
+    // load_elf32(page_head);
   } else if (*((uint8_t*)page_head + 4) == 2) {
     
   }
 }
 
-char read_elf(const char *const page_for_elf,
+void read_elf32(const uint8_t* head, info_on_elf32* _e) {
+  memset(_e ,0 , sizeof(info_on_elf));
+  Elf32_Ehdr* h = (Elf32_Ehdr *)head;
+  _e->ehdr_p = (Elf32_Ehdr *)head;
+  _e->phdr_p = (Elf32_Phdr *)(head + h->e_phoff);
+  _e->shdr_head = (Elf32_Shdr *)(head + h->e_shoff);
+  _e->shdr_tail = (Elf32_Shdr *)
+    ((size_t)_e->shdr_head +
+     h->e_shentsize * h->e_shnum);
+  _e->shstr_offset = (char *)
+    ((Elf32_Shdr *)
+     ((size_t)_e->shdr_head +
+      (size_t)(h->e_shentsize *
+	       h->e_shstrndx)))->sh_offset+(size_t)head;
+  Elf32_Shdr *shdr;
+  char *sh_name;
+  char i = 0;
+  uint8_t mark = 0;
+  for (shdr = _e->shdr_head; shdr != _e->shdr_tail; shdr++, i++) {
+    sh_name = &(_e->shstr_offset)[shdr->sh_name];
+    printf("section:%s\n",sh_name);
+    if (shdr->sh_type == SHT_SYMTAB) {
+      _e->symbol_p = (Elf64_Sym *)(shdr->sh_offset + head);
+      _e->symbol_size = shdr->sh_size;
+      continue;
+    }
+    else if (!strcmp(sh_name, ".strtab")) {
+      _e->str_p = (char *)(shdr->sh_offset + (size_t)head);
+    } else if (!strcmp(sh_name, ".text")) {
+      /* _e->text_shndx = (char)i; */
+      _e->text_p = (char*)((size_t)head + shdr->sh_offset);
+    }
+  }
+}
+
+char read_elf64(const char *const page_for_elf,
                             info_on_elf *_e) {
   // filling all of offset information in a prepared struct from a file which
   // are mapped.
@@ -132,7 +160,6 @@ char read_elf(const char *const page_for_elf,
       if (!strcmp(sh_name, ".text")) {
         _e->text_shndx = (char)i;
 	_e->text_p = (char*)((size_t)page_for_elf + shdr->sh_offset);
-	// _e->
         mark |= 1 << 7;
       } else if (!strcmp(sh_name, ".plt.got")) {
         _e->plt_got_p = (plt_got *)shdr->sh_offset;
@@ -172,6 +199,22 @@ char read_elf(const char *const page_for_elf,
     }
   }
   return 1;
+}
+
+void* get_name_of_f_on_elf32(p_guest f_addr, info_on_elf32* _e) {
+
+  const Elf32_Sym *symbol_begin = _e->symbol_p;
+  const Elf32_Sym *symbol_end = (Elf32_Sym *)((size_t)symbol_begin + (size_t)_e->symbol_size);
+  Elf32_Sym *p = (Elf32_Sym *)symbol_begin;
+  p_guest offset = _e->text_v_addr - _e->text_p_addr;
+  for (; p != symbol_end; p++) {
+    char* _fname = &(_e->str_p)[p->st_name];
+    if ( + p->st_value == f_addr) {
+      printf("match\n");
+      return _fname;
+    }
+  }
+  return 0;
 }
 
 char* get_addr_of_f(const char* fname, info_on_elf* _e) {

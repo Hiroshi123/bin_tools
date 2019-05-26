@@ -54,6 +54,9 @@
 	global _mov_res_to_arg1
 	global _mov_res_to_arg2
 
+	global _set_res_to_arg1
+	global _set_res_to_arg2
+	
 	global _sib_no_fetch_displacement	
 	global _sib_fetch8_displacement
 	global _sib_fetch32_displacement
@@ -119,7 +122,6 @@
 	extern _sub64
 	
 	extern print
-	
 
 _set_rm_to_arg1:
 	mov rax,[_context._rm]
@@ -144,7 +146,19 @@ _set_reg_to_arg2:
 	mov rax,[rax]
 	mov [_context._arg2],rax
 	ret
-	
+
+_set_res_to_arg1:
+	mov rax,[_context._res]
+	mov rax,[rax]
+	mov [_context._arg1],rax	
+	ret
+
+_set_res_to_arg2:
+	mov rax,[_context._res]
+	mov rax,[rax]
+	mov [_context._arg2],rax
+	ret
+
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 _mov_rm_to_arg1:
@@ -176,7 +190,8 @@ _mov_res_to_arg2:
 	mov rax,[_context._res]
 	mov [_context._arg2],rax	
 	ret
-	
+
+
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 _mod00_load:

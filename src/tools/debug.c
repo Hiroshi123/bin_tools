@@ -13,14 +13,12 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
-/* extern void* get_pure_mmap(void*); */
-
-/*static*/ heap *HEAP_HEADER_ADDR_HEAD;
-heap *HEAP_HEADER_ADDR_P;
-heap *HEAP_HEADER_ADDR_TAIL;
-size_t PAGE_SIZE;
+// for making function call graph.
+// this represents pinter to current function.
+p_host CURRENT_FNAME = 0;
 
 extern uint8_t EXPORT(processor);
+extern uint8_t EXPORT(objformat);
 
 extern uint64_t EXPORT(rax);
 extern uint64_t EXPORT(rcx);
@@ -45,9 +43,6 @@ extern void _hello_world();
 extern void EXPORT(_initialize_v_regs());
 extern void EXPORT(_set_rsp(void*));
 extern void EXPORT(_set_rip(void*));
-
-/* extern void* _get_rip(); */
-/* extern void* _get_rsp(); */
 
 extern void EXPORT(exec_one());
 
@@ -109,6 +104,12 @@ heap* stack_map(void* stack_addr) {
   return h;
 }
 
+p_host check_fname(void* meta, p_guest f_addr) {
+  if (EXPORT(objformat) == ELF32) {
+    return get_name_of_f_on_elf32(f_addr, meta);
+  } 
+}
+
 int main(int argc,char** argv) {
   
   int fd = open(argv[1], O_RDONLY);
@@ -116,20 +117,22 @@ int main(int argc,char** argv) {
   /* uint8_t* p = (uint8_t*)h->begin; */
   uint32_t header_size = 0;
   enum OBJECT_FORMAT o = detect_format(fd, &header_size);
-  printf("%lx\n",header_size);
-
+  EXPORT(objformat) = o;
   struct stat stbuf;
   if (fstat(fd, &stbuf) == -1) {
     close(fd);
     return 0;
   }
   heap * h = map_file(fd, stbuf.st_size);
-  // heap * h = map_file(fd, header_size);
-  uint32_t start_addr;
+  heap* meta = get_page(1);
+  p_guest start_addr;
   if (o == ELF32) {
-    info_on_elf e1;
-    start_addr = load_elf32(h->begin);    
-    // read_elf(h->begin,&e1);    
+    start_addr = load_elf32(h->begin, meta->begin);
+    printf("start:%x\n",start_addr);
+    read_elf32(h->begin, meta->begin);
+  } else if (o == ELF64) {
+    // start_addr = load_elf32(h->begin, meta->begin);
+    // read_elf32(h->begin, meta->begin);
   } else if (o == MACHO32) {
     info_on_macho i;
     load_macho32(h->begin,&i);
@@ -158,8 +161,10 @@ int main(int argc,char** argv) {
   EXPORT(set_rsp(stack_addr));
   EXPORT(set_rip(start_addr));
   
-  printf("intial--------------\n");  
+  printf("intial--------------\n");
   print_regs();
+  CURRENT_FNAME = check_fname(meta->begin,start_addr);
+  printf("%s\n",CURRENT_FNAME);
   int count = 0;
   for (;count < 70;count++) {
     EXPORT(exec_one());
@@ -173,6 +178,5 @@ int main(int argc,char** argv) {
     }
     printf("----------------------------\n");    
   }
-  
 }
 

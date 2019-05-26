@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#include "types.h"
 
 typedef uint16_t Elf32_Half;
 typedef uint16_t Elf64_Half;
@@ -3178,6 +3179,26 @@ typedef struct {
   char *str_p;
 } info_on_elf;
 
+typedef struct {
+  Elf32_Ehdr *ehdr_p;
+  Elf32_Phdr *phdr_p;
+  Elf32_Shdr *shdr_head;
+  Elf32_Shdr *shdr_tail;
+  char *shstr_offset;
+  // pointer to the header of .text section
+  char *text_p;
+// pointer to the head of symbol table
+  Elf32_Sym *symbol_p;
+  // siye of symbol table
+  unsigned int symbol_size;
+  // pointer to the head of string table
+  char* str_p;
+  char* text_v_addr;
+  char* text_p_addr;
+} info_on_elf32;
 
+p_guest load_elf32(uint8_t* page_head, info_on_elf32* _e);
+void read_elf32(const uint8_t*,info_on_elf32*);
+void* get_name_of_f_on_elf32(p_guest f_addr, info_on_elf32* _e);
 void retrieve_info_from_sht(const char*const page_for_elf,
 			    info_on_elf *_e);
