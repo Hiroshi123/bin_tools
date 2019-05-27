@@ -207,9 +207,9 @@ _0xf9_stc:
 ;;; it is used for before accessing port-mapped io memory
 ;;; to prevent inconsistant access.
 _0xfa_cli:
+	add dword [_rip],1	
 	mov r8,0xfa
-	call print
-
+	call print	
 	ret
 ;;; set interrupt flag
 _0xfb_sti:
@@ -292,8 +292,6 @@ _0xff_op:
 	;; if mod == 00 or 01 or 10, you need memory access.
 	call _load_rm_by_mod
 	call _mov_res_to_arg1
-	mov r8,0xff
-	call print	
 	;; call _mov_rm_to_arg1
 	call [_context._imm_op]
 

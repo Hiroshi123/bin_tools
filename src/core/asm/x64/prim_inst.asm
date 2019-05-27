@@ -152,10 +152,13 @@
 	
 	extern _op_shl_base
 
+	extern _add_edge
+
 %include "constant.asm"
 
 ;;; this fetch 8 does not increment instruction pointer aiming for debugging purpose.
 __fetch8:
+
 	push rbp
 	mov qword [_context._res],0x00
 	mov rax,[_rip]
@@ -722,7 +725,13 @@ _jmp:
 	mov r8,[_context._arg1]
 	call print
 	
-	mov rax,[_context._arg1]
+	;; before jumping to the value on register,
+	;; give an event callback.
+	mov rdi,[_context._arg1]
+	mov rsi,0x88
+	call _add_edge
+	
+	mov rax,[_context._arg1]	
 	mov [_rip],rax
 	
 	;; call _check_on_iat

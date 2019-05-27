@@ -42,7 +42,7 @@ __attribute__((destructor)) void unset_heap_header() {
   }
 }
 
-heap* map_file(const int fd, uint32_t size) {
+heap* map_file(const int fd, uint32_t size, p_guest guest_addr) {
 
   const size_t map_size = ((size + 0x1000) & 0xfffff000);
   void *begin = mmap(NULL, map_size, PROT_READ/*|PROT_WRITE*/|PROT_EXEC,
@@ -56,10 +56,15 @@ heap* map_file(const int fd, uint32_t size) {
   h->begin = begin;
   h->page_num = (uint16_t)0x1000;
   h->page_num += size;
-  h->guest_addr = -1;
+  h->guest_addr = guest_addr;
   // TODO.
   // PROT & MAP flags for mmap is scheduled to be condensed as 4byte.
   // Although it is originally 16byte(8+8)
+  /* if (guest_addr == -1) { */
+  /*   h->flags = 1; */
+  /* } else { */
+  /*   h->flags = 0; */
+  /* } */
   h->flags = 1;
   h->file = (uint16_t)fd;
   HEAP_HEADER_ADDR_P += 1;
@@ -76,7 +81,7 @@ heap *init_map_file(const char *const fname) {
     close(fd);
     return 0;
   }
-  return map_file(fd, stbuf.st_size);
+  return map_file(fd, stbuf.st_size, -1);
 }
 
 heap* get_page(uint8_t num) {
@@ -110,14 +115,13 @@ heap* get_current_meta_head() {
 
 heap* guest_mmap(void* guest_addr, uint32_t map_size, uint32_t flags, uint64_t name_or_parent_addr) {
   
-  //
-  // int map_size = PAGE_SIZE*page_num;
   int fd = -1;
   void *begin = mmap(NULL,map_size , PROT_READ|PROT_WRITE|PROT_EXEC,
                      MAP_PRIVATE|MAP_ANONYMOUS, fd, 0);
   heap *h = (heap *)HEAP_HEADER_ADDR_P;
   h->begin = begin;
   h->page_num = map_size / PAGE_SIZE;
+  printf("page:%x,%x\n",map_size, h->page_num);
   h->flags = flags;
   h->file = (uint16_t)fd;
   // higher bits are going to be set as 0.
@@ -140,13 +144,13 @@ void* EXPORT(get_diff_host_guest_addr)
   heap* h_end = HEAP_HEADER_ADDR_P;
   void* guest_begin = (uint64_t)guest_addr & 0xfffff000;
   for (;h!=h_end;h++) {
-    /* printf("%x\n",h->begin); */
+    printf("%x\n",h->begin);
     if (h->guest_addr != -1) {
-      /* printf("g:%x,%x\n",h->guest_addr,guest_begin); */
-      
+      printf("gg:%lx,%lx\n",h->guest_addr,guest_begin);
       uint32_t page = 0;
       for (;page < h->page_num;page++) {
 	if (guest_begin == h->guest_addr + page * PAGE_SIZE) {
+	  printf("a\n");
 	  uint64_t diff = (uint64_t)h->begin - ((uint64_t)guest_begin - (uint64_t) page * PAGE_SIZE);
 	  return (void*)diff;
 	}

@@ -31,7 +31,6 @@
 
 %ifidn __OUTPUT_FORMAT__, macho64
 	%include "macho_syscall.asm"
-	%define SYS_write 0x2000004
 %elifidn __OUTPUT_FORMAT__, elf64 
 	%define SYS_write     0x1
 	%define SYS_mmap	9

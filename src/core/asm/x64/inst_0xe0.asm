@@ -88,12 +88,13 @@ _0xe8_call:
 	call _fetch32_imm_set_to_arg2	
 	;; mov rax,[_rip]
 	;; mov [_context._arg1],rax	
-	;; call _add32
-	
-	mov rdi,[_context._arg2]
-	mov rsi,0x88
+	;; call _add32	
+	mov rdx,[_context._arg2]
+	mov rdi,[_rip]
+	add rdi,rdx
+	;; bring rdi to calee
 	call _add_edge
-		
+	
 	mov rax,[_context._arg2]
 	
 	

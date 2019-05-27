@@ -296,7 +296,7 @@ void iterate_import_directory(uint64_t module_base_for_idata_section, void* iid_
     close(fd);
     return;
   }
-  heap * h = map_file(fd, stbuf.st_size);
+  heap * h = map_file(fd, stbuf.st_size, -1);
   if (res != PE64) {
     printf("format error\n");
     return;

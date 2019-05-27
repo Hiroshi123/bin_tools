@@ -1,0 +1,5 @@
+
+	default rel
+	section .text
+
+

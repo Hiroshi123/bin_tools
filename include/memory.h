@@ -30,7 +30,7 @@ typedef struct __attribute__((__packed__)) {
 
 heap* get_page(uint8_t num);
 heap* init_map_file(const char *const fname);
-heap* map_file(const int fd, uint32_t size);
+heap* map_file(const int fd, uint32_t size, uint32_t guest_addr);
 heap* guest_mmap(void* guest_addr, uint32_t map_size, uint32_t flags, uint64_t name_or_parent_addr);
 void* EXPORT(get_diff_host_guest_addr(void* guest_addr));
 void  EXPORT(get_diff_host_guest_addr_(void* guest_addr, void** host_addr));

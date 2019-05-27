@@ -31,7 +31,7 @@ p_guest load_elf32(uint8_t* page_head, info_on_elf32* _e) {
     // if (ehdr->e_entry ) {
     _e->text_v_addr = phdr->p_vaddr;
     _e->text_p_addr = phdr->p_paddr;
-    start_addr = ehdr->e_entry + phdr->p_vaddr - phdr->p_paddr;
+    start_addr = ehdr->e_entry;// + phdr->p_vaddr - phdr->p_paddr;
     // }
   }
   return start_addr;
@@ -206,10 +206,10 @@ void* get_name_of_f_on_elf32(p_guest f_addr, info_on_elf32* _e) {
   const Elf32_Sym *symbol_begin = _e->symbol_p;
   const Elf32_Sym *symbol_end = (Elf32_Sym *)((size_t)symbol_begin + (size_t)_e->symbol_size);
   Elf32_Sym *p = (Elf32_Sym *)symbol_begin;
-  p_guest offset = _e->text_v_addr - _e->text_p_addr;
+  // p_guest offset = _e->text_v_addr - _e->text_p_addr;
   for (; p != symbol_end; p++) {
     char* _fname = &(_e->str_p)[p->st_name];
-    if ( + p->st_value == f_addr) {
+    if (p->st_value == f_addr) {
       printf("match\n");
       return _fname;
     }
