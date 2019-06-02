@@ -277,6 +277,9 @@ _reg_regain:
 	
 _write:
 	mov rax, SYS_write
+%ifidn __OUTPUT_FORMAT__, macho64
+	add rax,0x2000000
+%endif
 	mov rdi, STDOUT
 	lea rsi, [_reg_size8]
 	mov rdx, 0x0b

@@ -15,6 +15,7 @@
 	global _init_regs
 	global _gen_code
 	global _get_mod_reg_rm
+	global _get_mod_seg_rm
 	global _get_mod_op_rm
 	global _set_dflag
 	global _set_dflag_as_1byte
@@ -98,6 +99,7 @@
 	extern _0xe8_call
 
 	extern _op_shift_base
+	extern _seg_base
 
 	extern _mov_res_to_arg2
 
@@ -130,7 +132,7 @@ _init_regs:
 	ret
 
 _exec_one:
-
+	
 	push rbp
 	;; ;; for debuging, offset should be reset
 	;; mov byte [_debug._offset],0
@@ -474,7 +476,17 @@ _set_imm_op:
 	mov [_context._imm_op], rdx
 	pop rbp
 	ret
-	
+
+_set_seg:
+	mov rdx,_seg_base
+	mov r9,0x00
+	mov r9b,al
+	and r9b,0b00111000
+	add dx,r9w
+	mov rdx,[rdx]
+	mov [_context._imm_op], rdx
+	ret
+
 _get_mod_op_rm:
 	push rbp
 	;; fetched mod/reg/rm data is set on al(1byte)
@@ -492,7 +504,18 @@ _get_mod_op_rm:
 	
 	pop rbp
 	ret
-	
+
+_get_mod_seg_rm:
+	call _fetch8
+	mov al,[_context._res]
+	mov bl,[_context._rex]
+	call _set_mod
+	call _set_seg
+	call _set_rm
+	call _set_dflag
+	call _set_aflag
+	ret
+
 _get_mod_reg_rm:
 	push rbp
 	;; fetched mod/reg/rm data is set on al(1byte)

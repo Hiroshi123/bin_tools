@@ -107,14 +107,78 @@ heap* stack_map(void* stack_addr) {
 p_host check_fname(void* meta, p_guest f_addr) {
   if (EXPORT(objformat) == ELF32) {
     return get_name_of_f_on_elf32(f_addr, meta);
-  } 
+  }
+}
+
+void start_emu(void* stack_addr) {
+  printf("intial--------------\n");
+  print_regs();
+  int count = 0;
+  for (;count < 10;count++) {
+    EXPORT(exec_one());
+    printf("--------------%d.--------------\n",count);
+    print_regs();
+    print_inst();
+    if (stack_addr) {
+      printf("-------------stack-------------:\n");
+      uint64_t* p = EXPORT(rsp);      
+      for (;p<=stack_addr;p++) {
+	print_memory(p);
+      }
+      printf("----------------------------\n");
+    }
+  }
+}
+
+// should bios code be mapped in a way that other program will is mapped???
+// it is already on mother board..
+void map_bios() {
+  
+}
+
+void do_bios() { 
+  
+}
+
+void do_drive(char* name) {
+  int fd = open(name, O_RDONLY);
+  uint8_t block[512];
+  if (!read(fd, &block, 512)) goto error;
+  p_guest start_addr = 0x7c00;
+  p_guest offset = start_addr & 0x00000fff;
+  uint32_t map_size = ((0x1000 + 0x512) & 0xfffff000);
+  heap* h = guest_mmap(start_addr & 0xfffff000, map_size , 0, 0);
+  // memset();
+  // put 1block(=512byte) not on the beginning of a page, but
+  // on the end of it.
+  memcpy
+    (h->begin + offset,
+     &block,
+     512
+     );
+  EXPORT(set_rip(start_addr));
+  // you need to map only first 512byte.
+  printf("%x\n",h->begin);
+  start_emu(NULL);
+ error:
+  printf("error\n");
 }
 
 int main(int argc,char** argv) {
   
-  int fd = open(argv[1], O_RDONLY);
+  int fd;
+  // if it is drive, read first 512 byte.
+  if (!strcmp("-drive", argv[1])) {
+    // bios is actually not going to be mapped but is already embedded on the last part of memory(ROM).
+    // the first address which is jumped is called as reset vector.
+    map_bios();
+    //
+    do_bios();
+    
+    do_drive(argv[2]);
+    exit(1);
+  }
   
-  /* uint8_t* p = (uint8_t*)h->begin; */
   uint32_t header_size = 0;
   enum OBJECT_FORMAT o = detect_format(fd, &header_size);
   EXPORT(objformat) = o;
@@ -123,7 +187,7 @@ int main(int argc,char** argv) {
     close(fd);
     return 0;
   }
-  heap * h = map_file(fd, stbuf.st_size);
+  heap * h = map_file(fd, stbuf.st_size, -1);
   heap* meta = get_page(1);
   p_guest start_addr;
   if (o == ELF32) {
@@ -160,23 +224,9 @@ int main(int argc,char** argv) {
   // guest address is set.
   EXPORT(set_rsp(stack_addr));
   EXPORT(set_rip(start_addr));
-  
-  printf("intial--------------\n");
-  print_regs();
   CURRENT_FNAME = check_fname(meta->begin,start_addr);
   printf("%s\n",CURRENT_FNAME);
-  int count = 0;
-  for (;count < 70;count++) {
-    EXPORT(exec_one());
-    printf("--------------%d.--------------\n",count);
-    print_regs();
-    print_inst();
-    printf("-------------stack-------------:\n");
-    uint64_t* p = EXPORT(rsp);
-    for (;p<=stack_addr;p++) {
-      print_memory(p);
-    }
-    printf("----------------------------\n");    
-  }
+  
+  start_emu(stack_addr);
 }
 

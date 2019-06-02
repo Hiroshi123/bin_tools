@@ -53,6 +53,7 @@
 	
 	extern print
 	extern _get_mod_reg_rm
+	extern _get_mod_seg_rm
 	extern _get_mod_op_rm
 
 	extern _context._reg
@@ -275,9 +276,18 @@ _0x8b_mov:
 	call _assign
 	pop rbp
 	ret
-
+;;; mov segment register to r/m
 _0x8c_mov_seg:
+
+	add  dword [_rip],1
+	call _get_mod_seg_rm
+	call _set_scale_index_base
+	call _fetch_displacement_by_mod
+	call _mov_rm_to_arg1
+	call _set_reg_to_arg2
+	call _store_or_assign_arg1_by_mod
 	ret
+	
 _0x8d_lea:
 	push rbp
 	mov r8,0x8d
@@ -295,9 +305,24 @@ _0x8d_lea:
 
 	pop rbp
 	ret
-;;; 
+
+;;; mov r/m to segment register
+
+;;; reg indicates index of segment register.
+;;; r/m indicates the register which will
+;;; mod is stil valid.
 _0x8e_mov_seg:
+	add dword [_rip],1
+
+	call _get_mod_seg_rm
+	call _set_scale_index_base
+	call _fetch_displacement_by_mod
+	call _load_rm_by_mod
+	call _mov_res_to_arg2
+	call _mov_reg_to_arg1
+	call _assign
 	ret
+
 _0x8f_pop_ev:
 	ret
 

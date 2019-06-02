@@ -119,7 +119,8 @@
 	global _or_base
 	global _xor_base
 
-	
+	global _seg_base
+
 _reg_names:  db "rax rdx rcx rbx rsi rdi r8 r9 r10 r11 r12 r13 r14 r15 eflags rip rsp rbp "
 	
 _rax:	dq 0
@@ -145,12 +146,13 @@ _rip:	dq 0
 _low_rip:dq 0
 
 ;;; segment register
-_cs:	dq 0
-_ds:	dq 0
+_seg_base:
 _es:	dq 0
+_cs:	dq 0
+_ss:	dq 0
+_ds:	dq 0
 _fs:	dq 0
 _gs:	dq 0
-_ss:	dq 0
 
 ;;; control register
 _cr0:	dq 0
@@ -509,11 +511,13 @@ _opcode_table:
 	
 _processor:
 	db 0
+_processor_mode:
+	db 0
 _cpl:
 	db 0
 _objformat:
 	db 0
-	
+
 ;;; Note that as reg/rm represents pointer to the register which is created by
 ;;; get_mod_reg_rm function, it contains dword size, and the rest of data is just 1byte.
 _context:
