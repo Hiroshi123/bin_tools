@@ -70,7 +70,6 @@ void read_macho64(void* head, info_on_macho* macho, uint8_t do_map) {
     }
     case LC_SEGMENT_64: {
       seg = (_segment_command_64*)p;
-
       // page zero seems to be set as the beginning of section intending setting the
       // offset of virtual address.
       // This mapping should be seperated from normal mapping as its range is large and
@@ -82,14 +81,35 @@ void read_macho64(void* head, info_on_macho* macho, uint8_t do_map) {
 	}
       } else if (do_map && !strcmp(seg->segname,"__TEXT")) {
 	uint32_t guest_addr = seg->vmaddr - GUEST_UPPER_UPPER32;
+	if (seg->vmsize != seg->filesize) {
+	  fprintf(stderr, "file size must be equal to vmsize.\n something strange\n");
+	}
 	uint32_t map_size = ((seg->filesize + 0x1000) & 0xfffff000);
 	uint32_t flags = 0; // tmp maxprot(initprot) should be fed here.
 	uint64_t name_or_parent_addr;
 	heap* h = guest_mmap
 	  (guest_addr, map_size, flags, name_or_parent_addr);
 	memcpy(h->begin,(size_t)mh + seg->fileoff,seg->filesize);
-	
+      } else if (do_map && !strcmp(seg->segname,"__DATA")) {
+	uint32_t guest_addr = seg->vmaddr - GUEST_UPPER_UPPER32;
+	// note that seg->filesize will be smaller than vmsize(memory size)
+	// in case vmsize contains uninitialized section such as bss.
+	// they are going to be manually initialized as 0 by this loader.
+	uint32_t map_size = ((seg->vmsize + 0x1000) & 0xfffff000);
+	uint32_t flags = 0; // tmp maxprot(initprot) should be fed here.
+	uint64_t name_or_parent_addr;
+	heap* h = guest_mmap
+	  (guest_addr, map_size, flags, name_or_parent_addr);
+	// initialization of data section.
+	memcpy(h->begin,(size_t)mh + seg->fileoff,seg->filesize);
+	// initialization of bss section.
+	uint32_t bss_size = seg->vmsize - seg->filesize;
+	printf("bss:%x\n", bss_size);
+	// memset(0, h->begin + seg->filesize, bss_size);
       } else if (do_map && !strcmp(seg->segname,"__LINKEDIT")) {
+	if (seg->vmsize != seg->filesize) {
+	  fprintf(stderr, "file size must be equal to vmsize.\n something strange\n");
+	}
 	uint32_t guest_addr = seg->vmaddr - GUEST_UPPER_UPPER32;
 	uint32_t map_size = ((seg->filesize + 0x1000) & 0xfffff000);
 	uint32_t flags = 0; // tmp maxprot(initprot) should be fed here.
