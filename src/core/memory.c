@@ -11,6 +11,8 @@
 
 #include "macro.h"
 #include "memory.h"
+#include "types.h"
+#include "utils.h"
 
 // static char COUNT = 0;
 
@@ -18,13 +20,18 @@
 heap *HEAP_HEADER_ADDR_P;
 heap *HEAP_HEADER_ADDR_TAIL;
 size_t PAGE_SIZE;
+char PAGE_PATH[30];
+
+/* extern uint64_t EXPORT(draw_memory_table_page_ptr); */
+/* extern uint64_t EXPORT(fd_num); */
 
 __attribute__((constructor)) void set_heap_header() {
   PAGE_SIZE = getpagesize();
+  sprintf(PAGE_PATH, "%s/%s/%s/%s.bin",LOG_DIR,PAGE_DIR,INDEX_LIB,INDEX_SEC);
   heap *tmp = (heap*)mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (tmp == MAP_FAILED) {
-    printf("error\n");
+    fprintf(stderr, "error:%x\n", errno);
     exit(0);
   }
   HEAP_HEADER_ADDR_HEAD = tmp;
@@ -42,9 +49,45 @@ __attribute__((destructor)) void unset_heap_header() {
   }
 }
 
+uint8_t get_page_path1() {
+  uint8_t* pp = strrchr(&PAGE_PATH,'/');
+  return *(uint8_t*)(pp-1);
+}
+
+void set_page_path1(uint8_t p) {
+  uint8_t* pp = strrchr(&PAGE_PATH,'/');
+  *(uint8_t*)(pp-1) = p;
+}
+
+void update_page_path1() {
+  uint8_t* pp = strrchr(&PAGE_PATH,'/');
+  *(pp-1) = *(pp-1)+1;	
+}
+
+uint8_t get_page_path2() {
+  uint8_t* pp = strrchr(&PAGE_PATH,'/');
+  return *(uint8_t*)(pp+3);
+}
+
+void set_page_path2(uint8_t p) {
+  uint8_t* pp = strrchr(&PAGE_PATH,'/');
+  *(uint8_t*)(pp+3) = p;
+}
+
+void update_page_path2() {
+  uint8_t* pp = strrchr(&PAGE_PATH,'/');
+  *(pp+3) = *(pp+3)+1;	
+}
+
+int open_page_map() {
+  /* EXPORT(fd_num) += 1; */
+  int fd = open(&PAGE_PATH, O_RDWR | O_CREAT | O_TRUNC);
+  return fd;
+}
+
 heap* map_file(const int fd, uint32_t size, p_guest guest_addr) {
 
-  const size_t map_size = ((size + 0x1000) & 0xfffff000);
+  const size_t map_size = ((size + 0xfff) & 0xfffff000);
   void *begin = mmap(NULL, map_size, PROT_READ/*|PROT_WRITE*/|PROT_EXEC,
                      MAP_PRIVATE, fd, 0);
   if (begin == MAP_FAILED) {
@@ -84,6 +127,30 @@ heap *init_map_file(const char *const fname) {
   return map_file(fd, stbuf.st_size, -1);
 }
 
+heap* out_map_file(const int fd) {
+
+  const char c = 0x20;
+  const size_t offset = PAGE_SIZE;
+  lseek(fd, offset, SEEK_SET);
+  write(fd, &c, sizeof(char));
+  lseek(fd, 0, SEEK_SET);
+  void *begin = (void *)mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
+                             MAP_SHARED, fd, 0);
+  if (begin == MAP_FAILED) {
+    printf("error\n");
+    exit(0);
+  }
+  heap *h = (heap *)HEAP_HEADER_ADDR_P;
+  h->begin = begin;
+  h->page_num = 1;
+  h->flags = 1; // not yet implemented..
+  h->file = (uint16_t)fd;
+  h->guest_addr = -1;
+  HEAP_HEADER_ADDR_P += 1;  
+  /* HEAP_HEADER_ADDR_P += sizeof(heap); */
+  return h;
+}
+
 heap* get_page(uint8_t num) {
   int map_size = PAGE_SIZE*num;
   int fd = -1;
@@ -95,7 +162,7 @@ heap* get_page(uint8_t num) {
   h->flags = 1;
   h->file = (uint16_t)fd;
   h->guest_addr = -1;
-  HEAP_HEADER_ADDR_P += 1;  
+  HEAP_HEADER_ADDR_P += 1;
   return h;
 }
 
@@ -113,24 +180,69 @@ heap* get_current_meta_head() {
   return (heap*)HEAP_HEADER_ADDR_HEAD;
 }
 
-heap* guest_mmap(void* guest_addr, uint32_t map_size, uint32_t flags, uint64_t name_or_parent_addr) {
+void init_fill(int fd, int size) {
+  const char c = 0x0;
+  lseek(fd, size, SEEK_SET);
+  write(fd, &c, sizeof(char));
+  lseek(fd, 0, SEEK_SET);
+}
+
+heap* guest_mmap(void* guest_addr, uint32_t map_size, uint32_t flags, uint64_t name_or_parent_addr, int fd) {
   
-  int fd = -1;
+  int _flags;
+  if (fd == -1) {
+    _flags = MAP_PRIVATE|MAP_ANONYMOUS;
+  } else {
+    init_fill(fd, map_size);
+    _flags = MAP_SHARED;
+  }
   void *begin = mmap(NULL,map_size , PROT_READ|PROT_WRITE|PROT_EXEC,
-                     MAP_PRIVATE|MAP_ANONYMOUS, fd, 0);
+                     _flags, fd, 0);
   heap *h = (heap *)HEAP_HEADER_ADDR_P;
   h->begin = begin;
   h->page_num = map_size / PAGE_SIZE;
-  printf("page:%x,%x\n",map_size, h->page_num);
   h->flags = flags;
   h->file = (uint16_t)fd;
   // higher bits are going to be set as 0.
-  h->guest_addr = (uint64_t)guest_addr & 0xffffffff;
+  h->guest_addr = guest_addr;//(uint64_t)guest_addr & 0xffffffff;
+  uint8_t* pp = strrchr(&PAGE_PATH,'/');
+  h->index1 = get_page_path1();
+  h->index2 = get_page_path2();
   if (h->flags == 1) {
     h->name_addr = name_or_parent_addr;    
   } else {
     h->parent_addr = name_or_parent_addr;
   }
+  char index[6];//include last " "
+  sprintf(index, "%02c_%02c", h->index1, h->index2);
+  // add guest address
+  /* EXPORT(draw_memory_table_page_ptr) += */
+  /*   sprintf(EXPORT(draw_memory_table_page_ptr), */
+  /* 	    "| [%s](%s?arg1=%02c&arg2=%02c&begin=%lx)" */
+  /* 	    "| [0x%lx](%s?arg1=%02c&arg2=%02c&begin=%lx)" */
+  /* 	    "| [0x%x](%s?arg1=%02c&arg2=%02c&begin=%x)" */
+  /* 	    "| %d | %x | %s |\n", */
+  /* 	    index, */
+  /* 	    PAGR_HTML_ADDRESS, */
+  /* 	    h->index1, */
+  /* 	    h->index2, */
+  /* 	    0, */
+  /* 	    //  */
+  /* 	    h->begin, */
+  /* 	    PAGR_HTML_ADDRESS, */
+  /* 	    h->index1, */
+  /* 	    h->index2, */
+  /* 	    h->begin, */
+  /* 	    // */
+  /* 	    h->guest_addr, */
+  /* 	    PAGR_HTML_ADDRESS, */
+  /* 	    h->index1, */
+  /* 	    h->index2, */
+  /* 	    h->guest_addr, */
+  /* 	    //  */
+  /* 	    h->page_num, */
+  /* 	    h->flags, */
+  /* 	    h->name_addr); */
   //
   HEAP_HEADER_ADDR_P += 1;
   return h;
@@ -144,13 +256,11 @@ void* EXPORT(get_diff_host_guest_addr)
   heap* h_end = HEAP_HEADER_ADDR_P;
   void* guest_begin = (uint64_t)guest_addr & 0xfffff000;
   for (;h!=h_end;h++) {
-    printf("%x\n",h->begin);
     if (h->guest_addr != -1) {
-      printf("gg:%lx,%lx\n",h->guest_addr,guest_begin);
+      /* printf("gg:%lx,%lx\n",h->guest_addr,guest_begin); */
       uint32_t page = 0;
       for (;page < h->page_num;page++) {
 	if (guest_begin == h->guest_addr + page * PAGE_SIZE) {
-	  printf("a\n");
 	  uint64_t diff = (uint64_t)h->begin - ((uint64_t)guest_begin - (uint64_t) page * PAGE_SIZE);
 	  return (void*)diff;
 	}

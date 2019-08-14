@@ -42,13 +42,33 @@
 	
 	extern _context._override
 	extern _context._override_reg
+	extern _context._rm
+	extern _context._dflag
 
 	extern _fetch
 	extern _fetch8
 	extern _fetch32
 
 	extern _gen_push
+
+	extern _get_mod_reg_rm
+	extern _context._dflag
+	extern _mov_reg_to_arg1
+	extern _mov_reg_to_arg2
+	extern _mov_rm_to_arg1
+	extern _mov_rm_to_arg2
+	extern _mov_res_to_arg1
+	extern _mov_res_to_arg2
+
+	extern _load_rm_by_mod
+
+	extern _context._rm
+	extern _context._dflag
+	extern _assign
 	
+	extern _fetch_displacement_by_mod
+	extern _set_scale_index_base
+
 _0x60_pusha:
 	ret
 	
@@ -57,8 +77,19 @@ _0x61_popa:
 
 _0x62_bound:
 	ret
-	
+
+;;; movsx
 _0x63_movslS:
+	add dword [_rip],1
+	call _get_mod_reg_rm
+	;; it loads just 1byte which means dflag must be 0
+	mov byte [_context._dflag],0x00	
+	call _set_scale_index_base	
+	call _fetch_displacement_by_mod
+	call _load_rm_by_mod
+	call _mov_res_to_arg2
+	call _mov_reg_to_arg1
+	call _assign
 	ret
 	
 _0x64_prefix_seg_fs:

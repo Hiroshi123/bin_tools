@@ -30,98 +30,113 @@
 	extern _assign32
 	extern _mov_res_to_arg2
 	extern _set_dflag
+	extern _set_dflag_as_1byte
 	extern _fetch
 
 	extern _context._rex
 	extern _context._opcode
 	extern _r8
 	extern _select_reg
+	extern print
 	
 _0xb0_mov:
 	push rbp
+	call _set_dflag_as_1byte
 	call _gen_0xb0
 	pop rbp
 	ret
 _0xb1_mov:
 	push rbp
+	call _set_dflag_as_1byte
 	call _gen_0xb0
 	pop rbp
 	ret
 _0xb2_mov:
 	push rbp
+	call _set_dflag_as_1byte
 	call _gen_0xb0
 	pop rbp
 	ret
 _0xb3_mov:
 	push rbp
+	call _set_dflag_as_1byte
 	call _gen_0xb0
 	pop rbp	
 	ret
 _0xb4_mov:
 	push rbp
+	call _set_dflag_as_1byte
 	call _gen_0xb0
 	pop rbp
 	ret
 _0xb5_mov:
 	push rbp
+	call _set_dflag_as_1byte
 	call _gen_0xb0
 	pop rbp	
 	ret
 _0xb6_mov:
 	push rbp
+	call _set_dflag_as_1byte
 	call _gen_0xb0
 	pop rbp
 	ret
 _0xb7_mov:
 	push rbp
+	call _set_dflag_as_1byte
 	call _gen_0xb0
 	pop rbp
 	ret
 _0xb8_mov:
 	push rbp
+	call _set_dflag
 	call _gen_0xb0
 	pop rbp
 	ret
 _0xb9_mov:
 	push rbp
+	call _set_dflag
 	call _gen_0xb0
 	pop rbp
 	ret
 _0xba_mov:
 	push rbp
+	call _set_dflag
 	call _gen_0xb0
 	pop rbp
 	ret
 _0xbb_mov:
 	push rbp
+	call _set_dflag
 	call _gen_0xb0
 	pop rbp
 	ret
 _0xbc_mov:
 	push rbp
+	call _set_dflag
 	call _gen_0xb0
 	pop rbp
 	ret
 _0xbd_mov:
 	push rbp
+	call _set_dflag	
 	call _gen_0xb0
-	pop rbp	
+	pop rbp
 	ret
 _0xbe_mov:
 	push rbp
+	call _set_dflag	
 	call _gen_0xb0
 	pop rbp	
 	ret
 _0xbf_mov:
-	push rbp
+	call _set_dflag
 	call _gen_0xb0
-	pop rbp
 	ret
 
 _gen_0xb0:
 	push rbp
-	add byte [_rip],1
-	call _set_dflag
+	add dword [_rip],1
 	call _fetch
 	call _mov_res_to_arg2
 	call _select_reg

@@ -165,16 +165,22 @@ _0x37_bcd_aaa:
 	ret
 
 _0x38_cmp:
-	push rbp
-	pop rbp
+	add dword [_rip],1	
+	call _get_mod_reg_rm
+	call _set_scale_index_base
+	call _fetch_displacement_by_mod
+	call _mov_rm_to_arg1
+	call _load_rm_by_mod
+	call _mov_res_to_arg1
+	call _set_reg_to_arg2
+	call _cmp8
+	call _mov_rm_to_arg1
+	call _mov_res_to_arg2
+	call _store_or_assign_arg1_by_mod
 	ret
 
 _0x39_cmp:
-	push rbp
-	mov r8,0x39
-	call print
-
-	add byte [_rip],1	
+	add dword [_rip],1	
 	call _get_mod_reg_rm
 	call _set_scale_index_base
 	call _fetch_displacement_by_mod
@@ -186,17 +192,37 @@ _0x39_cmp:
 	call _mov_rm_to_arg1
 	call _mov_res_to_arg2
 	call _store_or_assign_arg1_by_mod	
-
-	pop rbp
 	ret
 _0x3a_cmp:
-	push rbp
-	pop rbp
+	add  dword [_rip],1
+	call _get_mod_reg_rm
+	call _set_scale_index_base
+	call _fetch_displacement_by_mod
+	call _mov_rm_to_arg1
+	call _load_rm_by_mod
+	call _mov_res_to_arg2
+	call _set_reg_to_arg1
+	call _cmp8
+	call _mov_reg_to_arg1
+	call _mov_res_to_arg2
+	call _store_or_assign_arg1_by_mod
 	ret
+
 _0x3b_cmp:
-	push rbp
-	pop rbp
+	add  dword [_rip],1
+	call _get_mod_reg_rm
+	call _set_scale_index_base
+	call _fetch_displacement_by_mod
+	call _mov_rm_to_arg1
+	call _load_rm_by_mod
+	call _mov_res_to_arg2
+	call _set_reg_to_arg1
+	call _cmp
+	call _mov_reg_to_arg1
+	call _mov_res_to_arg2
+	call _store_or_assign_arg1_by_mod
 	ret
+
 _0x3c_cmp:
 	push rbp
 	pop rbp

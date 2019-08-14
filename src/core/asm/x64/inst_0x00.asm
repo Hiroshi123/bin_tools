@@ -98,7 +98,7 @@
 	extern _fetch_displacement_by_mod
 	extern _extend_opcode_table
 	extern _exec_one
-	
+
 _0x00_add:
 	push rbp
 	add byte [_rip],1
@@ -129,15 +129,43 @@ _0x01_add:
 	call _add
 	call _mov_rm_to_arg1
 	call _mov_res_to_arg2
-	call _store_or_assign_arg1_by_mod	
+	call _store_or_assign_arg1_by_mod
 	pop rbp
 	ret
-
+;;; 0x02 & 0x03 is the inverse version of r/m & reg.
+;;; in this case, destination is always reg and source is r/m
 _0x02_add:
+	add  dword [_rip],1
+	call _get_mod_reg_rm
+	call _set_scale_index_base
+	call _fetch_displacement_by_mod
+	call _mov_rm_to_arg1
+	call _load_rm_by_mod
+	call _mov_res_to_arg2
+	call _set_reg_to_arg1
+	call _add8
+	call _mov_reg_to_arg1
+	call _mov_res_to_arg2
+	call _store_or_assign_arg1_by_mod
 	ret
+
 _0x03_add:
+	add  dword [_rip],1
+	call _get_mod_reg_rm
+	call _set_scale_index_base
+	call _fetch_displacement_by_mod
+	call _mov_rm_to_arg1
+	call _load_rm_by_mod
+	call _mov_res_to_arg2
+	call _set_reg_to_arg1
+	call _add
+	call _mov_reg_to_arg1
+	call _mov_res_to_arg2
+	call _store_or_assign_arg1_by_mod
 	ret
+
 ;;; 0x04,0x05 does not need anything about 
+
 _0x04_add:
 	add byte [_rip],1
 	call _fetch8

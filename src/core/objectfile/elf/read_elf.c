@@ -18,7 +18,7 @@ p_guest load_elf32(uint8_t* page_head, info_on_elf32* _e) {
   uint32_t bss_size;
   p_guest start_addr;
   for (;phdr!=phdr_end;phdr++) {
-    h1 = guest_mmap(phdr->p_vaddr,map_size,1,0);
+    h1 = guest_mmap(phdr->p_vaddr,map_size,1,0, -1);
     memcpy
       (h1->begin,
        page_head + phdr->p_offset,

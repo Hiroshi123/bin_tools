@@ -98,3 +98,13 @@ enum OBJECT_FORMAT detect_format(const int fd, uint32_t* h_size) {
   return o;
   
 }
+
+p_host check_fname(void* meta, p_guest f_addr, enum OBJECT_FORMAT o) {
+  if (o == ELF32) {
+    return get_name_of_f_on_elf32(f_addr, meta);
+  } else if (o == MACHO64) {
+    return get_name_of_f_on_macho64(f_addr, meta);
+  }
+}
+
+

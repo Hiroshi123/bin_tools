@@ -81,10 +81,10 @@ _0xe7_port_io:
 
 ;;; 
 ;;; shifting instruction pointer (4) should be done 
-	
+
 _0xe8_call:
 	push rbp
-	add byte [_rip],0x01
+	add dword [_rip],0x01
 	call _fetch32_imm_set_to_arg2	
 	;; mov rax,[_rip]
 	;; mov [_context._arg1],rax	
@@ -94,10 +94,9 @@ _0xe8_call:
 	add rdi,rdx
 	;; bring rdi to calee
 	call _add_edge
-	
+
 	mov rax,[_context._arg2]
-	
-	
+
 	;; before adding rax, you need to store rip to be returned on it.
 	mov rdx,[_rip]
 
@@ -105,7 +104,7 @@ _0xe8_call:
 	add [_rip],eax
 	;; when you add [rip]
 	;; original rip and
-	
+
 	mov [_context._internal_arg1],rdx
 	call _gen_push
 	
@@ -116,11 +115,25 @@ _0xe8_call:
 	;; mov [_context._arg1],rax
 	;; call _mov_res_to_arg2
 	;; call _assign64
-	
 	pop rbp
 	ret
-	
+
 _0xe9_jmp:
+	add dword [_rip],0x01
+	call _fetch32_imm_set_to_arg2	
+	;; mov rax,[_rip]
+	;; mov [_context._arg1],rax	
+	;; call _add32
+	mov rdx,[_context._arg2]
+	mov rdi,[_rip]
+	add rdi,rdx
+	;; bring rdi to calee
+	call _add_edge
+	mov rax,[_context._arg2]
+	;; before adding rax, you need to store rip to be returned on it.
+	mov rdx,[_rip]
+	;; cannot be rax
+	add [_rip],eax
 	ret
 _0xea_jmp:
 	mov r8,0xea

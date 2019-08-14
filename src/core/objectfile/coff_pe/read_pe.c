@@ -10,7 +10,8 @@
 #include <sys/stat.h>
 
 // this must be set as 32bit as always guest address is represented as 32bit.
-static uint32_t CURRENT_MODULE_TAIL;
+/* static uint32_t CURRENT_MODULE_TAIL; */
+extern p_guest EXPORT(current_page_tail);
 /* static uint32_t CURRENT_MODULE_BASE; */
 /* static uint32_t CURRENT_IMAGE_DIRECTORY_HEAD; */
 
@@ -21,16 +22,13 @@ uint64_t map_pe
   IMAGE_SECTION_HEADER* s = (IMAGE_SECTION_HEADER*)section_head;
   heap* h1;
   uint32_t map_size = ((0 + 0x1000) & 0xfffff000);
-  h1 = guest_mmap(image_base,map_size,1,dll_name_addr);
-  printf("a:%lx,%lx,%lx\n",h1->begin,p_dos_header,s);
+  h1 = guest_mmap(image_base,map_size,1,dll_name_addr,-1);
   uint32_t len = (uint32_t)s - (uint32_t)p_dos_header;
   memcpy
     (h1->begin,
      p_dos_header,
      len
      );
-  printf("b:%lx,%d\n",s,section_num);
-
 #ifndef DEBUG
   printf("---------------image section-------------------\n");
   printf("characteristics:%x\n", s->Characteristics);
@@ -45,15 +43,14 @@ uint64_t map_pe
   for (;s<section_end;s++) {
     map_size = ((s->SizeOfRawData + 0x1000) & 0xfffff000);
     // guest map also have to have some flags...
-    h2 = guest_mmap(image_base + s->VirtualAddress, map_size ,0 ,h1 );
+    h2 = guest_mmap(image_base + s->VirtualAddress, map_size ,0 ,h1, -1);
     void* dst = memcpy
       (h2->begin,
        (uint8_t*)p_dos_header + s->PointerToRawData,
        s->SizeOfRawData);
-    printf("c\n");
     if (image_base + s->VirtualAddress + s->SizeOfRawData
-	> CURRENT_MODULE_TAIL) {
-      CURRENT_MODULE_TAIL = image_base + s->VirtualAddress +
+	> EXPORT(current_page_tail)) {
+      EXPORT(current_page_tail) = image_base + s->VirtualAddress +
 	s->SizeOfRawData;
     }
 #ifndef DEBUG
@@ -164,7 +161,7 @@ void* map_pe_for_check_export
   void* guest_export_addr;
   p_host section_head = 0;
   uint32_t sec_num;
-  p_guest guest_image_base = ((CURRENT_MODULE_TAIL + 0x1000) & 0xfffff000);    
+  p_guest guest_image_base = ((EXPORT(current_page_tail) + 0x1000) & 0xfffff000);    
 
   if (*v == 0x10b) {
     section_head = retrive_nt_header_32(dos_header, NULL, &sec_num);

@@ -25,15 +25,16 @@ uint64_t ascii_to_bin(const char *begin, const char *end) {
 }
 
 void hex_text_save(char** p, char v) {  
-  (*p)->data = 0x20;// which means space
+  /* (*p)->data = 0x20;// which means space */
+  /* *p++; */
+  *p = 0x30;// which means 0
   *p++;
-  (*p)->data = 0x30;// which means 0
-  *p++;  
-  (*p)->data = 0x78;// which means x
-  *p++;  
-  (*p)->data = v / 0x10;
-  *p++;  
-  (*p)->data = v % 0x10;  
+  *p= 0x78;// which means x
+  *p++;
+  
+  // *p = v / 0x10;
+  /* *p++;   */
+  /* (*p)->data = v % 0x10;   */
 }
 
 

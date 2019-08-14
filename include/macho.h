@@ -27,6 +27,7 @@
  * This file describes the format of mach object files.
  */
 #include <stdint.h>
+#include "types.h"
 
 /*
  * <mach/machine.h> is needed here for the cpu_type_t and cpu_subtype_t types
@@ -1619,7 +1620,9 @@ typedef struct {
   // finally string table.
   const char* str_begin;
   const char* str_end;
-
+  const uint8_t* dylib_head;
+  uint8_t dylib_n;
+  
   uint32_t entry;
   uint32_t stacksize;
 
@@ -1628,4 +1631,5 @@ typedef struct {
   
 } info_on_macho;
 
+p_host get_name_of_f_on_macho64(p_guest f_addr, info_on_macho* _e1);
 

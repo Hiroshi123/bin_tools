@@ -97,8 +97,12 @@ _0x0f8b_jpo:
 	ret
 
 _0x0f8c_jnl:
-	call _set_eflags
-	jnl setrip
+	add dword [_rip],1
+	call _fetch32
+	mov eax,[_eflags]
+	;; and eax,eflags_cf
+	;; cmp eax,eflags_cf
+	;; je  _add_rip
 	ret
 
 _0x0f8d_jng:
@@ -125,5 +129,10 @@ setrip:
 	add [_rip],rdi
 	ret
 
+_add_rip:
+	mov eax,[_context._res]
+	add [_rip],eax
+	pop rbp
+	ret
 
 

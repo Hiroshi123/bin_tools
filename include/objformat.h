@@ -1,4 +1,5 @@
 
+#include "types.h"
 
 enum OBJECT_FORMAT {
   NONE,
@@ -11,4 +12,5 @@ enum OBJECT_FORMAT {
   COFF,
 };
 
+p_host check_fname(void* meta, p_guest f_addr, enum OBJECT_FORMAT o);
 // enum OBJECT_FORMAT detect_format(const int p);

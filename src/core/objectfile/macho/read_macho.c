@@ -14,6 +14,10 @@
 
 uint32_t GUEST_UPPER_UPPER32;
 
+extern uint64_t EXPORT(meta_page_ptr);
+extern uint64_t EXPORT(fd_num);
+extern char* PAGE_PATH;
+extern p_guest EXPORT(current_page_tail);
 
 // what it does is just copying data from A to B.
 
@@ -33,6 +37,8 @@ void read_macho64(void* head, info_on_macho* macho, uint8_t do_map) {
   _segment_command_64* seg;
   _section_64* sec;
   uint32_t nsyms;
+  int fd;
+  p_host tmp_page_tail;
   // After mach-header, you are going to iterate on
   // load commands.
   // As length of load commands are differed by the command,
@@ -44,10 +50,10 @@ void read_macho64(void* head, info_on_macho* macho, uint8_t do_map) {
 #endif
     // after detecting kinds of the load command, you need to cast
     // the pointer of the load commands to the each specific commands,
-    switch (p->cmd) {      
+    switch (p->cmd) {
     case LC_SYMTAB: {
       _symtab_command* _sym1 = (_symtab_command *)p;
-#ifdef DEBUG
+#ifndef DEBUG
       printf("offset:%u,%u,%u,%u\n",
 	     _sym1->symoff,
 	     _sym1->nsyms,
@@ -74,56 +80,73 @@ void read_macho64(void* head, info_on_macho* macho, uint8_t do_map) {
       // offset of virtual address.
       // This mapping should be seperated from normal mapping as its range is large and
       // initialize as 0.
-      if (do_map && !strcmp(seg->segname,"__PAGEZERO")) {
+      if (do_map && !strcmp(seg->segname,SEG_PAGEZERO)) {
 	GUEST_UPPER_UPPER32 = seg->vmaddr + seg->filesize;
 	if (0xffffffff & seg->vmaddr) {
 	  fprintf(stderr, "address is starting from non zero\n");
 	}
-      } else if (do_map && !strcmp(seg->segname,"__TEXT")) {
-	uint32_t guest_addr = seg->vmaddr - GUEST_UPPER_UPPER32;
+      } else if (do_map && !strcmp(seg->segname,SEG_TEXT)) {
+	uint32_t guest_addr = EXPORT(current_page_tail) + seg->vmaddr - GUEST_UPPER_UPPER32;
 	if (seg->vmsize != seg->filesize) {
 	  fprintf(stderr, "file size must be equal to vmsize.\n something strange\n");
 	}
-	uint32_t map_size = ((seg->filesize + 0x1000) & 0xfffff000);
+	uint32_t map_size = ((seg->filesize + 0x0fff) & 0xfffff000);
 	uint32_t flags = 0; // tmp maxprot(initprot) should be fed here.
-	uint64_t name_or_parent_addr;
+	uint64_t name_or_parent_addr = "";
+	/* dir_name = strrchr(PAGE_PATH,"/");	 */
+	/* DIR* dir = opendir("mydir"); */
+	/* if (dir) {	   */
+	/* } else if (ENOENT == errno) {	   */
+	/* } */
+	/* mkdir(,0x777); */
+	fd = open(&PAGE_PATH, O_RDWR | O_CREAT | O_TRUNC);
+	EXPORT(fd_num) += 1;
 	heap* h = guest_mmap
-	  (guest_addr, map_size, flags, name_or_parent_addr);
+	  (guest_addr, map_size, flags, name_or_parent_addr, fd);
+	set_page_path2(get_page_path2() + 1);
 	memcpy(h->begin,(size_t)mh + seg->fileoff,seg->filesize);
-      } else if (do_map && !strcmp(seg->segname,"__DATA")) {
-	uint32_t guest_addr = seg->vmaddr - GUEST_UPPER_UPPER32;
+        tmp_page_tail = guest_addr + map_size;
+      } else if (do_map && !strcmp(seg->segname,SEG_DATA)) {
+	uint32_t guest_addr = EXPORT(current_page_tail) + seg->vmaddr - GUEST_UPPER_UPPER32;
 	// note that seg->filesize will be smaller than vmsize(memory size)
 	// in case vmsize contains uninitialized section such as bss.
 	// they are going to be manually initialized as 0 by this loader.
-	uint32_t map_size = ((seg->vmsize + 0x1000) & 0xfffff000);
+	uint32_t map_size = ((seg->vmsize + 0x0fff) & 0xfffff000);
 	uint32_t flags = 0; // tmp maxprot(initprot) should be fed here.
-	uint64_t name_or_parent_addr;
+	uint64_t name_or_parent_addr = "";
+	printf("page path:%s\n", &PAGE_PATH);
+	fd = open(&PAGE_PATH, O_RDWR | O_CREAT | O_TRUNC);
+	EXPORT(fd_num) += 1;
 	heap* h = guest_mmap
-	  (guest_addr, map_size, flags, name_or_parent_addr);
+	  (guest_addr, map_size, flags, name_or_parent_addr, fd);
+	set_page_path2(get_page_path2() + 1);
 	// initialization of data section.
 	memcpy(h->begin,(size_t)mh + seg->fileoff,seg->filesize);
+	tmp_page_tail = guest_addr + map_size;
 	// initialization of bss section.
 	uint32_t bss_size = seg->vmsize - seg->filesize;
-	printf("bss:%x\n", bss_size);
+	/* printf("bss:%x,%x,%x,%x\n", bss_size,h->begin,(size_t)mh + seg->fileoff,seg->filesize); */
 	// memset(0, h->begin + seg->filesize, bss_size);
-      } else if (do_map && !strcmp(seg->segname,"__LINKEDIT")) {
+      } else if (do_map && !strcmp(seg->segname,SEG_LINKEDIT)) {
 	if (seg->vmsize != seg->filesize) {
 	  fprintf(stderr, "file size must be equal to vmsize.\n something strange\n");
 	}
-	uint32_t guest_addr = seg->vmaddr - GUEST_UPPER_UPPER32;
-	uint32_t map_size = ((seg->filesize + 0x1000) & 0xfffff000);
+	uint32_t guest_addr = EXPORT(current_page_tail) + seg->vmaddr - GUEST_UPPER_UPPER32;
+	uint32_t map_size = ((seg->filesize + 0x0fff) & 0xfffff000);
 	uint32_t flags = 0; // tmp maxprot(initprot) should be fed here.
-	uint64_t name_or_parent_addr;
+	uint64_t name_or_parent_addr = "";
+	fd = open(&PAGE_PATH, O_RDWR | O_CREAT | O_TRUNC);
+	EXPORT(fd_num) += 1;
 	heap* h = guest_mmap
-	  (guest_addr, map_size, flags, name_or_parent_addr);	
+	  (guest_addr, map_size, flags, name_or_parent_addr, fd);
+	set_page_path2(get_page_path2() + 1);
 	memcpy(h->begin,(size_t)mh + seg->fileoff,seg->filesize);
+	tmp_page_tail = guest_addr + map_size;
       }
-      
       _section_64* sec_begin = (_section_64*)(seg+1);
       _section_64* sec_end = (_section_64*)((size_t)sec_begin + seg->nsects * sizeof(_section_64));
-      
       for (sec=sec_begin;sec!=sec_end;sec++) {	
-        if (!strcmp(sec->sectname,"__text")) {
+        if (!strcmp(sec->sectname,SECT_TEXT)) {
 	  macho->text_begin = (size_t)mh + sec->offset;
 	  macho->text_end = (size_t)macho->text_begin+sec->size;
 	  // relocation information needs to be retrived.
@@ -145,12 +168,22 @@ void read_macho64(void* head, info_on_macho* macho, uint8_t do_map) {
       }
       break;
     }
-    case LC_DYLD_INFO_ONLY:
+    case LC_DYLD_INFO_ONLY: {
       // this is the load command where export symbols are defined.
+      struct dyld_info_command* info_cmd = (struct dyld_info_command*)(p+1);      
       break;
+    }
     case LC_LOAD_DYLINKER:
       break;
     case LC_LOAD_DYLIB:
+      // if it has multiple LC_LOAD_DYLIB has multiple,
+      // then, record only the first one.
+      if (macho->dylib_head == 0) {
+	macho->dylib_head = p;
+      }
+      struct dylib* dy = (p+1);
+      printf("%s\n",(uint8_t*)(dy + 1));// dy->name.offset);
+      macho->dylib_n += 1;
       break;
     case LC_MAIN:{
       struct entry_point_command* entry_cmd = (struct entry_point_command*)p;
@@ -166,6 +199,7 @@ void read_macho64(void* head, info_on_macho* macho, uint8_t do_map) {
       break;
     }
   }
+  EXPORT(current_page_tail) = tmp_page_tail;
 }
 
 void load_macho32(void* p, info_on_macho* macho) {
@@ -420,4 +454,78 @@ void iterate_on_symbol_table(info_on_macho* macho) {
   return;
 }
 
+heap* do_map(char* name) {
+  int fd = open(name, O_RDONLY);
+  EXPORT(fd_num) += 1;
+  uint32_t header_size = 0;
+  enum OBJECT_FORMAT o = detect_format(fd, &header_size);
+  if (o == MACHO64) {
+    EXPORT(meta_page_ptr) += sizeof(info_on_macho);
+    struct stat stbuf;
+    if (fstat(fd, &stbuf) == -1) {
+      close(fd);
+      fprintf(stderr, "stbuf error\n");
+      return NULL;
+    }
+    printf("get.path:%02c\n",get_page_path1());
+
+    set_page_path1(get_page_path1() + 1);
+    printf("get.path:%02c\n",get_page_path1());
+    printf("get.path:%02c\n",get_page_path2());
+    printf("get.path:%d\n",get_page_path2());
+    set_page_path2('0');
+    printf("get.path:%02c\n",get_page_path2());
+    printf("get.path:%d\n",get_page_path2());
+
+    /* *(pp+3) = '0'; */
+    heap * h = map_file(fd, stbuf.st_size, -1);
+    load_macho64(h->begin, EXPORT(meta_page_ptr));
+    // start_addr = ((info_on_macho*)(meta->begin))->entry;
+    return h;
+  }
+  return NULL;
+}
+
+void do_reloc(const char* fname, info_on_macho* _e1) {
+  
+  // open();
+  _load_command* p = _e1->dylib_head;
+  char* name;
+  int count = 0;
+  for (;count < _e1->dylib_n;p = ((uint8_t*)p + p->cmdsize),count++) {
+    name = (uint8_t*)p + sizeof(struct load_command) + sizeof(struct dylib);
+    printf("!!!%s\n",name);
+    // if name is not yet mapped, then start mapping,
+    heap* h = search_page_by_name(name);
+    if (!h) {
+      printf("do mmapp!!!\n");
+      h = do_map(name);
+    }
+    // you should get meta(info_on_elf) after mapping.
+    
+  }
+}
+
+p_host get_name_of_f_on_macho64(p_guest f_addr, info_on_macho* _e1) {
+  
+  /* printf("!!!%lx\n",f_addr); */
+  _nlist_64* nl = (_nlist_64*)(_e1->sym_begin+_e1->dysym_cmd_begin->iextdefsym);
+  // _nlist_64* nl_end = nl+_e1->dysym_cmd_begin->nextdefsym;
+  _e1->dysym_cmd_begin->nextdefsym;  
+  _nlist_64* nl_end = nl+_e1->dysym_cmd_begin->nextdefsym + _e1->dysym_cmd_begin->nundefsym;
+  for (;nl!=nl_end;nl++) {
+    char* fname = (char*)((size_t)_e1->str_begin + nl->n_un.n_strx);
+    printf("%lx,%x,%x,%s\n",0x0000ffff & nl->n_value, nl->n_sect , nl->n_desc, fname);
+    if (f_addr == (0x0000ffff & nl->n_value)) {
+
+      if (!nl->n_value) {
+	do_reloc(fname, _e1);
+	
+      }      
+      printf("match!\n");
+      /* return fname; */
+    }
+  }
+  return 0;
+}
 

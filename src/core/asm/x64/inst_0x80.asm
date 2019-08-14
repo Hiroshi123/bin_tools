@@ -252,11 +252,7 @@ _0x89_mov:
 	call _fetch_displacement_by_mod
 	call _mov_rm_to_arg1
 	call _set_reg_to_arg2
-	call _store_or_assign_arg1_by_mod
-	
-	mov r8,0x89
-	call print
-	
+	call _store_or_assign_arg1_by_mod	
 	pop rbp
 	ret
 	
@@ -266,6 +262,10 @@ _0x8a_mov:
 _0x8b_mov:
 	
 	push rbp
+		mov r8,0x89
+	call print
+	
+
 	add byte [_rip],1
 	call _get_mod_reg_rm
 	call _set_scale_index_base

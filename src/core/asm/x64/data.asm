@@ -63,6 +63,17 @@
 
 	global _processor
 	global _objformat
+	global _meta_page_head
+	global _meta_page_ptr
+
+	global _out_page_head
+	global _out_page_ptr
+	global _draw_memory_table_page_head
+	global _draw_memory_table_page_ptr
+
+	global _current_fname
+	global _fd_num
+	global _current_page_tail
 	
 	global _context
 	global _context._opcode
@@ -517,6 +528,24 @@ _cpl:
 	db 0
 _objformat:
 	db 0
+_meta_page_head:
+	dq 0
+_meta_page_ptr:
+	dq 0
+_out_page_head:
+	dq 0
+_out_page_ptr:
+	dq 0
+_draw_memory_table_page_head:
+	dq 0
+_draw_memory_table_page_ptr:
+	dq 0
+_current_fname:
+	dq 0
+_current_page_tail:
+	dq 0
+_fd_num:
+	db 0
 
 ;;; Note that as reg/rm represents pointer to the register which is created by
 ;;; get_mod_reg_rm function, it contains dword size, and the rest of data is just 1byte.
@@ -574,6 +603,7 @@ _debug:
 	dq 0
 ._offset:
 	db 0
+
 	
 ;;; following should be aligned as it will be scooped from instruciton given a value of _context._mod.
 

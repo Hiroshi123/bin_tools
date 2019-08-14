@@ -292,6 +292,9 @@ _load32:
 	mov eax,[rax]
 	mov [_context._res],eax
 	pop rbp
+
+
+
 	ret
 	
 _load64:
@@ -704,12 +707,18 @@ _call:
 	mov rdi,[_rip]
 	mov rsi,rax
 	
-	call _check_on_iat
+	;; call _check_on_iat
 
 	mov rdi,[_rip]	
 	mov rsi,[_context._res]	
 	call _find_f_addr
 	
+	;; mov rdx,[_context._arg2]
+	;; mov rdi,[_rip]
+	;; add rdi,rdx
+	;; ;; bring rdi to calee
+	;; call _add_edge
+
 	;; before adding rax, you need to store rip to be returned on it.
 
 	;; mov rdx,[_rip]
@@ -722,20 +731,18 @@ _call:
 	ret
 	
 _jmp:
-	mov r8,[_context._arg1]
-	call print
-	
 	;; before jumping to the value on register,
-	;; give an event callback.
+	;; give an event callback.	
 	mov rdi,[_context._arg1]
-	mov rsi,0x88
 	call _add_edge
 	
 	mov rax,[_context._arg1]	
 	mov [_rip],rax
-	
+
 	;; call _check_on_iat
-	
+	mov r8,[_context._arg1]
+	call print
+
 	mov r8,0x99
 	call print
 	ret
