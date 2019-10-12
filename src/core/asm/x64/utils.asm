@@ -39,16 +39,21 @@
 	extern __r14
 	extern __r15
 	extern __rip
-	
 
+	extern _tls1
+	
 	section .text
 	
 	global print
 	global _check_register
 	global _initialize_v_regs
 	global _test_on_real_cpu
+	global __clone
+	global __mmap
 	extern _exec
 
+	extern _hello_world
+	
 %include "constant.asm"
 
 print:
@@ -288,24 +293,49 @@ _write:
 	syscall
 	ret
 
+_exit:
+	mov rdi, 0
+	mov rax, SYS_exit
+	syscall
 
-;; long thread_create(void (*)(void))
-thread_create:
-	push rdi
-	call stack_create
-	lea rsi, [rax + STACK_SIZE - 8]
-	pop qword [rsi]
-	mov rdi, THREAD_FLAGS
-	;; mov rax, SYS_clone
+__clone:
+	;; mov rdi,_do1	
+	;; push rdi
+	;; mov qword [rsi],0x10
+	;; lea rsi, [rsi + STACK_SIZE - 8]
+	;; mov [rsi],rdi	
+	;; pop qword [rsi]
+	;;  THREAD_FLAGS
+	;; mov rdi,CLONE_VM | CLONE_VFORK	
+	mov rdi, CLONE_VM | CLONE_CHILD_SETTID | CLONE_PARENT_SETTID | CLONE_SETTLS | CLONE_DETACHED | CLONE_PARENT| CLONE_FS;
+	;;  | CLONE_FS | CLONE_FILES;
+	;;  | CLONE_THREAD | CLONE_SIGHAND
+	;; | CLONE_CHILD_SETTID
+	mov r10,rcx
+	mov rax, SYS_clone
 	syscall
 	ret
 
 ;; void *stack_create(void)
-stack_create:
-	mov rdi, 0
-	mov rsi, STACK_SIZE
-	mov rdx, PROT_WRITE | PROT_READ
-	mov r10, MAP_ANONYMOUS | MAP_PRIVATE | MAP_GROWSDOWN
+__mmap:
+	;; mov rdi, 0
+	;; mov rsi, STACK_SIZE
+	;; mov rdx, PROT_WRITE | PROT_READ | PROT_EXEC
+	mov r10, rcx
+	;; MAP_ANONYMOUS | MAP_PRIVATE
+	;; | MAP_GROWSDOWN
+	;; mov r8, -1
+	;; mov r9, 0
 	mov rax, SYS_mmap
 	syscall
 	ret
+
+;;; you can let a thread sleep on an address with futex.
+;;; 1st :: futex addr
+;;; 2nd :: FUTEX_WAIT
+;;; 3rd :: 
+
+;; __futex:
+;; 	mov rax,SYS_futex	
+;; 	ret
+	

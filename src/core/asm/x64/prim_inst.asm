@@ -152,7 +152,7 @@
 	
 	extern _op_shl_base
 
-	extern _add_edge
+	;; extern _add_edge
 
 %include "constant.asm"
 
@@ -733,8 +733,8 @@ _call:
 _jmp:
 	;; before jumping to the value on register,
 	;; give an event callback.	
-	mov rdi,[_context._arg1]
-	call _add_edge
+	;; mov rdi,[_context._arg1]
+	;; call _add_edge
 	
 	mov rax,[_context._arg1]	
 	mov [_rip],rax

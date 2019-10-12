@@ -8,11 +8,20 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdint.h>
 
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/syscall.h>
+
+#define SIGPT_SET \
+  ((sigset_t *)(const unsigned long [_NSIG/8/sizeof(long)]){ \
+    [sizeof(long)==4] = 3UL<<(32*(sizeof(long)>4)) })
+
+#define STACK_SIZE 4096
 
 extern uint8_t EXPORT(processor);
 extern uint8_t EXPORT(objformat);
@@ -54,6 +63,15 @@ extern void EXPORT(exec_one());
 
 extern uint64_t* _opcode_table;
 extern uint8_t EXPORT(debug);
+
+extern void* __clone(void*,void*,void*,void*,void*,void*);
+extern uintptr_t __mmap(void*,void*,void*,void*,void*,void*);
+
+extern void* _tls1;
+
+extern uint64_t* CHILD_THREAD_NUM_ADDR;
+
+char A[] = "A";
 
 void print_memory(void* guest_addr) {
 
@@ -187,8 +205,122 @@ void do_drive(char* name) {
   printf("error\n");
 }
 
+static int C = 0;
+
+void th1(void* arg,uint64_t* arg2,uint64_t* arg3,uint64_t* arg4) {
+
+  C+=1;
+  printf("th started!%p,%p,%x\n",&th1,arg,syscall(SYS_gettid));
+  printf("%p,%p,%p\n",arg2,arg3,arg4);
+  printf("%p,%p,%p\n",*arg2,*arg3,*arg4);
+  printf("ppid!:%x,%x\n",syscall(SYS_getppid),syscall(SYS_getpid));
+  union sigval value;
+  value.sival_int = 1;
+  value.sival_ptr = 0;
+  
+  // if a thread forget letting a futex memory free, and another thread cant be started.
+  // you should just register all of futexes that the thread had allocated ever...
+  // as of futexes, you cannot know how many number of threads are waiting on it until you wake them.
+  // if it is more than one, and keep sleeping 
+  
+  /* if (sigqueue(syscall(SYS_getppid), SIGUSR2, value) == 0) { */
+  /*   printf("signal sent successfully!!\n"); */
+  /* } else { */
+  /*   printf("SIGSENT-ERROR:%d\n",errno); */
+  /* }   */
+  sleep(5);
+  printf("th1 done\n");
+  fflush(stdout);
+  sleep(1);
+  exit(0);
+}
+
+// static int CHILD_THREAD_NUM = 0;
+
+static void thread_term (int sig) {
+  printf("got signal\n");
+  C += 1;
+  pid_t pid;
+  pid = wait(NULL);
+  printf("Pid %x exited.\n", pid);
+  if (*CHILD_THREAD_NUM_ADDR != 0) {
+    *CHILD_THREAD_NUM_ADDR-=1;
+  }
+  printf("child thread num : %d\n", *CHILD_THREAD_NUM_ADDR);
+  // got_signal = 1;
+}
+
+void init_signal(int sig) {
+  sigset_t mask;
+  sigset_t orig_mask;
+  struct sigaction act;
+  memset(&act, 0, sizeof(act));
+  act.sa_handler = thread_term;
+  if (sigaction(SIGCHLD, &act, 0)) {
+    perror ("sigaction");
+    return 1;
+  }
+  sigset_t sigset,unblock_set;
+  sigfillset(&sigset);
+  sigprocmask(SIG_SETMASK, &sigset, NULL);
+  sigemptyset(&unblock_set);
+  sigaddset(&unblock_set, SIGHUP); // 1
+  sigaddset(&unblock_set, SIGINT); // 2
+  sigaddset(&unblock_set, SIGQUIT);// 3
+  sigaddset(&unblock_set, SIGTERM);// 15
+  sigaddset(&unblock_set, SIGCHLD);// 17
+  sigprocmask(SIG_UNBLOCK, &unblock_set, NULL);
+  
+  printf( "Old set was %8.8lx\n", sigset);
+  /* sigpending( &pset ); */
+  /* printf( "Pending set is %8.8ld.\n", pset ); */  
+}
+
 int main(int argc,char** argv) {
   // file descriptor is substituted for stdin/stderr/stdout
+
+  init_signal();
+
+  if (fork()) {
+    printf("Parent pid is %x,%x,%x\n", getppid(),getpid(),syscall(SYS_gettid));
+    for (;;) {
+      sleep(-1);
+      if (*CHILD_THREAD_NUM_ADDR == 0) break;
+      printf("child thread num:%d\n",*CHILD_THREAD_NUM_ADDR);
+    }
+    printf("done\n");
+    exit(0);
+  }
+  *CHILD_THREAD_NUM_ADDR += 1;
+  printf("child thread num :: %d\n", *CHILD_THREAD_NUM_ADDR);
+  uint64_t* r1 = __mmap
+    (0,STACK_SIZE,PROT_WRITE|PROT_READ|PROT_EXEC,MAP_ANONYMOUS|MAP_PRIVATE,-1,0);  
+  uint64_t* t = malloc(8);
+  uint64_t* t2 = malloc(8);
+  *t = 0;
+  printf("Child pid is %x,%x,%x\n", getppid(),getpid(),syscall(SYS_gettid));
+  r1 = (uint64_t*)(((uint8_t*)r1) + STACK_SIZE - 8);
+  *r1 = &th1;
+  void* rr = __clone(0,r1,t,t2,0,0);  
+  *CHILD_THREAD_NUM_ADDR += 1;
+  printf("child thread num ::: %d\n", *CHILD_THREAD_NUM_ADDR);
+  if (rr) {
+    sleep(3);
+    //
+    ret = sys_futex(&mem, FUTEX_WAIT_PRIVATE, old);    
+    syscall(SYS_futex, uaddr, op, val, NULL, NULL, 0);
+    //uint64_t* tt = *(uint64_t*)t;
+    printf("ok\n");
+    printf("hei:%p,%p,%p,%d,%p,%p\n",
+	   rr,errno,r1,C,t,*(uint64_t*)t);
+    printf("my tid:%x\n",syscall(SYS_gettid));
+    printf("ppid:%x,%x\n",syscall(SYS_getppid),syscall(SYS_getpid));
+    return 0;
+  } else {
+    printf("0 :%p,%p\n",rr,r1);
+  }
+  return 1;
+  
   EXPORT(fd_num) = 2;
   int fd;
   // if it is drive, read first 512 byte.
@@ -201,7 +333,6 @@ int main(int argc,char** argv) {
     map_bios();
     //
     do_bios();
-    
     do_drive(argv[2]);
     exit(1);
   }
@@ -216,34 +347,51 @@ int main(int argc,char** argv) {
     close(fd);
     return 0;
   }
+
   heap * h = map_file(fd, stbuf.st_size, -1);
   heap* meta = get_page(1);
   EXPORT(meta_page_head) = meta->begin;
   EXPORT(meta_page_ptr) = meta->begin;
-  const int out_fd1 = open(LOG_DIR"/"DOT_FNAME, O_RDWR | O_CREAT | O_TRUNC);
-  const int out_fd2 = open(LOG_DIR"/"MEM_FNAME, O_RDWR | O_CREAT | O_TRUNC);
-  EXPORT(fd_num) += 2;
-  if (out_fd1 == -1 || out_fd2 == -1) {
-    printf("error code:%d on fd:%d,%d\n", errno, out_fd1,out_fd2);
-    return 0;
-  }
-  heap* out1 = out_map_file(out_fd1);
-  heap* out2 = out_map_file(out_fd2);
+  printf("%s,\n",DOT_FNAME);
+
+  /* const int out_fd1 = open(LOG_DIR"/"DOT_FNAME, O_RDWR | O_CREAT | O_TRUNC); */
+  /* const int out_fd2 = open(LOG_DIR"/"MEM_FNAME, O_RDWR | O_CREAT | O_TRUNC); */
+  /* EXPORT(fd_num) += 2; */
+  /* if (out_fd1 == -1 || out_fd2 == -1) { */
+  /*   printf("error code:%d on fd:%d,%d\n", errno, out_fd1,out_fd2); */
+  /*   return 0; */
+  /* } */
+  /* heap* out1 = out_map_file(out_fd1); */
+  /* heap* out2 = out_map_file(out_fd2); */
+
   // heap* out2 = out_map_file(out_fd3);  
-  EXPORT(out_page_head) = out1->begin;
-  EXPORT(draw_memory_table_page_head) = out2->begin;
-  EXPORT(draw_memory_table_page_ptr) = out2->begin;
+
+  /* EXPORT(out_page_head) = out1->begin; */
+  /* EXPORT(draw_memory_table_page_head) = out2->begin; */
+  /* EXPORT(draw_memory_table_page_ptr) = out2->begin; */
   
   // EXPORT(inst_page_head) = out2->begin;
   // EXPORT(out_page_head) = out1->begin;
-  init_graph(out1->begin);
-  init_draw_memory_table(out2->begin);
+  /* init_graph(out1->begin); */
+  /* init_draw_memory_table(out2->begin); */
   
   if (o == ELF32) {
     start_addr = load_elf32(h->begin, meta->begin);
     read_elf32(h->begin, meta->begin);
   } else if (o == ELF64) {
-    // start_addr = load_elf32(h->begin, meta->begin);
+    /* start_addr = load_elf32(h->begin, meta->begin); */
+    read_elf64(h->begin, meta->begin);
+    run_through_elf_phdr3(h->begin, &_on_elf_phdr_callback, meta->begin);    
+    run_through_elf_shdr3(h->begin, &_on_elf_section_callback, meta->begin);
+    printf("meta begin:%x\n",meta->begin);
+    
+    info_on_elf* tmp = meta->begin;
+    void* sym_end = (size_t)tmp->symbol_p + (size_t)tmp->symbol_size;
+    int i = run_through_elf_symtable3(tmp->symbol_p, sym_end, &_on_elf_symtab_callback,tmp);
+    printf("ret:%x,%x,%x\n",sizeof(Elf64_Sym),tmp,sym_end);
+    // beginning of elf files, heads of function table, extra data which will be accumulated..
+    // 
+    return;
     // read_elf32(h->begin, meta->begin);
   } else if (o == MACHO32) {
     load_macho32(h->begin,meta->begin);

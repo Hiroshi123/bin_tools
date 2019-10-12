@@ -37,6 +37,14 @@ p_guest load_elf32(uint8_t* page_head, info_on_elf32* _e) {
   return start_addr;
 }
 
+void load_elf64(uint8_t* page_head, info_on_elf* _e) {
+  printf("aa\n");
+  memset(_e ,0 , sizeof(info_on_elf));
+  /* Elf32_Ehdr* ehdr = (Elf32_Ehdr *)page_head; */
+  /* Elf32_Phdr* phdr = (uint8_t*)ehdr + ehdr->e_phoff; */
+  
+}
+
 void load_elf(uint8_t* page_head) {
   if (*((uint8_t*)page_head + 4) == 1) {    
     // load_elf32(page_head);
@@ -88,7 +96,7 @@ char read_elf64(const char *const page_for_elf,
   
   printf("%x\n",*((uint8_t*)page_for_elf + 4));
   if (*((uint8_t*)page_for_elf + 4) == 1) {
-    printf("!!%x\n",*((uint8_t*)page_for_elf + 4));  
+    printf("!!%p\n",*((uint8_t*)page_for_elf + 4));  
     // read_elf32(page_for_elf, _e);
     return 2;
   }

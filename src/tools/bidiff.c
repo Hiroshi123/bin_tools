@@ -14,6 +14,7 @@
 
 #include <sys/mman.h>
 #include <sys/stat.h>
+
 #include "bipatch.h"
 
 static uint64_t ascii_to_bin(const char *begin, const char *end) {
@@ -120,6 +121,7 @@ void map_input_file(const char *fname, map_info *_p) {
     close(fd);
     exit(1);
   }
+  printf("%ld\n",stbuf.st_size);
   size_t map_size = (stbuf.st_size + 0x1000) & 0xfffff000;
   char *p = (char *)mmap(NULL, map_size, PROT_READ /*|PROT_WRITE*/,
                          MAP_PRIVATE /* | MAP_FIXED*/, fd, 0);
@@ -184,6 +186,24 @@ void apply(map_info *_in, patch_info *_pi, map_info *_out) {
   }
 }
 
+void diff(map_info *_in, map_info *_out) {
+
+  char *p = _in->map_begin;
+  char *q = _out->map_begin;
+  /* patch_format *_pf = (patch_format *)_pi->begin; */
+  int i;
+  uint8_t *end;
+  uint8_t *e;
+  for (; p != _in->map_end && q != _out->map_end;) {
+
+    if (*(uint8_t*)p == *(uint8_t*)q) {} else {
+      printf("%p,%p,%p\n",p - _in->map_begin,*(uint8_t*)p,*(uint8_t*)q);
+    }
+    // *q = *p;
+    p++, q++;      
+  }
+}
+
 char save(map_info *p) {
   if (msync(p->map_begin, p->map_end - p->map_begin, MS_SYNC) != 0) {
     printf("save error!\n");
@@ -217,10 +237,17 @@ void show_usage() {
 int main(int argc, char **argv) {
   if (argc < 3) {
     show_usage();
+    return 1;
   }
-  patch_info edit;
-  if (!read_patch(argv[2], &edit)) {
-    printf("parse error\n");
-  }
-  apply_patch(argv[1], &edit, argv[3]);
+  map_info _in1;
+  map_info _in2;
+  map_input_file(argv[1], &_in1);
+  map_input_file(argv[2], &_in2);
+  diff(&_in1, &_in2);
+  /* patch_info edit; */
+  /* if (!read_patch(argv[2], &edit)) { */
+  /*   printf("parse error\n"); */
+  /* } */
+  /* apply_patch(argv[1], &edit, argv[3]); */
+  
 }

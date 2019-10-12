@@ -16,6 +16,8 @@
 
 // static char COUNT = 0;
 
+void* SHARED_MEMORY_HEAD;
+uint64_t* CHILD_THREAD_NUM_ADDR;
 /*static*/ heap *HEAP_HEADER_ADDR_HEAD;
 heap *HEAP_HEADER_ADDR_P;
 heap *HEAP_HEADER_ADDR_TAIL;
@@ -28,15 +30,20 @@ char PAGE_PATH[30];
 __attribute__((constructor)) void set_heap_header() {
   PAGE_SIZE = getpagesize();
   sprintf(PAGE_PATH, "%s/%s/%s/%s.bin",LOG_DIR,PAGE_DIR,INDEX_LIB,INDEX_SEC);
-  heap *tmp = (heap*)mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
-                   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  heap *tmp = (heap*)mmap
+    (NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
+     MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   if (tmp == MAP_FAILED) {
     fprintf(stderr, "error:%x\n", errno);
     exit(0);
   }
-  HEAP_HEADER_ADDR_HEAD = tmp;
-  HEAP_HEADER_ADDR_P = tmp;
-  HEAP_HEADER_ADDR_TAIL = tmp + PAGE_SIZE;  
+  SHARED_MEMORY_HEAD = tmp;
+  CHILD_THREAD_NUM_ADDR = tmp;
+  *(uint64_t*)CHILD_THREAD_NUM_ADDR = 0;
+  
+  HEAP_HEADER_ADDR_HEAD = tmp + 0x1;
+  HEAP_HEADER_ADDR_P = tmp + 0x1;
+  HEAP_HEADER_ADDR_TAIL = tmp + PAGE_SIZE;
 }
 
 __attribute__((destructor)) void unset_heap_header() {
@@ -154,7 +161,7 @@ heap* out_map_file(const int fd) {
 heap* get_page(uint8_t num) {
   int map_size = PAGE_SIZE*num;
   int fd = -1;
-  void *begin = mmap(NULL,map_size , PROT_READ|PROT_WRITE|PROT_EXEC,
+  void *begin = __mmap(NULL,map_size , PROT_READ|PROT_WRITE|PROT_EXEC,
                      MAP_PRIVATE|MAP_ANONYMOUS, fd, 0);
   heap *h = (heap *)HEAP_HEADER_ADDR_P;
   h->begin = begin;

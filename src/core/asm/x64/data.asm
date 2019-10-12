@@ -6,6 +6,8 @@
 
 	global _reg_names
 
+	global _tls1
+	
 	global _rax
 	global _rcx
 	global _rdx
@@ -207,6 +209,9 @@ _dflag_len:
 	dq 2
 	dq 4
 	dq 8
+
+_tls1:
+	dq 0
 	
 ;; _rsp:	dq 0
 	

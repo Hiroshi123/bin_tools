@@ -53,18 +53,29 @@ typedef struct {
 } Elf32_Ehdr;
 
 typedef struct {
+  // 0x00
   unsigned char	e_ident[EI_NIDENT];
+  // 0x10
   Elf64_Half	e_type;
+  // 0x12
   Elf64_Half	e_machine;
+  // 0x14
   Elf64_Word	e_version;
+  // 0x18
   Elf64_Addr	e_entry;
+  // 0x20
   Elf64_Off	e_phoff;
+  // 0x28
   Elf64_Off	e_shoff;
+  // 0x30
   Elf64_Word	e_flags;
-  Elf64_Half	e_ehsize;
+  // 0x34
+  Elf64_Half	e_ehsize;  
   Elf64_Half	e_phentsize;
+  // 0x38
   Elf64_Half	e_phnum;
   Elf64_Half	e_shentsize;
+  // 0x3c
   Elf64_Half	e_shnum;
   Elf64_Half	e_shstrndx;
 } Elf64_Ehdr;
@@ -3171,7 +3182,7 @@ typedef struct {
   Elf64_Sym *symbol_p;
   // siye of symbol table
   unsigned int symbol_size;
-
+  
   // pointer to the head of .dynstr section
   char *dyn_str_p;
 
@@ -3202,3 +3213,9 @@ void read_elf32(const uint8_t*,info_on_elf32*);
 void* get_name_of_f_on_elf32(p_guest f_addr, info_on_elf32* _e);
 void retrieve_info_from_sht(const char*const page_for_elf,
 			    info_on_elf *_e);
+
+void _on_elf_phdr_callback(void* arg1, Elf64_Phdr* arg2, void*);
+void _on_elf_symtab_callback(Elf64_Sym* arg1, info_on_elf* e1);
+void _on_elf_section_callback(uint8_t* arg1,uint8_t* strtable, Elf64_Shdr* arg2,void*);
+
+

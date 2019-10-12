@@ -19,6 +19,8 @@
 #define INDEX_SEC "_00"
 #define PAGR_HTML_ADDRESS "http://localhost:8000/page.html"
 
+// void* __mmap();
+
 // char* PAGE_PATH = "cdcd";
 
 /* #define DOT_PATH LOG_DIR ## / ## DOT_FNAME */
