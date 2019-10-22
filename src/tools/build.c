@@ -11,6 +11,8 @@
 #define CONTEXT_VARIABLE 0x4
 #define CONTEXT_READ_NOW 0x8
 
+// #define DRYRUN 0
+
 typedef struct {
   uint8_t* name;
   uint8_t* value;  
@@ -27,14 +29,20 @@ typedef struct {
   size_t size;
 } heap;
 
+typedef struct {
+  size_t bind_full_str;
+  size_t bind_str;
+} _bind;
+
 /* memory_list MEMORY_ROOT = {}; */
 
 void* search_rule(void* p);
-void* bind_rule(rule* r);
+void* bind_cmd(rule* r);
+uint8_t check_assign_var(uint8_t** _p, uint8_t** _q);
 
 static size_t* VARS_P;
 static size_t* RULES_P;
-static size_t* BUF_P;
+static _bind* BUF_P;
 static size_t* CMD_P;
 static size_t* HEAP_HEAD;
 static heap* HEAP_CUR;
@@ -44,11 +52,14 @@ static HANDLE DotFileHandle;
 __attribute__((constructor)) void set_heap_header() {
 
   printf("alloc\n");
-  VARS_P = malloc(20 * sizeof(void*));
+  VARS_P = malloc(50 * sizeof(void*));
   RULES_P = malloc(50 * sizeof(void*));
   memset(RULES_P, 0, 50 * sizeof(void*));
-  BUF_P = malloc(20 * sizeof(void*));
-  CMD_P = malloc(20 * sizeof(void*));
+  BUF_P = malloc(2 * sizeof(void*));
+  BUF_P->bind_full_str = malloc(100);
+  BUF_P->bind_str = malloc(30);
+  
+  CMD_P = malloc(30 * sizeof(void*));
   HEAP_HEAD = malloc(100 * sizeof(void*));
   HEAP_CUR = HEAP_HEAD;
   char fname[] = "deps.dot";
@@ -69,6 +80,8 @@ __attribute__((destructor)) void dealloc() {
   printf("dealloc\n");
   free(VARS_P);
   free(RULES_P);
+  free(BUF_P->bind_full_str);
+  free(BUF_P->bind_str);  
   free(BUF_P);
   free(CMD_P);
   heap* h = HEAP_HEAD;
@@ -79,7 +92,7 @@ __attribute__((destructor)) void dealloc() {
   char str[] = "}";
   DWORD bytesWritten;
   WriteFile(DotFileHandle, str, strlen(str), &bytesWritten, NULL);
-  close(DotFileHandle);
+  CloseHandle(DotFileHandle);
 }
 
 void* alloc(int size) {
@@ -221,8 +234,7 @@ void* parse(uint8_t* p,uint8_t* e) {
       continue;
     }
     // check_simple_assign(p, p1, );
-    if (*(uint16_t*)p == 0x3d3a) {
-      
+    if (*(uint16_t*)p == 0x3d3a) {      
       a_var->name = retrieve(&a_var->name, p, p1, 0);
       p1 = p + 2;
       context |= CONTEXT_VARIABLE;
@@ -230,7 +242,7 @@ void* parse(uint8_t* p,uint8_t* e) {
       continue;
       // :
     } else if (*p == 0x3a) {
-      a_rule->target = retrieve(&a_rule->target, p, p1, 0);
+      a_rule->target = retrieve(&a_rule->target, p, p1, 1);
       context |= CONTEXT_RULE_TARGET;
       context &= ~CONTEXT_READ_NOW;
       p1 = p + 1;// p+1;
@@ -273,10 +285,10 @@ uint8_t isFile(void* p) {
   HANDLE hFile = CreateFile
     (
      p, GENERIC_READ/* | GENERIC_EXECUTE*/, 0, NULL,
-     OPEN_EXISTING/*CREATE_NEW*/, 0/*FILE_SHARE_READ*/, NULL
+     OPEN_EXISTING/*CREATE_NEW*/, FILE_SHARE_READ, NULL
      );
   if (hFile == -1) return 0;
-  close(hFile);
+  CloseHandle(hFile);
   return 1;
 }
 
@@ -309,24 +321,30 @@ void write_edge(void* p1, void* p2) {
   write_to_dot_file(";\n");
 }
 
-void* has_suffix(uint8_t* p, uint8_t begin) {
+void* has_suffix(uint8_t* p, uint8_t** last) {
   // if the rule contains "%"
-  uint8_t has = 0;
-  for (;*p!=0x20 && *p!=0x00;p++) {
-    if (*p == 0x25) {
-      has = 1;
-      if (begin) return p + 1;
+  uint8_t count = 0;
+  uint8_t i = 0;
+  for (;*p!=0x20 && *p!=0x00;p++,i++) {
+    // if (!begin) printf("!%c", *p);
+    if (*p == 0x25) {      
+      count = i;
+      if (!last) return p + 1;
     }
   }
-  return (has) ? p : 0;
+  printf("\n");
+  if (count) *last = count;
+  if (count) printf("count:%d\n",count);
+  return (count) ? p : 0;
 }
 
-void* bind_suffix(uint8_t* suffix, void* p) {
+void* bind_suffix(uint8_t* suffix, uint8_t* p, uint8_t c) {
 
   uint8_t* p1;
   uint8_t* p2;
   uint8_t* p3;
   p1 = p2 = p;
+  uint8_t* s1 = suffix;
   // go to last
   for (;*p1!=0x0;p1++);
   for (;*suffix!=0x25/*%*/;p1--,suffix--) {
@@ -336,33 +354,52 @@ void* bind_suffix(uint8_t* suffix, void* p) {
     }
   }
   if (suffix) {
-    p3 = BUF_P;
-    for (;p2<=p1;p2++,p3++) *p3 = *p2;    
+    p3 = BUF_P->bind_str;
+    for (p2+=c;p2<=p1;p2++,p3++) *p3 = *p2;    
     *p3 = 0x0;
     return 1;
   }
   return 0;
 }
 
-void unbind_suffix() {
-  uint8_t* p = BUF_P;
+void clear_buf() {
+
+  uint8_t* p = BUF_P->bind_full_str;
   for (;*p!=0x0;p++) {
     *p = 0;
   }
 }
 
-void* get_suffix(uint8_t* j) {
+void unbind_suffix() {
 
-  if (!j) return BUF_P;
-  uint8_t* k = BUF_P;
-  for (;*k!=0x20 && *k!=0x0;k++) {
-    printf("%c",*k);
+  clear_buf();
+  uint8_t* p = BUF_P->bind_str;
+  for (;*p!=0x0;p++) {
+    *p = 0;
   }
-  for (;*k = *j;k++,j++);
-  *k = 0x0;
-  return BUF_P;
 }
 
+void* resolve_var_suffix(uint8_t* j) {
+
+  uint8_t* s = j;
+  uint8_t* p = BUF_P->bind_str;
+  if (!j) return p;
+  uint8_t* k = BUF_P->bind_full_str;
+  for (;*j!=0x20 && *j!=0x0;k++,j++) {
+    check_assign_var(&j, &k);
+    if (*j == 0x2a/* * */) {
+      do_wildcard(s, &j, &k);
+    }
+    if (*j==0x25 /* % */) {
+      for (;*k = *p;k++,p++);
+      k--;
+    } else {
+      *k = *j;
+    }
+  }
+  *k = 0x0;
+  return BUF_P->bind_full_str;
+}
 
 void resolve_deps(rule* r) {
   uint8_t* p1 = r->deps;
@@ -372,9 +409,9 @@ void resolve_deps(rule* r) {
     p = _strtok(p1);
     printf("look for %s\n",p1);
     if (!p) break;
-    uint8_t* j = has_suffix(p1, 1);
-    if (j)
-      p1 = get_suffix(j);    
+    // uint8_t* j = 
+    if (has_suffix(p1, 0))
+      p1 = resolve_var_suffix(p1);
     write_edge(r->target, p1);
     if (isFile(p1)) {
       printf("edge,%s\n",p1);
@@ -396,10 +433,18 @@ void resolve_deps(rule* r) {
   printf("resolve deps done\n");
 }
 
+void* convert_path_slash(uint8_t* p) {
+  for (;*p!=0;p++) {
+    if (*p == '/')
+      *p = '\\';
+  }
+}
+
 void do_exec(void* cmd) {
 
   PROCESS_INFORMATION pi;
   STARTUPINFO si ={sizeof(si)};
+  // char _cmd[] = "nasm.exe -I./include/ -f win64 ./src/core/asm/x64/common.asm -o ./obj/common.o";
   if (CreateProcessA
       (0,
        cmd,
@@ -419,26 +464,32 @@ void* search_rule(void* p) {
   uint8_t* cmd;
   uint8_t* suffix;
   uint8_t i=0;
+  uint8_t* c = 0;
   rule* t = RULES_P + 1;
   for (;i<len;i++,t++) {
     if (!strcmp(t->target, p)) {     
       printf("target:%s\n", t->target);
       printf("deps:%s\n", t->deps);    
       resolve_deps(t);
-      cmd = bind_rule(t);
+      cmd = bind_cmd(t);
       printf("do exec:%s\n",cmd);
-      // do_exec(cmd);
+#ifndef DRYRUN
+      do_exec(cmd);
+#endif
       write_node(t->target, cmd);
       unbind_rule();
       printf("ok.\n");
       return t;
     } else {
-      suffix = has_suffix(t->target, 0);      
-      // printf("suf:%s\n",t->target);
-      if (suffix && bind_suffix(suffix, p)) {
+      suffix = has_suffix(t->target, &c);
+      if (suffix && bind_suffix(suffix, p, c)) {
 	resolve_deps(t);
-	cmd = bind_rule(t);
+	cmd = bind_cmd(t);
 	printf("!do exec:%s\n",cmd);
+	// convert_path_slash(cmd);
+#ifndef DRYRUN
+	do_exec(cmd);
+#endif
 	unbind_rule();      
 	unbind_suffix(suffix);
 	return t;
@@ -452,54 +503,88 @@ void* get_fullpath(void* r) {
   
 }
 
-void* do_wildcard(void* path, uint8_t len) {
-  
-  HANDLE hFind;
+void* _do_wildcard(void* path, void* hFind, uint8_t** _p) {
+
   WIN32_FIND_DATA fileInfo;
   printf("path:%s\n",path);
   // fileInfo.cFileName
   uint8_t alc = 0;
-  uint8_t* p;
+  uint8_t* p = *_p;
   uint8_t* p1;
-  uint8_t* p2;  
-  if (len) {
-    alc = 1;
-    p = alloc(len);
-    p2 = p;
+  uint8_t* p2;
+  void* ret;
+  if (!hFind)
+    ret = FindFirstFile(path , &fileInfo);
+  else {
+    ret = FindNextFile(hFind, &fileInfo);
+    // add path on second time.
+    if (ret)
+      for (p2 = path;*p2!=0x0 && *p2!=0x2a;p2++,p++)
+	*p = *p2;
   }
-  hFind = FindFirstFile(path , &fileInfo);
-  do {    
-    if (alc) {
-      for (p1 = &fileInfo.cFileName;*p = *p1;p++,p1++);
-      *p = 0x20;
-      p++;
-    }
-    else
-      len += strlen(fileInfo.cFileName) + 1;
+  if (ret) {
+    for (p1 = &fileInfo.cFileName;*p = *p1;p++,p1++);
+    *p = 0x20;
+    *_p = p+=1;
     printf("w:%d,%s\n", strlen(fileInfo.cFileName), fileInfo.cFileName);
-  } while (FindNextFile(hFind, &fileInfo));
-  if (hFind == INVALID_HANDLE_VALUE) {
-    printf("error\n");
+  } else {
     FindClose(hFind);
-    return 0;
   }
-  if (alc) {
-    *p = 0x0;
-    return p2;
-  }
-  return len;
+  return ret;
 }
 
-void* bind_rule(rule* r) {
-  uint8_t* p = r->cmd;
+void do_wildcard(uint8_t* s, uint8_t** _p, uint8_t** _q) {
+  uint8_t* p = *_p;
+  uint8_t* q = *_q;
+  uint8_t* p1;
+  if (p1 = _strtok(s)) {
+    // void* len = do_wildcard(p2, 0);
+    void* h = _do_wildcard(s, 0, &q);
+    for (;_do_wildcard(s, h, &q);); 
+    for (;*p!=0x0 && *p!=0x20;p++);
+    if (p1 == 1) {
+    } else {
+      *(p-1) = 0x20;
+    }
+  }
+  *_p = p;
+  *_q = q;  
+}
+
+void* assign_var(uint8_t* p,   uint8_t* q) {
   var* v = VARS_P + 1;
+  // retrieve index value
+  v += (*(p+2) - 1);
+  uint8_t* s;
+  for ( s = v->value ; *q = *s;q++,s++);
+  return q;
+}
+
+uint8_t check_assign_var(uint8_t** _p, uint8_t** _q) {
+  uint8_t* p = *_p;
+  uint8_t* q = *_q;
+  if (*(uint16_t*)p == 0x2824/*$*/) {
+    q = assign_var(p, q);
+    p+=4;
+  } else return 0;
+  *_p = p;
+  *_q = q;
+  return 1;
+}
+
+void* bind_deps(uint8_t* deps, uint8_t* q) {
+  uint8_t* s = has_suffix(deps, 0) ? resolve_var_suffix(deps) : deps;
+  for (; *q = *s;q++,s++);
+  return q;
+}
+
+void* bind_cmd(rule* r) {
+  uint8_t* p = r->cmd;
   uint8_t* q = CMD_P;
   uint8_t* t = q;
   uint8_t* s;
   uint8_t begin = 0;
-  uint8_t* p1;
   uint8_t* p2;
-  void * suffix;
   for (;*p!=0;) {
     // if space 
     if (*(uint8_t*)p == 0x20) {
@@ -510,39 +595,23 @@ void* bind_rule(rule* r) {
       begin = 0;
     }
     // variable
-    if (*(uint16_t*)p == 0x2824/*$*/) {
-      v = VARS_P + 1;
-      v += (*(p+2) - 1);
-      printf("good,%x,%x!!!!!\n",p+2,*(p+2));
-      printf("%s\n",v->name);
-      printf("!!!%s\n",v->value);
-      for ( s = v->value ; *q = *s;q++,s++);
-      p+=4;
-    }
+    check_assign_var(&p, &q);
     // 1st deps($<)
     if (*(uint16_t*)p == 0x3c24) {
       p+=2;
-      suffix = has_suffix(r->deps, 1);      
       // stpcpy
-      for (s = (suffix) ? get_suffix(0) : r->deps;*q = *s;q++,s++);
+      for (s = resolve_var_suffix(r->deps) ; *q = *s;q++,s++);
       continue;
     }
     // target($@)
     if (*(uint16_t*)p == 0x4024) {
       p+=2;
-      for (s = r->target;*q = *s;q++,s++);
+      s = resolve_var_suffix(r->target);
+      for ( ; *q = *s;q++,s++);
       continue;
     }
     if (*p == 0x2a/* * */) {
-      if (p1 = _strtok(p2)) {
-	void* len = do_wildcard(p2, 0);
-	void* w = do_wildcard(p2, len);
-	printf("wild card,%s,%d,%s\n",p2, len, w);
-	if (p1 == 1) {
-	} else {
-	  *(p-1) = 0x20;
-	}
-      }
+      do_wildcard(p2, &p, &q);
     }
     if (*p) {
       *q = *p;
@@ -552,15 +621,12 @@ void* bind_rule(rule* r) {
       break;
   }
   *q = 0;
-  printf("ret:%s\n",t);
   return t;
 }
 
 void unbind_rule() {
   uint8_t* p = CMD_P;
-  for (;*p!=0x0;p++) {
-    *p = 0;
-  }
+  for (;*p!=0x0;p++) *p = 0;  
 }
 
 int main(int argc, char** argv) {
@@ -584,7 +650,7 @@ int main(int argc, char** argv) {
     
     uint64_t* t = parse(p, p + wReadSize);    
     rule* v = search_rule(argv[2]);    
-    close(hFile);
+    CloseHandle(hFile);
     printf("done\n");
     return 0;
   }
