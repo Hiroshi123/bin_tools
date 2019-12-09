@@ -7,8 +7,6 @@
 #include "coff.h"
 #include "link.h"
 
-#define DEBUG 1
-
 /* extern int run_through_coff_shdr3(void*,void*); */
 /* static uint32_t EXPORT_SYMBOL_NUM = 0; */
 /* static uint32_t IMPORT_SYMBOL_NUM = 0; */
@@ -17,9 +15,11 @@ extern void resolve(CallbackArgIn* _in,uint32_t* addr);
 extern uint32_t ExportDirectoryLen;
 extern uint32_t ExportFuncCount;
 extern struct SymbolHashTable HashTable;
-void* OutputFileName;
+void* OutputFileName = 0;
+void* EntryPointFuncName = 0;
 
-__attribute__((constructor)) void set_heap_header() {  
+__attribute__((constructor)) void set_heap_header() {
+  
 }
 
 __attribute__((destructor)) void dealloc() {
@@ -30,24 +30,20 @@ __attribute__((destructor)) void dealloc() {
   return *p == 0x8664;
 }
 
-char read_coff(const char *const begin,
-               info_on_coff *e) {
+char read_coff(const char *const begin) {
 
   IMAGE_FILE_HEADER* img_file_header = (IMAGE_FILE_HEADER*)begin;
   int sec_num = img_file_header->NumberOfSections;  
   IMAGE_SYMBOL* sym_begin = (IMAGE_SYMBOL*)(begin + img_file_header->PointerToSymbolTable);
   IMAGE_SYMBOL* sym_end = sym_begin + img_file_header->NumberOfSymbols;
-  e->sym_begin = (IMAGE_SYMBOL*)(begin + img_file_header->PointerToSymbolTable);
-  e->sym_end = e->sym_begin + img_file_header->NumberOfSymbols;
-  IMAGE_SYMBOL* is = e->sym_begin;
-  const char* str_begin = e->sym_end;  
+  IMAGE_SYMBOL* is = sym_begin;
+  const char* str_begin = sym_end;  
   alloc_obj_chain(sym_begin, str_begin, img_file_header->NumberOfSymbols);
-  e->sec_begin = (IMAGE_SECTION_HEADER*)(img_file_header+1);
-  e->sec_end = e->sec_begin + sec_num;  
-  IMAGE_SECTION_HEADER* s = e->sec_begin;
-  char filled = 0;
+  IMAGE_SECTION_HEADER* sec_begin = (IMAGE_SECTION_HEADER*)(img_file_header+1);
+  IMAGE_SECTION_HEADER* sec_end = sec_begin + sec_num;  
+  IMAGE_SECTION_HEADER* s = sec_begin;
   IMAGE_SECTION_HEADER* _sec;
-  for (;s!=e->sec_end;s++) {
+  for (;s!=sec_end;s++) {
     // if you find an existing section which has the same section name as
     // the coming section name, then you need to merge them.
     // To do this, you need to check the list of existing section,
@@ -66,7 +62,7 @@ char read_coff(const char *const begin,
 #endif
   }
   char* name;
-  for (;is!=e->sym_end;is++) {
+  for (;is!=sym_end;is++) {
     name = GET_NAME(is, str_begin);    
     // StorageClass == 2 is import/export
     // difference between import and export is if it belongs to section(0) or not.
@@ -77,8 +73,10 @@ char read_coff(const char *const begin,
       alloc_symbol_chain(name, is);
       // number of export symbols and its string size should be
       // counted for constructing export table on later stage.
-      // EAT + ENT + ordinal(WORD)      
-      ExportDirectoryLen += 4 + 2 + strlen(name) + 1;
+      // EAT + ENT + ordinal(WORD)
+      if (ExportDirectoryLen == 0)
+	ExportDirectoryLen = sizeof(IMAGE_EXPORT_DIRECTORY) + strlen(OutputFileName) + 1;
+      ExportDirectoryLen += 4 + 4 + 2 + strlen(name) + 1;
       ExportFuncCount += 1;
     }
 #ifdef DEBUG
@@ -105,8 +103,14 @@ void* read_cmdline(int argc, char** argv) {
   size_t* p = __malloc(sizeof(void*) * (argc));
   void* _p = p;
   for (;i<argc;i++) {
-    if (!strcmp("-o",argv[i])) {
+    if (!strcmp(argv[i], "-o")) {
       OutputFileName = argv[i+1];
+      i++;
+      continue;
+    }
+    // ef is the abbrebiation of a function that the entry point points to.
+    if (!strcmp(argv[i], "-ef")) {
+      EntryPointFuncName = argv[i+1];      
       i++;
       continue;
     }
@@ -145,25 +149,33 @@ int main(int argc, char** argv) {
   
   /* __free(_c); */
 
-  mem_init();  
+  mem_init();
   init_hashtable();
   size_t* p1 = read_cmdline(argc, argv);
   void* q;
-  info_on_coff c;
   for (;*p1;p1++) {
     printf("%s\n",*p1);
     q = alloc_obj((void*)*p1);
-    read_coff(q, &c);
+    check_coff(q);
+    read_coff(q);
   }
-  void* edata;
-  void* isection = add_section(".idata");
+  void* esection;
   if (ExportDirectoryLen)
-    edata = add_section(".edata");
+    esection = add_section(".edata", ExportDirectoryLen);
+  void* isection = add_section(".idata", 0);
   set_virtual_address();
-  do_reloc(&resolve);  
+  do_reloc(&resolve);
+  printf("----------%p\n", &((SectionChain*)esection)->this);
   add_import(isection);
-  if (ExportDirectoryLen)  
-    add_export(edata);
+  printf("----------%p\n", &((SectionChain*)esection)->this);
+
+  if (ExportDirectoryLen)
+    add_export(esection);
+  printf("iiiiiiiiiiiiiiii:%p,%p,%p\n",
+	 ((SectionChain*)isection)->p,
+	 &((IMAGE_SECTION_HEADER*)((SectionChain*)isection)->p)->SizeOfRawData,
+	 &((SectionChain*)esection)->this);
+  printf("%p,%p\n",esection,isection);
   gen();
   return 0;
 }
