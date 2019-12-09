@@ -58,9 +58,10 @@ void resolve(CallbackArgIn* _in,uint32_t* addr) {
   IMAGE_SYMBOL* ret = lookup_symbol(name, &export_address);
   printf("i\n");
   if (ret) {
-  printf("o\n");
+    printf("o\n");
     printf("callback called,%s,%d,%p,%d,%d,%p(!%x),%p\n",
-	   name, type,ret,ret->SectionNumber,ret->Value,addr,*(uint64_t*)addr,export_address);
+	   name, type,ret,ret->SectionNumber,ret->Value,addr,
+	   *(uint64_t*)addr,export_address);
     if (type == IMAGE_REL_AMD64_ADDR32)
       *addr = export_address;
     else if (type == IMAGE_REL_AMD64_REL32)
@@ -68,11 +69,22 @@ void resolve(CallbackArgIn* _in,uint32_t* addr) {
   } else {
     char* dllname = lookup_dynamic_symbol(name, 1);
     printf("s\n");
-    if (dllname) {
-      void* new = add_dynamic_resolved_entry(name, dllname, addr);
-      if (new)
+    if (dllname) {      
+      // void* alloc_section_chain(void* obj ,IMAGE_SECTION_HEADER* s ,SectionChain* _s);
+      *addr = 0xffff;
+      void* new = add_dynamic_resolved_entry(name, dllname, addr);      
+      if (new) {	
+	if (ImportDirectoryLen == 0) {
+	  // if it is 1st ever insertion of IID, you need to set an empty one
+	  // at the end of it.
+	  ImportDirectoryLen += sizeof(IMAGE_IMPORT_DESCRIPTOR);
+	}
 	ImportDirectoryLen += sizeof(IMAGE_IMPORT_DESCRIPTOR) + 1 + strlen(dllname);
-      ImportDirectoryLen += 4 + 2 + strlen(name);
+	// needs empty image_thunk_data at the end of it for indicating its end.
+	ImportDirectoryLen += 2 * sizeof(void*/*IMAGE_THUNK_DATA*/);
+      }
+      // 1entry = (IAT) + (INT) + HINT + strlen + NULL
+      ImportDirectoryLen += 2 * sizeof(void*/*IMAGE_THUNK_DATA*/) + 2 + strlen(name) + 1;
       *addr = 0;
       printf("%s was resolved on %s\n", name, dllname);
     } else {

@@ -12,7 +12,6 @@ extern void* OutputFileName;
 extern SectionChain* InitialSection;
 
 static uint32_t CurrentFileOffset = 0;
-
 static void* VirtualAddressOffset = 0;
 
 uint32_t TotalImageSize = 0;
@@ -24,8 +23,7 @@ void* write_section(SectionChain* sc, HANDLE handle) {
   uint32_t size = 0;
   for (;s;s=s->this) {
     size += s->p->SizeOfRawData;
-    printf("ssss\n");
-  }  
+  }
   sec->Misc.VirtualSize = size;
   // sec->VirtualAddress = VirtualAddressOffset;
   // VirtualAddressOffset += (sec->Misc.VirtualSize + SECTION_ALIGNMENT) & 0xFFFFF000;
@@ -80,6 +78,35 @@ void write_image_file_header(HANDLE handle) {
   WriteFile(handle , file_header, sizeof(IMAGE_FILE_HEADER), &dwWriteSize, NULL);
 }
 
+void set_image_directory_entry(IMAGE_DATA_DIRECTORY* d) {
+
+  SectionChain* s = InitialSection;
+  SectionChain* t;
+  for (;s;s=s->next) {
+    for (t=s->this;t;t=t->this) {
+      printf("t:%p,%p\n", s,t);
+      if (!strcmp(t->p->Name, ".edata")) {
+	printf("edata:%p\n",d);
+	d->VirtualAddress = t->p->VirtualAddress;
+	if (t->p->Misc.VirtualSize == 0)
+	  d->Size = t->p->SizeOfRawData;
+	else
+	  d->Size = t->p->Misc.VirtualSize;
+      }
+      if (!strcmp(t->p->Name, ".idata")) {
+	printf("idata:%p\n",d);
+	(d+1)->VirtualAddress = t->p->VirtualAddress;
+	if (t->p->Misc.VirtualSize == 0)
+	  (d+1)->Size = t->p->SizeOfRawData;
+	else
+	  (d+1)->Size = t->p->Misc.VirtualSize;	  
+      }
+      printf("!!!!!!!!!!!!%s,%p\n", t->p->Name, t->p->VirtualAddress);
+    }
+    printf("out\n");
+  }
+}
+
 void write_optional_header(HANDLE handle) {
 
   int size = sizeof(IMAGE_OPTIONAL_HEADER64);
@@ -129,31 +156,12 @@ void write_optional_header(HANDLE handle) {
   optional_header->SizeOfHeapReserve;
   optional_header->SizeOfHeapCommit;
   
-  optional_header->LoaderFlags = 0;  
-  // optional_header->NumberOfRvaAndSizes = 0;
+  optional_header->LoaderFlags = 0;
   // optional_header->BaseOfData = 0;
-  
-  // optional_header->NumberOfRvaAndSizes = 0x10;
-
-  // 
-  // set_optional_data_dir(uint32_t va, uint32_t size);
-  
-  // Export Directory
-  /* optional_header->DataDirectory[0].VirtualAddress = 0x11; */
-  /* optional_header->DataDirectory[0].Size = 0x11; */
-  /* // Import Directory */
-  /* optional_header->DataDirectory[1].VirtualAddress = 0x11; */
-  /* optional_header->DataDirectory[1].Size = 0x11; */
-  
   optional_header->NumberOfRvaAndSizes = 0x10;
-  
-  /* size = sizeof(IMAGE_DOS_HEADER); */
-  /* WriteFile(hFile , dos_header , size , &dwWriteSize , NULL); */
-  /* size = sizeof(IMAGE_FILE_HEADER); */
-  /* WriteFile(hFile , file_header , size , &dwWriteSize , NULL); */
-  size = sizeof(IMAGE_OPTIONAL_HEADER);
+  set_image_directory_entry(&optional_header->DataDirectory);
   DWORD dwWriteSize;
-  WriteFile(handle, optional_header, size, &dwWriteSize, NULL);
+  WriteFile(handle, optional_header, sizeof(IMAGE_OPTIONAL_HEADER), &dwWriteSize, NULL);
 }
 
 void write_sections(HANDLE handle) {
@@ -175,19 +183,18 @@ void write_raw_data(HANDLE handle) {
   // Actual Data is going to be fed.
   SectionChain* s = InitialSection;
   SectionChain* s1;
-  IMAGE_SECTION_HEADER* sec;  
+  IMAGE_SECTION_HEADER* sec;
   DWORD dwWriteSize;
   for (;s;s = s->next) {
     sec = s->this->p;
     printf("!!pointer to raw,%p,%p\n", sec->PointerToRawData, sec->SizeOfRawData);
-    if (sec->SizeOfRawData) {      
+    if (sec->SizeOfRawData) {
       DWORD fp = SetFilePointer(handle, 0, NULL, FILE_CURRENT);
       printf("%p,%p,%p,%s\n",fp, sec->PointerToRawData,sec->PointerToRawData - fp, sec->Name);
       SetFilePointer(handle, sec->PointerToRawData - fp, NULL, FILE_CURRENT);
       for (s1=s->this;s1;s1=s1->this) {
 	WriteFile(handle ,s1->data ,s1->p->SizeOfRawData ,&dwWriteSize , NULL);
       }
-      printf("ww\n");
     }
   }
 }
@@ -195,7 +202,6 @@ void write_raw_data(HANDLE handle) {
 void gen() {
 
   char* dummy_name = OutputFileName;
-  // "a01.exe";
   HANDLE hFile = CreateFile
     (
      dummy_name , GENERIC_ALL/* | GENERIC_EXECUTE*/, 0, NULL,

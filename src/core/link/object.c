@@ -45,8 +45,9 @@ void* alloc_obj(char* fname) {
     printf("cannot get file size\n");
     return 0;
   }
-  uint64_t* p = (LPSTR)__malloc(size);
+  void* p = __malloc(size);
   ReadFile(hFile, p, size, &wReadSize , NULL);
+  CloseHandle(hFile);
   return p;
 }
 
