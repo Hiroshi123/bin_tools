@@ -14,9 +14,20 @@
 extern void resolve(CallbackArgIn* _in,uint32_t* addr);
 extern uint32_t ExportDirectoryLen;
 extern uint32_t ExportFuncCount;
+/* extern uint32_t ImportDirectoryLen; */
 extern struct SymbolHashTable HashTable;
+extern ObjectChain* CurrentObject;
+extern uint64_t ImageBase;
+
+uint32_t PltBegin = 0;
+uint32_t PltOffset = 0;
+SectionChain* PltSection = 0;
+
 void* OutputFileName = 0;
 void* EntryPointFuncName = 0;
+SectionChain* EntrySectionChain = 0;
+uint32_t EntrySectionOffset = 0;
+uint8_t _Win32 = 0;
 
 __attribute__((constructor)) void set_heap_header() {
   
@@ -27,7 +38,14 @@ __attribute__((destructor)) void dealloc() {
 }
 
 /*static inline */const char check_coff(const uint16_t* p) {
-  return *p == 0x8664;
+  if (*p == 0x8664) {
+    return 2;
+  }
+  if (*p == 0x14c) {
+    _Win32 = 1;
+    return 1;
+  }
+  return 0;
 }
 
 char read_coff(const char *const begin) {
@@ -37,12 +55,13 @@ char read_coff(const char *const begin) {
   IMAGE_SYMBOL* sym_begin = (IMAGE_SYMBOL*)(begin + img_file_header->PointerToSymbolTable);
   IMAGE_SYMBOL* sym_end = sym_begin + img_file_header->NumberOfSymbols;
   IMAGE_SYMBOL* is = sym_begin;
-  const char* str_begin = sym_end;  
+  const char* str_begin = sym_end;
   alloc_obj_chain(sym_begin, str_begin, img_file_header->NumberOfSymbols);
   IMAGE_SECTION_HEADER* sec_begin = (IMAGE_SECTION_HEADER*)(img_file_header+1);
   IMAGE_SECTION_HEADER* sec_end = sec_begin + sec_num;  
   IMAGE_SECTION_HEADER* s = sec_begin;
   IMAGE_SECTION_HEADER* _sec;
+  char log[30] = {};
   for (;s!=sec_end;s++) {
     // if you find an existing section which has the same section name as
     // the coming section name, then you need to merge them.
@@ -52,24 +71,32 @@ char read_coff(const char *const begin) {
     if (s->NumberOfRelocations == 0/* && s->PointerToRelocations == 0*/) {}
     else s->PointerToRelocations += begin;
 #ifdef DEBUG
-    printf("%s\n",s->Name);
-    printf("%x\n", s->NumberOfRelocations);
-    printf("reloc:%x\n", s->PointerToRelocations);
-    printf("relocN:%x\n", s->NumberOfRelocations);
-    printf("%x\n", s->PointerToRawData);
-    printf("%x\n", s->SizeOfRawData);
-    printf("---\n");
+    logger_emit("-------------------\n");
+    logger_emit("section\n");
+    sprintf(log, "section name:%s\n", s->Name);
+    logger_emit(log);
+    /* printf("section\n"); */
+    /* printf("%s\n",s->Name); */
+    /* printf("%x\n", s->NumberOfRelocations); */
+    /* printf("reloc:%x\n", s->PointerToRelocations); */
+    /* printf("relocN:%x\n", s->NumberOfRelocations); */
+    /* printf("%x\n", s->PointerToRawData); */
+    /* printf("%x\n", s->SizeOfRawData); */
+    /* printf("---\n"); */
 #endif
   }
   char* name;
   for (;is!=sym_end;is++) {
-    name = GET_NAME(is, str_begin);    
+    name = GET_NAME(is, str_begin);
     // StorageClass == 2 is import/export
     // difference between import and export is if it belongs to section(0) or not.
     // import section should belong to section(0) which means nothing.
     // export section belongs a section from 1.
-    if (is->StorageClass == 2 && is->SectionNumber) {
-      printf("alloc symbol\n");
+    if (EntryPointFuncName && !strcmp(EntryPointFuncName, name)) {
+      EntrySectionChain = get_sc_from_obj(is->SectionNumber);
+      EntrySectionOffset = is->Value;
+    }
+    if (is->StorageClass == 2/*External*/ && is->SectionNumber) {
       alloc_symbol_chain(name, is);
       // number of export symbols and its string size should be
       // counted for constructing export table on later stage.
@@ -79,17 +106,27 @@ char read_coff(const char *const begin) {
       ExportDirectoryLen += 4 + 4 + 2 + strlen(name) + 1;
       ExportFuncCount += 1;
     }
+    // even if the storage class is static(which means refers from only same object file,
+    // can be refered by them.REALLY???)
+    if (is->StorageClass == 3/*Static*/) {
+      // SectionChain* sc = get_sc_from_obj(is->SectionNumber);
+      // alloc_static_symbol(sc, is);
+    }
 #ifdef DEBUG
-    printf("val:%x\n",is->Value);
-    printf("%s\n",name);
-    printf("hash:%p\n", elf_hash(name));
-    printf("hash index:%p\n", elf_hash(name) % HashTable.nbucket);    
-    printf("value:%x\n", is->Value);
-    printf("sectionNum:%x\n", is->SectionNumber);
-    printf("type:%x\n", is->Type);
-    printf("storageClass:%x\n", is->StorageClass);
-    printf("auxNum:%x\n", is->NumberOfAuxSymbols);
-    printf("----\n");
+    logger_emit("-------------------\n");
+    logger_emit("symbol\n");
+    sprintf(log, "symbol name:%s\n", name);
+    logger_emit(log);
+    /* printf("val:%x\n",is->Value); */
+    /* printf("%s\n",name); */
+    /* printf("hash:%p\n", elf_hash(name)); */
+    /* printf("hash index:%p\n", elf_hash(name) % HashTable.nbucket);     */
+    /* printf("value:%x\n", is->Value); */
+    /* printf("sectionNum:%x\n", is->SectionNumber); */
+    /* printf("type:%x\n", is->Type); */
+    /* printf("storageClass:%x\n", is->StorageClass); */
+    /* printf("auxNum:%x\n", is->NumberOfAuxSymbols); */
+    /* printf("----\n"); */
 #endif
     // jump aux vector if it has
     for (;is!=is+is->NumberOfAuxSymbols;is++);
@@ -99,6 +136,9 @@ char read_coff(const char *const begin) {
 
 void* read_cmdline(int argc, char** argv) {
   uint8_t file_num = argc;
+  if (argc == 1) {
+    return 0;
+  }
   uint8_t i = 1;
   size_t* p = __malloc(sizeof(void*) * (argc));
   void* _p = p;
@@ -114,8 +154,15 @@ void* read_cmdline(int argc, char** argv) {
       i++;
       continue;
     }
+    if (!strcmp(argv[i], "-ib")) {
+      ImageBase = argv[i+1];
+      continue;
+    }
     *p = argv[i];
     p++;
+  }
+  if (ImageBase == 0) {
+    ImageBase = 0x400000;
   }
   *p = 0;
   return _p;
@@ -134,48 +181,40 @@ int main(int argc, char** argv) {
   // 
   // --- incremental linking
   // you can resolve some pairs of symbols without waiting arrival of all object files.
-  
-  /* void* a = __malloc(3); */
-  /* void* b = __malloc(5); */
-  /* void* _c = __malloc(1); */
-  
-  /* __free(b); */
-  /* __free(a); */
-  /* /\* __free(_c); *\/ */
-  
-  /* _c = __malloc(0x1000); */
-  /* printf("free:%p\n",(size_t)_c % 0x1000 == 0); */
-  /* printf("free:%p\n",((size_t)_c & 0xFFF) == 0); */
-  
-  /* __free(_c); */
 
+  logger_init();
   mem_init();
   init_hashtable();
   size_t* p1 = read_cmdline(argc, argv);
+  if (p1 == 0) {
+    printf("usage\n");
+    return 0;
+  }
   void* q;
   for (;*p1;p1++) {
     printf("%s\n",*p1);
     q = alloc_obj((void*)*p1);
-    check_coff(q);
+    if (check_coff(q) == 0) {
+      printf("a file does not have coff header\n");
+      return 0;
+    }
     read_coff(q);
   }
   void* esection;
+  // add_section(".tls", );
   if (ExportDirectoryLen)
     esection = add_section(".edata", ExportDirectoryLen);
-  void* isection = add_section(".idata", 0);
+  // size should be adjusted by number of import symbol which needs to be resolved.
+  SectionChain* pltsection = add_section(".plt", 200);
+  void* isection = add_section(".idata", 200);
   set_virtual_address();
+  PltSection = pltsection;
+  PltBegin = pltsection->p->VirtualAddress;
+  PltOffset = PltBegin;
   do_reloc(&resolve);
-  printf("----------%p\n", &((SectionChain*)esection)->this);
   add_import(isection);
-  printf("----------%p\n", &((SectionChain*)esection)->this);
-
   if (ExportDirectoryLen)
     add_export(esection);
-  printf("iiiiiiiiiiiiiiii:%p,%p,%p\n",
-	 ((SectionChain*)isection)->p,
-	 &((IMAGE_SECTION_HEADER*)((SectionChain*)isection)->p)->SizeOfRawData,
-	 &((SectionChain*)esection)->this);
-  printf("%p,%p\n",esection,isection);
   gen();
   return 0;
 }

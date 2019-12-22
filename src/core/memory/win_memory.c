@@ -9,6 +9,8 @@ NTSYSAPI NTSTATUS  WINAPI NtMapViewOfSection(HANDLE,HANDLE,PVOID*,ULONG,SIZE_T,c
 
 #define DEBUG 1
 
+extern void* get_caller_address();
+
 void* mmap(uint32_t size) {
 
   LARGE_INTEGER MaximumSize;
@@ -35,7 +37,6 @@ void* mmap(uint32_t size) {
      );
   size_t* base = 0;//malloc(1000);
   size_t* _size = 0;// malloc(8);
-  printf("%p,%p\n", status, ((HANDLE) -1));
   status = NtMapViewOfSection
     (hSection,
      //NtCurrentProcess(),
@@ -47,10 +48,11 @@ void* mmap(uint32_t size) {
      0,
      // PAGE_NOACCESS);
      PAGE_READWRITE);
-  
-  printf("%p,%p,%p,%d\n", status, &base, base, size);
-  printf("------------------\n");
-  
+
+  logger_emit("------------------\n");
+  char log[15] = {};
+  sprintf(log, "mmap %p\n", base);
+  logger_emit(log);
   return base;
 }
 
@@ -150,7 +152,7 @@ void set_bin(uint64_t* p, uint8_t s, uint8_t q) {
   uint8_t i = 0;
   uint64_t v = 1;
   uint8_t e = s + q;
-  printf("e:%d\n",e);
+  // printf("e:%d\n",e);
   uint8_t up = 0;
   for (;i<e;v<<=1,i++) {
     if (!v) v = 1;
@@ -181,22 +183,32 @@ void unset_bin(uint64_t* p, uint8_t s, uint8_t q) {
 
 void printb(unsigned int v) {
   unsigned int mask = (int)1 << (sizeof(v) * CHAR_BIT - 1);
-  do putchar(mask & v ? '1' : '0');
+  do {
+    // putchar(mask & v ? '1' : '0');
+    logger_emit(mask & v ? "1" : "0");
+  }
   while (mask >>= 1);
 }
 
 void putb(unsigned int v) {
-  putchar('0'), putchar('b'), printb(v), putchar('\n');
+  logger_emit("0b");
+  // putchar('0'), putchar('b'), printb(v), putchar('\n');
+  printb(v);
+  logger_emit("\n");
 }
 
 void printbin(Bin* c) {
-  printf("-----bitmap-----:%x(%x-%x)\n",
-	 c, c->page_addr, c->page_addr + 0x1000 - 1);
+  char log[40] = {};
+  sprintf(log, "-----bitmap-----:%x(%x-%x)\n",
+	  c, c->page_addr, c->page_addr + 0x1000 - 1);
+  logger_emit(log);
+  // printf("-----bitmap-----:%x(%x-%x)\n",
+  //	 c, c->page_addr, c->page_addr + 0x1000 - 1);
   uint8_t i=0;
   for (;i<8;i++) {
     putb(c->bin[i]);
   }
-  printf("----------\n");
+  // printf("----------\n");
 }
 
 void* expand_heap(int size) {
@@ -221,8 +233,11 @@ void* expand_heap(int size) {
 
 void* __malloc(int size) {
 #ifdef DEBUG
-  printf("-----------------\n");
-  printf("malloc:size:%d(0x%x),bin:%d\n",size+1,size+1,((size+1)/0x10)+1);
+  logger_emit("-----------------\n");
+  // printf("-----------------\n");
+  char log[40] = {};
+  sprintf(log, "malloc:size:%d(0x%x),bin:%d\n",size+1,size+1,((size+1)/0x10)+1);
+  logger_emit(log);
 #endif
   if (size >= 0x1000) {
     return expand_heap(size);
@@ -239,16 +254,16 @@ void* __malloc(int size) {
     if (a) {
       set_bin(&c->bin[0], a, bin_size);
       r = (Block*)c->page_addr + a;
-      // printf("a:%d,%p\n", a, (Block*)c->page_addr + a);
       *(r - 1) = size + 1;
 #ifdef DEBUG
       printbin(c);
-      printf("a:%d,%p\n",a,r);
+      logger_emit("-----------------\n");  
+      sprintf(log, "index:%d,return address:%p\n", a, r);
+      logger_emit(log);
 #endif
       return r;
     }
   }
-  printf("%p\n", pre);
   c = pre+=1;
   if (c) {
     printf("error\n");
@@ -266,7 +281,7 @@ void __free(uint8_t* p) {
   uint8_t size;
   printf("free:%p\n",p);
   if (((size_t)p & 0xFFF) == 0) {
-    size = 205;
+    size = 255;
     printf("mmmmmm\n");
   } else {
     size = *(p-1);
@@ -277,10 +292,8 @@ void __free(uint8_t* p) {
   uint8_t* l = p + size;
   // iterating bins will not be heavy in usual.
   for (;c;c=c->next) {
-    printf("a\n");
     q = p - c->page_addr;
     if (q < 0x1000) {
-      /* printf("aaa,%p,%p,%p,%d\n",c->bin, c->bin[0], q, size); */
       s = (uint32_t)q / 0x10;
       unset_bin(&c->bin[0], s, size);
       // real free will not clean up but i do.
@@ -288,7 +301,6 @@ void __free(uint8_t* p) {
 #ifdef DEBUG
       printbin(c);
 #endif
-      /* printf("aaa,%p,%p,%p,%p,%d\n",c->bin, c->bin[0],c->bin[1], q, size); */
       break;
     }
   }

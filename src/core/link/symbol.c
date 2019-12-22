@@ -75,7 +75,6 @@ void* lookup_dynamic_symbol(char* name, size_t* address) {
   return address ? 0 : pre_chain;
 }
 
-
 void alloc_symbol_chain(char* name, void* is) {
   SymbolChain* chain = __malloc(sizeof(SymbolChain));
   SymbolChain* pre_chain;
@@ -107,6 +106,19 @@ void alloc_symbol_chain(char* name, void* is) {
     // you should also check the data itself is same.
   }
   */
+}
+
+void alloc_static_symbol(SectionChain* sc, SymbolChain* is) {
+
+  SymbolChain* chain = __malloc(sizeof(SymbolChain));
+  chain->p = is;
+  if (sc->sym_head == 0) {
+    sc->sym_head = chain;
+    sc->sym_tail = chain;
+  } else {
+    sc->sym_tail->next = chain;
+    sc->sym_tail = chain;
+  }
 }
 
 void* alloc_dynamic_symbol(char* name, size_t* dllname) {
