@@ -36,6 +36,8 @@ void init_hashtable() {
   DLLHashTable.bucket = __malloc(hashSize);
   memset(DLLHashTable.bucket, 0, hashSize);
   alloc_dynamic_symbol("ExitProcess","kernel32");
+  alloc_dynamic_symbol("GetStdHandle","kernel32");
+  alloc_dynamic_symbol("WriteFile","kernel32");  
 }
 
 

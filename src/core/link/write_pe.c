@@ -13,12 +13,17 @@ extern SectionChain* InitialSection;
 
 static uint32_t CurrentFileOffset = 0;
 static void* VirtualAddressOffset = 0;
-
+extern SectionChain* EntrySectionChain;
+extern uint32_t EntrySectionOffset;
+extern uint8_t _Win32;
+// ImageBase is DWORD(4byte) on 32bit/QWORD on 64bit.
+uint64_t ImageBase = 0;
 uint32_t TotalImageSize = 0;
-uint32_t TotalHeaderSize = 0;
+extern uint32_t TotalHeaderSize;
 
 void* write_section(SectionChain* sc, HANDLE handle) {
   IMAGE_SECTION_HEADER* sec = sc->p;
+  printf("!!!name:%s\n", sec->Name);
   SectionChain* s = sc;
   uint32_t size = 0;
   for (;s;s=s->this) {
@@ -65,15 +70,16 @@ void write_nt_header_signature(HANDLE handle) {
 
 void write_image_file_header(HANDLE handle) {
 
-  IMAGE_FILE_HEADER* file_header = __malloc(sizeof(IMAGE_FILE_HEADER));
-  /* memset(file_header, 0, size); */
-  file_header->Machine = 0x8664;
+  IMAGE_FILE_HEADER* file_header = __malloc(sizeof(IMAGE_FILE_HEADER));  
+  file_header->Machine = _Win32 ? 0x14c : 0x8664;
   file_header->NumberOfSections = TotalSectionNum;
   file_header->TimeDateStamp = 0;
   file_header->PointerToSymbolTable = 0;
   file_header->NumberOfSymbols = 0;
-  file_header->SizeOfOptionalHeader = sizeof(IMAGE_OPTIONAL_HEADER64);
-  file_header->Characteristics = 0x22f;
+  file_header->SizeOfOptionalHeader =
+    _Win32 ? sizeof(IMAGE_OPTIONAL_HEADER64) - 0x10 : sizeof(IMAGE_OPTIONAL_HEADER64);
+  file_header->Characteristics = _Win32 ? 0x32f : 0x22f;
+  // IMAGE_FILE_32BIT_MACHINE
   DWORD dwWriteSize;
   WriteFile(handle , file_header, sizeof(IMAGE_FILE_HEADER), &dwWriteSize, NULL);
 }
@@ -99,7 +105,7 @@ void set_image_directory_entry(IMAGE_DATA_DIRECTORY* d) {
 	if (t->p->Misc.VirtualSize == 0)
 	  (d+1)->Size = t->p->SizeOfRawData;
 	else
-	  (d+1)->Size = t->p->Misc.VirtualSize;	  
+	  (d+1)->Size = t->p->Misc.VirtualSize;
       }
       printf("!!!!!!!!!!!!%s,%p\n", t->p->Name, t->p->VirtualAddress);
     }
@@ -111,9 +117,8 @@ void write_optional_header(HANDLE handle) {
 
   int size = sizeof(IMAGE_OPTIONAL_HEADER64);
   IMAGE_OPTIONAL_HEADER64* optional_header = __malloc(size);
-  memset(optional_header, 0, size);
-  // 0c10b or 0x20b
-  optional_header->Magic = 0x20b;
+  // 0x10b or 0x20b
+  optional_header->Magic = _Win32 ? 0x10b : 0x20b;
   // values which could be anything...
   optional_header->MajorLinkerVersion = 0;
   optional_header->MinorLinkerVersion = 0;
@@ -121,11 +126,28 @@ void write_optional_header(HANDLE handle) {
   optional_header->SizeOfCode = 0;
   optional_header->SizeOfInitializedData = 0;
   optional_header->SizeOfUninitializedData = 0;
-  // this is often set as 0x1000  
+  // this is often set as 0x1000
   optional_header->BaseOfCode = 0x1000;
-  // 
-  optional_header->AddressOfEntryPoint = 0x1000;
-  
+  if (_Win32) {
+    // BaseOfData
+    DWORD* p = &optional_header->ImageBase;
+    *p = 0x1000;
+    optional_header->BaseOfCode = 0x1000;
+    p++;
+    // ImageBase
+    *p = 0x400000;
+  } else {
+    // 
+    optional_header->ImageBase = 0x400000;
+  }
+  //
+  if (EntrySectionChain) {
+    printf("not come\n");
+    optional_header->AddressOfEntryPoint =
+      EntrySectionChain->p->VirtualAddress + EntrySectionOffset;    
+  } else {
+    optional_header->AddressOfEntryPoint = 0x1000;
+  }
   ///////////////////////////////////////////////////////
   
   optional_header->MajorOperatingSystemVersion = 0;
@@ -136,12 +158,12 @@ void write_optional_header(HANDLE handle) {
   optional_header->MajorSubsystemVersion = 5;
   optional_header->MinorSubsystemVersion = 2;
   // 
-  optional_header->ImageBase = 0x400000;// 0x000;
-  // 
-  TotalHeaderSize = sizeof(IMAGE_DOS_HEADER) + 4 + sizeof(IMAGE_FILE_HEADER)
-    + sizeof(IMAGE_OPTIONAL_HEADER64) + sizeof(IMAGE_SECTION_HEADER) * TotalSectionNum;
-  VirtualAddressOffset = ((TotalHeaderSize + SECTION_ALIGNMENT) & 0xFFFFF000);
-  TotalImageSize += VirtualAddressOffset;
+  /* TotalHeaderSize = sizeof(IMAGE_DOS_HEADER) + 4 + sizeof(IMAGE_FILE_HEADER) */
+  /*   + sizeof(IMAGE_OPTIONAL_HEADER64) + sizeof(IMAGE_SECTION_HEADER) * TotalSectionNum; */
+  /* if (_Win32) */
+  /*   TotalHeaderSize -= 0x10; */
+  /* VirtualAddressOffset = ((TotalHeaderSize + SECTION_ALIGNMENT) & 0xFFFFF000); */
+  // TotalImageSize += VirtualAddressOffset;
   optional_header->SizeOfImage = TotalImageSize;
   optional_header->SizeOfHeaders = TotalHeaderSize;
   // 
@@ -150,18 +172,32 @@ void write_optional_header(HANDLE handle) {
   // DLL characterstics which is probably most important
   optional_header->DllCharacteristics = 0;
   optional_header->Subsystem = 3;
-  
-  optional_header->SizeOfStackReserve;
-  optional_header->SizeOfStackCommit;
-  optional_header->SizeOfHeapReserve;
-  optional_header->SizeOfHeapCommit;
-  
-  optional_header->LoaderFlags = 0;
-  // optional_header->BaseOfData = 0;
-  optional_header->NumberOfRvaAndSizes = 0x10;
-  set_image_directory_entry(&optional_header->DataDirectory);
+
+  // from 0x48 to (0x58)0x68 is the only difference of optional header between
+  // 32bit and 64bit.
+  uint8_t* p;// = ((uint8_t*)&optional_header) + 0x48;
+  if (_Win32) {
+    // NumberOfRvaAndSizes
+    uint32_t* _p = ((uint8_t*)optional_header) + 0x5c;
+    *_p = 0x10;
+    p = _p+1;
+  } else {
+    uint64_t* _p = ((uint8_t*)optional_header) + 0x6c;
+    *_p = 0x10;
+    p = _p+1;
+  }
+  /* optional_header->SizeOfStackReserve; */
+  /* optional_header->SizeOfStackCommit; */
+  /* optional_header->SizeOfHeapReserve; */
+  /* optional_header->SizeOfHeapCommit;   */
+  /* optional_header->LoaderFlags = 0; */
+  /* optional_header->NumberOfRvaAndSizes = 0x10; */
+  set_image_directory_entry(p/*&optional_header->DataDirectory*/);
   DWORD dwWriteSize;
-  WriteFile(handle, optional_header, sizeof(IMAGE_OPTIONAL_HEADER), &dwWriteSize, NULL);
+  WriteFile
+    (handle, optional_header,
+     _Win32 ? sizeof(IMAGE_OPTIONAL_HEADER) - 0x10 : sizeof(IMAGE_OPTIONAL_HEADER),
+     &dwWriteSize, NULL);
 }
 
 void write_sections(HANDLE handle) {

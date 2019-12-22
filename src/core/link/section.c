@@ -8,10 +8,12 @@
 #include "link.h"
 
 uint8_t TotalSectionNum = 0;
+uint32_t TotalHeaderSize = 0;
 extern SectionChain* InitialSection;
 extern SectionChain* CurrentSection;
 extern uint32_t TotalImageSize;
 extern ObjectChain* CurrentObject;
+extern uint8_t _Win32;
 
 SectionChain* InitialSection = 0;
 SectionChain* CurrentSection = 0;
@@ -43,12 +45,12 @@ void* alloc_section_chain(void* obj ,IMAGE_SECTION_HEADER* s ,SectionChain* _s) 
     }
   }
   if (!_s)
-    CurrentSection = sec1;  
+    CurrentSection = sec1;
   if (CurrentObject->section_chain_head == 0) {
     CurrentObject->section_chain_head = sec2;
   } else {
     CurrentObject->section_chain_tail->next = sec2;
-  }  
+  }
   CurrentObject->section_chain_tail = sec2;  
   TotalImageSize += (s->SizeOfRawData + SECTION_ALIGNMENT) & 0xFFFFF000;
   return sec2;
@@ -60,10 +62,8 @@ SectionChain* check_section(IMAGE_SECTION_HEADER* _sec) {
   IMAGE_SECTION_HEADER* sec;
   for (;s;s = s->next) {
     sec = s->this->p;
-    printf("!!%p,%p,%s,%s\n", s, s->this->p, sec->Name, _sec->Name);    
     if (!strcmp(sec->Name, _sec->Name)) {
       for (;s->this;s=s->this);
-      printf("ss:%p\n",s);
       return s;
     }
   }
@@ -78,6 +78,7 @@ void* add_section(char* name, uint32_t size) {
   sec->PointerToRelocations = 0;
   sec->PointerToRawData = 0;
   sec->SizeOfRawData = size;
+  sec->Characteristics = 0xe0500020;
   // you cannot fill any data in this stage as the virtual address has not yet been decided.
   return alloc_section_chain(0, sec, 0);
 }
@@ -92,16 +93,22 @@ void* add_section(char* name, uint32_t size) {
 // its subsequent sections, namely last one.
 
 void set_virtual_address() {
+
+  TotalHeaderSize = sizeof(IMAGE_DOS_HEADER) + 4 + sizeof(IMAGE_FILE_HEADER)
+    + sizeof(IMAGE_OPTIONAL_HEADER64) + sizeof(IMAGE_SECTION_HEADER) * TotalSectionNum;
+  if (_Win32)
+    TotalHeaderSize -= 0x10;
+  uint32_t virtual_address = (TotalHeaderSize + SECTION_ALIGNMENT) & ~(SECTION_ALIGNMENT - 1);
+  TotalImageSize += virtual_address;
   SectionChain* sc = InitialSection;
   SectionChain* _sc;
   IMAGE_SECTION_HEADER* sh;
-  uint32_t offset = 0x200;
+  uint32_t offset = (TotalHeaderSize + FILE_ALIGNMENT) & ~(FILE_ALIGNMENT - 1);
   // Iterate on SectionContainer
-  uint32_t virtual_address = 0x1000;
   uint32_t section_size = 0;
   for (;sc;sc=sc->next) {
     // Iterate on SectionChain
-    uint32_t section_size = 0;
+    section_size = 0;
     for (_sc = sc->this;_sc;_sc=_sc->this) {
       sh = _sc->p;
       sh->VirtualAddress = virtual_address;
@@ -112,12 +119,12 @@ void set_virtual_address() {
       offset += sh->SizeOfRawData;
       section_size = sh->SizeOfRawData;
 #ifdef DEBUG
-      printf("name:%s\n",sh->Name);
-      printf("p:%p\n", sh->PointerToRawData);
-      printf("s:%p\n", sh->SizeOfRawData);
-      printf("v:%p\n", sh->VirtualAddress);
-      printf("r:%p\n", sh->PointerToRelocations);
-      printf("d:%p\n", _sc->data);
+      /* printf("name:%s\n",sh->Name); */
+      /* printf("p:%p\n", sh->PointerToRawData); */
+      /* printf("s:%p\n", sh->SizeOfRawData); */
+      /* printf("v:%p\n", sh->VirtualAddress); */
+      /* printf("r:%p\n", sh->PointerToRelocations); */
+      /* printf("d:%p\n", _sc->data); */
 #endif
       /* offset += (sh->SizeOfRawData + FILE_ALIGNMENT - 1) & (0 - FILE_ALIGNMENT); */
       // virtual_size += sh->SizeOfRawData;
@@ -149,4 +156,31 @@ void* get_export_virtual_address(IMAGE_SYMBOL* is, ObjectChain* oc) {
   return 0;
 }
 
+SectionChain* get_section_chain_from_name(char* name) {
+  SectionChain* sec1 = InitialSection;
+  SectionChain* sec2 = 0;
+  for (;sec1;sec1=sec1->next) {
+    for (sec2=sec1->this;sec2;sec2=sec2->this) {
+      if (!strcmp(sec2->p->Name, name)) {
+	return sec2;
+      }
+    }
+  }
+  return 0;
+}
+
+/* IMAGE_SYMBOL* get_symbol_from_section_chain(SectionChain* sec1,char* name) { */
+/*   SymbolChain* sc1; */
+/*   char* name; */
+/*   IMAGE_SYMBOL* is; */
+/*   ObjectChain* oc1 = sec1->obj; */
+/*   for (sc1 = sec1->sym_head;sc1;sc1 = sc1->next) { */
+/*     is = sc1->p */
+/*     name = GET_NAME(is, oc1->str_table_p); */
+/*     if (!strcmp(sc1->p->Name, name)) { */
+/*       return is; */
+/*     } */
+/*   } */
+/*   return 0; */
+/* } */
 

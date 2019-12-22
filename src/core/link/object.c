@@ -28,6 +28,17 @@ void alloc_obj_chain(void* sym_begin, void* str_begin, uint32_t sym_num) {
   CurrentObject->next = 0;
 }
 
+SectionChain* get_sc_from_obj(int index) {
+  SectionChain* sc = CurrentObject->section_chain_head;
+  int i = 1;
+  for (;sc;sc=sc->next,i++) {
+    if (i == index) {
+      return sc;
+    }
+  }
+  return 0;
+}
+
 void* alloc_obj(char* fname) {
 
   HANDLE hFile = CreateFile
