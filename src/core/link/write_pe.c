@@ -16,11 +16,15 @@ static void* VirtualAddressOffset = 0;
 extern SectionChain* EntrySectionChain;
 extern uint32_t EntrySectionOffset;
 extern uint8_t _Win32;
+extern ObjectChain* InitialObject;
 // ImageBase is DWORD(4byte) on 32bit/QWORD on 64bit.
 uint64_t ImageBase = 0;
 uint32_t TotalImageSize = 0;
 extern uint32_t TotalHeaderSize;
-
+uint8_t EmitType = 0;
+uint32_t SymbolNum = 0;
+uint32_t SymbolTablePointer = 0;
+  
 void* write_section(SectionChain* sc, HANDLE handle) {
   IMAGE_SECTION_HEADER* sec = sc->p;
   printf("!!!name:%s\n", sec->Name);
@@ -30,15 +34,9 @@ void* write_section(SectionChain* sc, HANDLE handle) {
     size += s->p->SizeOfRawData;
   }
   sec->Misc.VirtualSize = size;
-  // sec->VirtualAddress = VirtualAddressOffset;
-  // VirtualAddressOffset += (sec->Misc.VirtualSize + SECTION_ALIGNMENT) & 0xFFFFF000;
   // VirtualSize == 0 wont work out.
   if (!sec->Misc.VirtualSize)
     sec->Misc.VirtualSize = 1;
-  // int original = sec->PointerToRawData;
-  // CurrentFileOffset = (CurrentFileOffset + FILE_ALIGNMENT - 1) & CurrentFileOffset;
-  /* sec->PointerToRawData = CurrentFileOffset; */
-  /* CurrentFileOffset += (sec->SizeOfRawData + FILE_ALIGNMENT - 1) & (0 - FILE_ALIGNMENT); */
   sec->PointerToRelocations = 0;
   sec->PointerToLinenumbers = 0;
   sec->NumberOfRelocations = 0;
@@ -48,6 +46,32 @@ void* write_section(SectionChain* sc, HANDLE handle) {
   WriteFile(handle ,sec ,sizeof(IMAGE_SECTION_HEADER) ,&dwWriteSize , NULL);
   // sec->PointerToRawData = original;
   return sec;
+}
+
+void write_section_for_obj(SectionChain* sc, HANDLE handle) {
+  IMAGE_SECTION_HEADER* sec = sc->p;  
+  SectionChain* s = sc;
+  uint32_t size = 0;
+  uint32_t relocation_num = 0;
+  for (;s;s=s->this) {
+    size += s->p->SizeOfRawData;
+    relocation_num += s->p->NumberOfRelocations;
+    printf("size up,%d,%d\n", s->p->SizeOfRawData,s->p->NumberOfRelocations);
+  }
+  uint32_t orig_sizeofrawdata = sec->SizeOfRawData;
+  uint32_t orig_numofrel = sec->NumberOfRelocations;
+  uint32_t orig_pointertorelo = sec->PointerToRelocations;
+  // SizeOfRawData and NumberOfRelocation should be temporarily as they are used
+  // as original value when writing raw data.
+  sec->SizeOfRawData = size;
+  sec->NumberOfRelocations = relocation_num;
+  sec->PointerToRawData = CurrentFileOffset;
+  sec->PointerToRelocations = CurrentFileOffset + size;
+  DWORD dwWriteSize;
+  WriteFile(handle ,sec ,sizeof(IMAGE_SECTION_HEADER) ,&dwWriteSize , NULL);
+  sec->SizeOfRawData = orig_sizeofrawdata;
+  sec->NumberOfRelocations = orig_numofrel;
+  sec->PointerToRelocations = orig_pointertorelo;
 }
 
 void write_dos_header(HANDLE handle) {
@@ -74,25 +98,35 @@ void write_image_file_header(HANDLE handle) {
   file_header->Machine = _Win32 ? 0x14c : 0x8664;
   file_header->NumberOfSections = TotalSectionNum;
   file_header->TimeDateStamp = 0;
-  file_header->PointerToSymbolTable = 0;
-  file_header->NumberOfSymbols = 0;
-  file_header->SizeOfOptionalHeader =
-    _Win32 ? sizeof(IMAGE_OPTIONAL_HEADER64) - 0x10 : sizeof(IMAGE_OPTIONAL_HEADER64);
-  file_header->Characteristics = _Win32 ? 0x32f : 0x22f;
+  if (EmitType == EMIT_OBJ) {
+    file_header->PointerToSymbolTable = SymbolTablePointer;
+    file_header->NumberOfSymbols = SymbolNum;
+    file_header->SizeOfOptionalHeader = 0;
+    file_header->Characteristics = 0;
+  } else {
+    file_header->PointerToSymbolTable = 0;
+    file_header->NumberOfSymbols = 0;  
+    file_header->Characteristics = _Win32 ? 0x32f : 0x22f;
+    file_header->SizeOfOptionalHeader =
+      _Win32 ? sizeof(IMAGE_OPTIONAL_HEADER64) - 0x10 : sizeof(IMAGE_OPTIONAL_HEADER64);  
+  }
+  if (EmitType == EMIT_DLL) {
+    file_header->Characteristics |= 0x2000;
+  }
   // IMAGE_FILE_32BIT_MACHINE
   DWORD dwWriteSize;
   WriteFile(handle , file_header, sizeof(IMAGE_FILE_HEADER), &dwWriteSize, NULL);
 }
 
 void set_image_directory_entry(IMAGE_DATA_DIRECTORY* d) {
-
+  
   SectionChain* s = InitialSection;
   SectionChain* t;
   for (;s;s=s->next) {
     for (t=s->this;t;t=t->this) {
-      printf("t:%p,%p\n", s,t);
+      /* printf("t:%p,%p\n", s,t); */
       if (!strcmp(t->p->Name, ".edata")) {
-	printf("edata:%p\n",d);
+	/* printf("edata:%p\n",d); */
 	d->VirtualAddress = t->p->VirtualAddress;
 	if (t->p->Misc.VirtualSize == 0)
 	  d->Size = t->p->SizeOfRawData;
@@ -100,16 +134,21 @@ void set_image_directory_entry(IMAGE_DATA_DIRECTORY* d) {
 	  d->Size = t->p->Misc.VirtualSize;
       }
       if (!strcmp(t->p->Name, ".idata")) {
-	printf("idata:%p\n",d);
+	/* printf("idata:%p,%p\n",d, t->p->SizeOfRawData); */
 	(d+1)->VirtualAddress = t->p->VirtualAddress;
 	if (t->p->Misc.VirtualSize == 0)
 	  (d+1)->Size = t->p->SizeOfRawData;
 	else
 	  (d+1)->Size = t->p->Misc.VirtualSize;
       }
-      printf("!!!!!!!!!!!!%s,%p\n", t->p->Name, t->p->VirtualAddress);
+      if (!strcmp(t->p->Name, ".rdata")) {
+	
+      }
+      if (!strcmp(t->p->Name, ".tls")) {
+	// tls
+	// 
+      }
     }
-    printf("out\n");
   }
 }
 
@@ -135,16 +174,19 @@ void write_optional_header(HANDLE handle) {
     optional_header->BaseOfCode = 0x1000;
     p++;
     // ImageBase
-    *p = 0x400000;
+    *p = ImageBase;
   } else {
     // 
-    optional_header->ImageBase = 0x400000;
+    optional_header->ImageBase = ImageBase;//0x400000;
   }
-  //
+  /* if (EmitType == EMIT_DLL) { */
+  /*   // optional_header->AddressOfEntryPoint = 0;     */
+  /* } else */
+
   if (EntrySectionChain) {
     printf("not come\n");
     optional_header->AddressOfEntryPoint =
-      EntrySectionChain->p->VirtualAddress + EntrySectionOffset;    
+      EntrySectionChain->p->VirtualAddress + EntrySectionOffset;
   } else {
     optional_header->AddressOfEntryPoint = 0x1000;
   }
@@ -182,7 +224,7 @@ void write_optional_header(HANDLE handle) {
     *_p = 0x10;
     p = _p+1;
   } else {
-    uint64_t* _p = ((uint8_t*)optional_header) + 0x6c;
+    uint32_t* _p = ((uint8_t*)optional_header) + 0x6c;
     *_p = 0x10;
     p = _p+1;
   }
@@ -205,13 +247,18 @@ void write_sections(HANDLE handle) {
   CurrentFileOffset += TotalSectionNum * sizeof(IMAGE_SECTION_HEADER);
   printf("curp:%p,%p,%p\n", CurrentFileOffset,CurrentFileOffset + FILE_ALIGNMENT - 1,
 	 FILE_ALIGNMENT);
-  CurrentFileOffset = (CurrentFileOffset + FILE_ALIGNMENT - 1) & (0 - FILE_ALIGNMENT);
+  if (EmitType != EMIT_OBJ)
+    CurrentFileOffset = (CurrentFileOffset + FILE_ALIGNMENT - 1) & (0 - FILE_ALIGNMENT);
   printf("curp:%p\n", CurrentFileOffset);
   SectionChain* s = InitialSection;
   for (;s;s = s->next) {
     // sec = s->this->p;
     // printf("!!%p,%p,%s\n", s, s->this->p, sec->Name);
-    write_section(s->this, handle);
+    if (EmitType == EMIT_OBJ) {
+      write_section_for_obj(s->this, handle);
+    } else {
+      write_section(s->this, handle);
+    }
   }
 }
 
@@ -235,22 +282,98 @@ void write_raw_data(HANDLE handle) {
   }
 }
 
-void gen() {
+void write_raw_data_for_obj(HANDLE handle) {
+  // Actual Data is going to be fed.
+  SectionChain* s = InitialSection;
+  SectionChain* s1;
+  IMAGE_SECTION_HEADER* sec;
+  DWORD dwWriteSize;
+  for (;s;s = s->next) {
+    sec = s->this->p;
+    printf("!!pointer to raw,%p,%p\n", sec->PointerToRawData, sec->SizeOfRawData);
+    if (sec->SizeOfRawData) {
+      DWORD fp = SetFilePointer(handle, 0, NULL, FILE_CURRENT);
+      printf("%p,%p,%p,%s\n",fp, sec->PointerToRawData,sec->PointerToRawData - fp, sec->Name);
+      SetFilePointer(handle, sec->PointerToRawData - fp, NULL, FILE_CURRENT);
+      for (s1=s->this;s1;s1=s1->this) {
+	printf("sizeofraw:%d\n", s1->p->SizeOfRawData);
+	WriteFile(handle ,s1->data ,s1->p->SizeOfRawData ,&dwWriteSize , NULL);
+      }
+    }
+    if (sec->NumberOfRelocations) {
+      // DWORD fp = SetFilePointer(handle, 0, NULL, FILE_CURRENT);
+      // SetFilePointer(handle, sec->PointerToRelocations - fp, NULL, FILE_CURRENT);      
+      for (s1=s->this;s1;s1=s1->this) {
+	WriteFile
+	  (handle, s1->p->PointerToRelocations,
+	   s1->p->NumberOfRelocations * 10 ,&dwWriteSize , NULL);
+      }
+    }
+  }
+}
 
-  char* dummy_name = OutputFileName;
-  HANDLE hFile = CreateFile
-    (
-     dummy_name , GENERIC_ALL/* | GENERIC_EXECUTE*/, 0, NULL,
-     CREATE_ALWAYS, 0/*FILE_SHARE_READ*/, NULL
-     );
+void write_symbol_table(HANDLE handle) {
+  SymbolTablePointer = SetFilePointer(handle, 0, NULL, FILE_CURRENT);    
+  ObjectChain* oc = InitialObject;
+  DWORD dwWriteSize;  
+  for (;oc;oc=oc->next) {
+    SymbolNum += oc->symbol_num;
+    printf("!symtable p:%p\n", oc->symbol_table_p);
+    printf("!sym num :%d\n", oc->symbol_num);
+    WriteFile
+      (handle, oc->symbol_table_p,
+       (oc->symbol_num) * (sizeof(IMAGE_SYMBOL)), &dwWriteSize, NULL);
+    // break;
+  }
+  // simplest case.
+  // TODO :: added for rather general case later on.
+  WriteFile
+    (handle, InitialObject->str_table_p,
+     5, &dwWriteSize, NULL); 
+  // you should do something for string table.
+  /* for (;oc;oc=oc->next) { */
+  /*   WriteFile */
+  /*     (handle, oc->str_table_p, */
+  /*      oc->symbol_num * sizeof(IMAGE_SYMBOL), &dwWriteSize, NULL); */
+  /* } */
+}
+
+HANDLE emit_dos(HANDLE hFile) {
   write_dos_header(hFile);
   write_nt_header_signature(hFile);
   write_image_file_header(hFile);
   write_optional_header(hFile);
   write_sections(hFile);
   write_raw_data(hFile);
-  CloseHandle(hFile);
-  // read_section_list();
+  return hFile;
 }
 
+HANDLE emit_obj(HANDLE hFile) {
+
+  // As you cannot know symbol table offset before you accumulate length of all rest of headers,
+  // you just let it blank and fill it later on.
+  DWORD fp = SetFilePointer(hFile, sizeof(IMAGE_FILE_HEADER), NULL, FILE_CURRENT);
+  write_sections(hFile);
+  write_raw_data_for_obj(hFile);
+  write_symbol_table(hFile);
+  fp = SetFilePointer(hFile, 0, NULL, FILE_BEGIN/*0*/);
+  // fp should be 0.
+  write_image_file_header(hFile);  
+  return hFile;
+}
+
+void gen() {
+
+  HANDLE hFile = CreateFile
+    (
+     OutputFileName, GENERIC_ALL/* | GENERIC_EXECUTE*/, 0, NULL,
+     CREATE_ALWAYS, 0/*FILE_SHARE_READ*/, NULL
+     );
+  if (EmitType != EMIT_OBJ) {
+    emit_dos(hFile);
+  } else {
+    emit_obj(hFile);
+  }
+  CloseHandle(hFile);
+}
 

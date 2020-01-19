@@ -37,11 +37,13 @@ void* add_dynamic_resolved_entry(char* name, char* dllname, void* addr) {
   SymbolChain3* fentry;
   // add entry for the function.
   fentry = __malloc(sizeof(SymbolChain3));
+  logger_emit("iiiiiiiiiii!\n");
   // this will be used to store address of the import function.
   fentry->next = 0;
   fentry->this = addr;
   fentry->name = name;
   if (onlyFuncEntry) {
+    logger_emit("only func\n");
     s1->next = fentry;
     return 0;
   }
@@ -76,8 +78,9 @@ void* iterate_import(uint8_t*/*IMAGE_THUNK_DATA*/ iant, uint32_t vaddr) {
       }
       printf("ok!!\n");
     }
+    iant += _Win32 ? 4 : 8;
   }
-  return _Win32 ? iant+4 : iant+8;
+  return iant;//_Win32 ? iant+4 : iant+8;
 }
 
 void add_import(SectionChain* _sc) {
@@ -89,6 +92,8 @@ void add_import(SectionChain* _sc) {
   
   uint32_t plt_virtual_addr = PltSection->p->VirtualAddress;
   uint32_t pltfile_offset = PltSection->p->PointerToRawData;
+  printf("in : %d\n",ImportDirectoryLen);
+  
   /*PltCode* */uint8_t* pltp =__malloc(PltOffset - plt_virtual_addr);
   printf("pltoffset:%p\n", PltOffset);
   PltSection->data = pltp;
@@ -116,11 +121,16 @@ void add_import(SectionChain* _sc) {
   /*IMAGE_THUNK_DATA**/
   uint8_t* _int = iterate_import(iat, import_section->VirtualAddress);
   uint8_t* c = iterate_import(_int, import_section->VirtualAddress);  
-  // 1st IAT
-  iid->FirstThunk += (uint8_t*)iat - begin;
-  // 1st INT
-  iid->OriginalFirstThunk += (uint8_t*)_int - begin;
+  /* // 1st IAT */
+  /* iid->FirstThunk += (uint8_t*)iat - begin; */
+  /* // 1st INT */
+  /* iid->OriginalFirstThunk += (uint8_t*)_int - begin; */
   for (e=InitialImport;e;e=e->next,iid++) {
+    // 1st IAT
+    iid->FirstThunk += (uint8_t*)iat - begin;
+    // 1st INT
+    iid->OriginalFirstThunk += (uint8_t*)_int - begin;
+    
     printf("DLL:%s\n",e->name);
     strcpy(c, e->name);
     // DLL_NAME
@@ -135,7 +145,7 @@ void add_import(SectionChain* _sc) {
     uint32_t v;
     printf("iat:%p,int:%p\n",iat, _int);    
     for (s1=e->this;s1;s1=s1->next) {
-      v = ImageBase + import_section->VirtualAddress + ((uint8_t*)iat - begin);
+      v = import_section->VirtualAddress + ((uint8_t*)iat - begin);
       *(uint16_t*)pltp = 0x25ff;
       pltp+=2;
       // pltp->code = 0x25ff;
@@ -144,6 +154,7 @@ void add_import(SectionChain* _sc) {
       printf("iat:%p,int:%p\n",iat, _int);
       if (_Win32) {
 	// On x32, it should be absolute address.
+	v += ImageBase;
 	*(uint32_t*)pltp = v;// - plt_virtual_addr;
 	// size of image_thunk_data defers.
 	*(uint32_t*)iat += c - begin;
@@ -170,6 +181,8 @@ void add_import(SectionChain* _sc) {
       *c = 0;
       c++;
     }
+    iat += _Win32 ? 4 : 8;
+    _int += _Win32 ? 4 : 8;
   }
 }
 

@@ -11,6 +11,7 @@ extern ObjectChain* InitialObject;
 extern ObjectChain* CurrentObject;
 extern struct SymbolHashTable HashTable;
 extern struct SymbolHashTable DLLHashTable;
+extern uint32_t PltOffset;
 
 void* lookup_symbol(char* name, size_t* address) {
   size_t* table_index = (HashTable.bucket + (elf_hash(name) % HashTable.nbucket));
@@ -26,17 +27,11 @@ void* lookup_symbol(char* name, size_t* address) {
   IMAGE_SYMBOL* end;
   // if you find any entry then trace the chain which was stored.
   pre_chain = *table_index;
-  printf("lookup,%p.\n", pre_chain);
   // check hash collision
-
-  printf("lookup,%s.\n", name);
   for (;pre_chain;pre_chain = pre_chain->next) {
     is = pre_chain->p;
-    printf("lookup,%s.\n", name);
     // find actual entry
     for (oc=InitialObject;oc;oc=oc->next) {
-    printf("lookup,%s...\n", name);
-
       begin = oc->symbol_table_p;
       end = begin + oc->symbol_num;
       if (begin<is && is<end) {
@@ -44,11 +39,10 @@ void* lookup_symbol(char* name, size_t* address) {
 	break;
       }
     }
-    
     if (!strcmp(name,_name)) {
-      printf("matched\n");
+      /* printf("matched,%p\n", address); */
       if (address)
-	*address = get_export_virtual_address(is, oc);
+	*address = oc;      
       return address ? is : 0;
     }
   }
@@ -56,23 +50,38 @@ void* lookup_symbol(char* name, size_t* address) {
   return address ? 0 : pre_chain;
 }
 
-void* lookup_dynamic_symbol(char* name, size_t* address) {
+void* lookup_dynamic_symbol(char* name, size_t* address, uint32_t* ever) {
   size_t* table_index = (DLLHashTable.bucket + (elf_hash(name) % DLLHashTable.nbucket));
-  printf("!%p,%p\n", table_index,*table_index);
-  if (*table_index == 0) {    
+  printf("!%p,%p\n", table_index, *table_index);
+  if (*table_index == 0) {
     return address ? 0 : table_index;
   }
   SymbolChain3* pre_chain;
+  SymbolChain3* pre;
   char* _name;
   pre_chain = *table_index;
   for (;pre_chain;pre_chain = pre_chain->next) {
     _name = pre_chain->name;
-    if (!strcmp(name,_name)) {
+    printf("%s\n",_name);
+    if (!strcmp(name, _name)) {
       printf("found,%s,%s\n", _name, pre_chain->this);
-      return address ? pre_chain->this : pre_chain->next;
+      if (address) {
+	if (pre_chain->ever == 0) {
+	  // store PltOffset when a new entry is added.
+	  pre_chain->ever = PltOffset;
+	} else {
+	  // load PltOffset when a new entry is added.
+	  *ever = pre_chain->ever;
+	}
+	return pre_chain->this;
+      } else {
+	return pre_chain->next;	
+      }
     }
+    pre = pre_chain;
   }
-  return address ? 0 : pre_chain;
+  printf("ccc,%p\n", pre);
+  return address ? 0 : pre;
 }
 
 void alloc_symbol_chain(char* name, void* is) {
@@ -81,12 +90,11 @@ void alloc_symbol_chain(char* name, void* is) {
   chain->next = 0;
   chain->p = is;
   size_t* ret = lookup_symbol(name, 0);
-  printf("!!!!alloc sym:%p\n", chain);
+  /* printf("!!!!alloc sym:%p\n", chain); */
   if (ret) *ret = chain;
   else {
-    printf("should raise an error as symbol is overrlapping.\n");
+    fprintf(stderr, "should raise an error as symbol is overrlapping.\n");
   }
-  printf("aaaa:%s,%p,%p,%p\n", name, ret,chain,*ret);  
   // you need to allocate another symbolchain for object chain.
   chain = __malloc(sizeof(SymbolChain));
   chain->next = 0;
@@ -122,14 +130,16 @@ void alloc_static_symbol(SectionChain* sc, SymbolChain* is) {
 }
 
 void* alloc_dynamic_symbol(char* name, size_t* dllname) {
-  size_t* ret = lookup_dynamic_symbol(name, 0);
+  size_t* ret = lookup_dynamic_symbol(name, 0, 0);
   if (ret) {
     SymbolChain3* chain = __malloc(sizeof(SymbolChain3));
     chain->next = 0;
     chain->this = dllname;
     chain->name = name;
+    chain->ever = 0;
     *ret = chain;
   } else {
+    printf("should not\n");
     // should not be happened.
   }
 }

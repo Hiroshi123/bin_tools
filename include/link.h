@@ -1,7 +1,10 @@
 
-
+/* #define DEBUG 1 */
 #define SECTION_ALIGNMENT 0x1000
 #define FILE_ALIGNMENT 0x200
+#define EMIT_DLL 1
+#define EMIT_OBJ 2
+#define EMIT_EXE 3
 
 #define GET_NAME(X,Y) (*(uint32_t*)X == 0) ? (char*) ((size_t)Y+*((uint32_t*)X+1)) : X->N.ShortName;
 
@@ -34,13 +37,15 @@ struct _SectionChain {
   // section_num
   void* data;
   SectionChain* next;
-  SectionChain* this;    
+  SectionChain* this;
   union {
     size_t num;
     IMAGE_SECTION_HEADER* p;
   };
   // pointer to object
-  ObjectChain* obj;  
+  ObjectChain* obj;
+  SymbolChain* sym_head;
+  SymbolChain* sym_tail;
 };
 
 // the role of object chain is to help symbol hash table to look-up
@@ -78,14 +83,24 @@ typedef struct __attribute__((__packed__)) _CoffReloc {
 } CoffReloc;
 
 typedef struct __attribute__((__packed__)) _CallbackArgIn {
-  size_t* virtual_address;
+  union {
+    size_t* virtual_address;
+    size_t* section_name;
+  };
   char* name;
   size_t* type;
+  uint32_t storage_class;
 } CallbackArgIn;
 
 struct _SymbolChain3 {
   SymbolChain3* next;
   SymbolChain3* this;
   char* name;
+  uint32_t ever;
 };
+
+/* typedef struct __attribute__((packed)) _PltCode { */
+/*   uint16_t code __attribute__((packed)); */
+/*   uint32_t data; */
+/* } PltCode __attribute__((packed)); */
 
