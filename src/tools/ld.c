@@ -12,12 +12,15 @@
 /* static uint32_t IMPORT_SYMBOL_NUM = 0; */
 
 extern void resolve(CallbackArgIn* _in,uint32_t* addr);
+extern void resolve_only_in_a_section(CallbackArgIn* _in,uint32_t* addr);
+
 extern uint32_t ExportDirectoryLen;
 extern uint32_t ExportFuncCount;
-/* extern uint32_t ImportDirectoryLen; */
+extern uint32_t ImportDirectoryLen;
 extern struct SymbolHashTable HashTable;
 extern ObjectChain* CurrentObject;
 extern uint64_t ImageBase;
+extern uint8_t EmitType;
 
 uint32_t PltBegin = 0;
 uint32_t PltOffset = 0;
@@ -28,13 +31,14 @@ void* EntryPointFuncName = 0;
 SectionChain* EntrySectionChain = 0;
 uint32_t EntrySectionOffset = 0;
 uint8_t _Win32 = 0;
+uint8_t WithTlsDirectory = 0;
 
 __attribute__((constructor)) void set_heap_header() {
   
 }
 
 __attribute__((destructor)) void dealloc() {
-  printf("dealloc\n");
+  printf("finish \n");
 }
 
 /*static inline */const char check_coff(const uint16_t* p) {
@@ -63,6 +67,9 @@ char read_coff(const char *const begin) {
   IMAGE_SECTION_HEADER* _sec;
   char log[30] = {};
   for (;s!=sec_end;s++) {
+    if (!strcmp(s->Name, "/4")) {
+      continue;
+    }
     // if you find an existing section which has the same section name as
     // the coming section name, then you need to merge them.
     // To do this, you need to check the list of existing section,
@@ -145,6 +152,16 @@ void* read_cmdline(int argc, char** argv) {
   for (;i<argc;i++) {
     if (!strcmp(argv[i], "-o")) {
       OutputFileName = argv[i+1];
+      char* s = OutputFileName;
+      for (;*s != '.';s++);
+      if (!strcmp(s, ".dll")) {
+	EmitType = EMIT_DLL;
+	// printf("DLL\n");
+      } else if (!strcmp(s, ".o")) {
+	EmitType = EMIT_OBJ;
+      } else if (!strcmp(s, ".exe")) {
+	EmitType = EMIT_EXE;	
+      }
       i++;
       continue;
     }
@@ -158,11 +175,19 @@ void* read_cmdline(int argc, char** argv) {
       ImageBase = argv[i+1];
       continue;
     }
+    if (!strcmp(argv[i], "-tls")) {
+      WithTlsDirectory = 1;
+      continue;
+    }
     *p = argv[i];
     p++;
   }
   if (ImageBase == 0) {
-    ImageBase = 0x400000;
+    if (EmitType == EMIT_DLL) {
+      ImageBase = 0x67B80000;
+    } else {
+      ImageBase = 0x400000;
+    }
   }
   *p = 0;
   return _p;
@@ -184,37 +209,54 @@ int main(int argc, char** argv) {
 
   logger_init();
   mem_init();
-  init_hashtable();
+  init_hashtable("import_list.sqlite3");
   size_t* p1 = read_cmdline(argc, argv);
   if (p1 == 0) {
     printf("usage\n");
+    printf("-ef : specify an entry point function name\n");
+    printf("-ib : specify image base\n");
+    printf("-o : specify an outputfile. candidate suffix .exe/.dll/.o\n");
     return 0;
   }
   void* q;
   for (;*p1;p1++) {
-    printf("%s\n",*p1);
     q = alloc_obj((void*)*p1);
     if (check_coff(q) == 0) {
-      printf("a file does not have coff header\n");
+      fprintf(stderr, "a file does not have coff header\n");
       return 0;
     }
     read_coff(q);
   }
+  if (EmitType != EMIT_OBJ) {
+  SectionChain* tlsdata;
+  if (WithTlsDirectory) {
+    tlsdata = add_section(".tls", 200);
+    add_tls(tlsdata);
+  }
   void* esection;
-  // add_section(".tls", );
   if (ExportDirectoryLen)
     esection = add_section(".edata", ExportDirectoryLen);
   // size should be adjusted by number of import symbol which needs to be resolved.
-  SectionChain* pltsection = add_section(".plt", 200);
-  void* isection = add_section(".idata", 200);
+  void* isection;
+  SectionChain* pltsection;
+  /* if (ImportDirectoryLen) { */
+    pltsection = add_section(".plt", 200);
+    isection = add_section(".idata", 200);
+  /* } */
   set_virtual_address();
-  PltSection = pltsection;
-  PltBegin = pltsection->p->VirtualAddress;
-  PltOffset = PltBegin;
+  /* if (ImportDirectoryLen) { */
+    PltSection = pltsection;
+    PltBegin = pltsection->p->VirtualAddress;
+    PltOffset = PltBegin; 
+  /* } */
   do_reloc(&resolve);
-  add_import(isection);
+  if (ImportDirectoryLen)
+    add_import(isection);
   if (ExportDirectoryLen)
     add_export(esection);
+  } else {
+    do_reloc(&resolve_only_in_a_section);
+  }
   gen();
   return 0;
 }
