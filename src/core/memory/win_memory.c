@@ -90,11 +90,7 @@ Chunk* CUR_CHUNK;
 
 void mem_init() {
 
-  // Chunk* c;
-  // c->a = 0;
-  
-  // allocate a page for a Bin which contains multiple chunks
-  
+  // allocate a page for a Bin which contains multiple chunks  
   Bin* c = mmap(0x1000);
   HeapMeta.bin_head = c;
   HeapMeta.bin_tail = c;
@@ -151,18 +147,21 @@ uint8_t slowest_find_consecutive_bin(uint8_t* p, uint8_t q) {
 void set_bin(uint64_t* p, uint8_t s, uint8_t q) {
   uint8_t i = 0;
   uint64_t v = 1;
-  uint8_t e = s + q;
+  uint8_t e = s + q - 1;
   // printf("e:%d\n",e);
   uint8_t up = 0;
-  for (;i<e;v<<=1,i++) {
+  for (;i<=e;v<<=1,i++) {
     if (!v) v = 1;
     if (up) {
       p++;
       up = 0;
     }
-    if (i % 64 == 63) up = 1;
+    if (i % 64 == 63) {
+      up = 1;
+    }   
     if (i<s) continue;
     *p |= v;
+    if (i == 255) break;      
   }
 }
 
@@ -242,7 +241,7 @@ void* __malloc(int size) {
   if (size >= 0x1000) {
     return expand_heap(size);
   }
-  Bin* c = HeapMeta.bin_head;
+  Bin* c = HeapMeta.bin_tail;
   uint8_t* r;
   uint8_t a;
   Bin* pre = c;
@@ -257,8 +256,8 @@ void* __malloc(int size) {
       *(r - 1) = size + 1;
 #ifdef DEBUG
       printbin(c);
-      logger_emit("-----------------\n");  
-      sprintf(log, "index:%d,return address:%p\n", a, r);
+      logger_emit("-----------------\n");
+      sprintf(log, "index:%p,%d,%p\n", a, a, r);
       logger_emit(log);
 #endif
       return r;
@@ -272,7 +271,8 @@ void* __malloc(int size) {
   c->page_addr = m;
   c->next = 0;
   c->bin[0] = 1;
-  pre->next = c;
+  HeapMeta.bin_tail->next = c;
+  HeapMeta.bin_tail = c;
   goto b1;
   return r;
 }
@@ -304,5 +304,27 @@ void __free(uint8_t* p) {
       break;
     }
   }
+}
+
+void* alloc_file(char* fname) {
+  HANDLE hFile = CreateFile
+    (
+     fname, GENERIC_ALL/* | GENERIC_EXECUTE*/, 0, NULL,
+     OPEN_EXISTING/*CREATE_NEW*/, 0/*FILE_SHARE_READ*/, NULL
+     );
+  if (hFile == -1) {
+    printf("file not found\n");
+    return 0;
+  }
+  DWORD wReadSize;
+  DWORD size = GetFileSize(hFile , NULL);
+  if (size == -1) {
+    printf("cannot get file size\n");
+    return 0;
+  }
+  void* p = __malloc(size);
+  ReadFile(hFile, p, size, &wReadSize , NULL);
+  CloseHandle(hFile);
+  return p;
 }
 
