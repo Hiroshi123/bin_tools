@@ -105,10 +105,8 @@ void set_virtual_address() {
   IMAGE_SECTION_HEADER* sh;
   uint32_t offset = (TotalHeaderSize + FILE_ALIGNMENT) & ~(FILE_ALIGNMENT - 1);
   // Iterate on SectionContainer
-  uint32_t section_size = 0;
   for (;sc;sc=sc->next) {
     // Iterate on SectionChain
-    section_size = 0;
     for (_sc = sc->this;_sc;_sc=_sc->this) {
       sh = _sc->p;
       sh->VirtualAddress = virtual_address;
@@ -117,14 +115,16 @@ void set_virtual_address() {
       // PointerToRawData
       sh->PointerToRawData = offset;
       offset += sh->SizeOfRawData;
-      section_size = sh->SizeOfRawData;
+      virtual_address += sh->SizeOfRawData;
 #ifdef DEBUG
-      /* printf("name:%s\n",sh->Name); */
-      /* printf("p:%p\n", sh->PointerToRawData); */
-      /* printf("s:%p\n", sh->SizeOfRawData); */
-      /* printf("v:%p\n", sh->VirtualAddress); */
-      /* printf("r:%p\n", sh->PointerToRelocations); */
-      /* printf("d:%p\n", _sc->data); */
+      printf("name:%s\n",sh->Name);
+      printf("sh:%p\n",sh);
+      printf("sc:%p\n",_sc);
+      printf("p:%p\n", sh->PointerToRawData);
+      printf("s:%p\n", sh->SizeOfRawData);
+      printf("v:%p\n", sh->VirtualAddress);
+      printf("r:%p\n", sh->PointerToRelocations);
+      printf("d:%p\n", _sc->data);
 #endif
       /* offset += (sh->SizeOfRawData + FILE_ALIGNMENT - 1) & (0 - FILE_ALIGNMENT); */
       // virtual_size += sh->SizeOfRawData;
@@ -134,6 +134,22 @@ void set_virtual_address() {
     offset = (offset + FILE_ALIGNMENT - 1) & (0 - FILE_ALIGNMENT);
     virtual_address = (virtual_address + SECTION_ALIGNMENT) & 0xFFFFF000;    
   }
+}
+
+void update_pointer_to_raw_data() {
+  SectionChain* sc = InitialSection;
+  SectionChain* _sc;
+  IMAGE_SECTION_HEADER* sh;
+  uint32_t offset = 0;
+  for (;sc;sc=sc->next) {
+    // Iterate on SectionChain
+    offset = 0;
+    for (_sc = sc->this;_sc;_sc=_sc->this) {
+      sh = _sc->p;
+      sh->PointerToRawData = offset;
+      offset += sh->SizeOfRawData;
+    }
+ }  
 }
 
 void* get_export_virtual_address(IMAGE_SYMBOL* is, ObjectChain* oc) {
@@ -149,11 +165,24 @@ void* get_export_virtual_address(IMAGE_SYMBOL* is, ObjectChain* oc) {
       // Value is the offset from header of the section.
       // If you find another section above the section,
       // you need to know
-      printf("!%s,%p,%p\n", ss->Name, ss->VirtualAddress, is->Value);
+      /* printf("!%p,%s,%p,%p\n", sc1, ss->Name, ss->VirtualAddress, is->Value); */
       return ss->VirtualAddress + is->Value;
     }
   }
   return 0;
+}
+
+void* get_section_name(IMAGE_SYMBOL* is, ObjectChain* oc) {
+  SectionChain* sc1 = oc->section_chain_head;
+  int i = 0;
+  IMAGE_SECTION_HEADER* ss;
+  for (;sc1;sc1=sc1->next) {
+    i++;
+    if (i == is->SectionNumber) {
+      ss = sc1->p;
+      return ss->Name;
+    }
+  }
 }
 
 SectionChain* get_section_chain_from_name(char* name) {
@@ -167,6 +196,39 @@ SectionChain* get_section_chain_from_name(char* name) {
     }
   }
   return 0;
+}
+
+void add_tls(SectionChain* tlsdata) {
+
+  void* p;
+  if (_Win32) {
+    // uint32_t* p = tlsdata;
+    
+    // raw data start va(4byte)
+    
+    // raw data end va(4byte)
+
+    // address of index(4byte)
+
+    // address of callbacks(4byte)
+    
+  } else {
+    // uint64_t* p = tlsdata;
+    // raw data start va(8byte)
+    // *(uint64_t*) = 
+    // raw data end va(8byte)
+    p++;
+    // address of index(8byte)
+    p++;
+    // address of callbacks(8byte)
+    p++;
+  }
+  uint32_t* q = p;
+  // sizeofzero(4byte)
+  q++;
+  // Characteristics(4byte)
+  q++;
+  *q = 0;
 }
 
 /* IMAGE_SYMBOL* get_symbol_from_section_chain(SectionChain* sec1,char* name) { */
