@@ -18,6 +18,13 @@ extern uint8_t _Win32;
 SectionChain* InitialSection = 0;
 SectionChain* CurrentSection = 0;
 
+SectionContainer* alloc_section_container(uint32_t va, void* name) {
+  SectionContainer* sc = __malloc(sizeof(SectionContainer));
+  sc->virtual_address = va;
+  sc->name = name;
+  return sc;
+}
+
 void* alloc_section_chain(void* obj ,IMAGE_SECTION_HEADER* s ,SectionChain* _s) {
 
   SectionChain* sec1;

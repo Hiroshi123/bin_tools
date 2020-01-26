@@ -11,16 +11,18 @@ extern uint8_t TotalSectionNum;
 extern void* OutputFileName;
 extern SectionChain* InitialSection;
 
-static uint32_t CurrentFileOffset = 0;
-static void* VirtualAddressOffset = 0;
 extern SectionChain* EntrySectionChain;
 extern uint32_t EntrySectionOffset;
 extern uint8_t _Win32;
 extern ObjectChain* InitialObject;
+extern uint32_t TotalHeaderSize;
+
+static uint32_t CurrentFileOffset = 0;
+static uint32_t RelocationHead = 0;
+
 // ImageBase is DWORD(4byte) on 32bit/QWORD on 64bit.
 uint64_t ImageBase = 0;
 uint32_t TotalImageSize = 0;
-extern uint32_t TotalHeaderSize;
 uint8_t EmitType = 0;
 uint32_t SymbolNum = 0;
 uint32_t SymbolTablePointer = 0;
@@ -89,7 +91,7 @@ void write_nt_header_signature(HANDLE handle) {
   int size = 4;
   DWORD dwWriteSize;
   DWORD nt_header_signature = 0x4550;
-  WriteFile(handle , &nt_header_signature , size , &dwWriteSize , NULL); 
+  WriteFile(handle , &nt_header_signature , size , &dwWriteSize , NULL);
 }
 
 void write_image_file_header(HANDLE handle) {
@@ -204,8 +206,6 @@ void write_optional_header(HANDLE handle) {
   /*   + sizeof(IMAGE_OPTIONAL_HEADER64) + sizeof(IMAGE_SECTION_HEADER) * TotalSectionNum; */
   /* if (_Win32) */
   /*   TotalHeaderSize -= 0x10; */
-  /* VirtualAddressOffset = ((TotalHeaderSize + SECTION_ALIGNMENT) & 0xFFFFF000); */
-  // TotalImageSize += VirtualAddressOffset;
   optional_header->SizeOfImage = TotalImageSize;
   optional_header->SizeOfHeaders = TotalHeaderSize;
   // 
@@ -300,42 +300,134 @@ void write_raw_data_for_obj(HANDLE handle) {
 	WriteFile(handle ,s1->data ,s1->p->SizeOfRawData ,&dwWriteSize , NULL);
       }
     }
+    // if you have relocation record on a merging section which comes after the former section,
+    // then Offset & SymbolIndex must be different.
     if (sec->NumberOfRelocations) {
-      // DWORD fp = SetFilePointer(handle, 0, NULL, FILE_CURRENT);
-      // SetFilePointer(handle, sec->PointerToRelocations - fp, NULL, FILE_CURRENT);      
+      if (RelocationHead == 0)
+	RelocationHead = SetFilePointer(handle, 0, NULL, FILE_CURRENT);
       for (s1=s->this;s1;s1=s1->this) {
-	WriteFile
-	  (handle, s1->p->PointerToRelocations,
-	   s1->p->NumberOfRelocations * 10 ,&dwWriteSize , NULL);
+	SetFilePointer(handle, s1->p->NumberOfRelocations * sizeof(CoffReloc), NULL, FILE_CURRENT);
+	/* WriteFile */
+	/*   (handle, s1->p->PointerToRelocations, */
+	/*    s1->p->NumberOfRelocations * 10 ,&dwWriteSize , NULL); */
       }
     }
   }
 }
 
+void write_relocation_record(HANDLE handle) {
+  SectionChain* s = InitialSection;
+  SectionChain* s1;
+  IMAGE_SECTION_HEADER* sec;
+  DWORD dwWriteSize;
+  DWORD fp = SetFilePointer(handle, RelocationHead, NULL, FILE_BEGIN);
+  for (;s;s = s->next) {
+    sec = s->this->p;
+    if (sec->NumberOfRelocations) {
+      uint32_t size_of_code = 0;
+      // SetFilePointer(handle, sec->PointerToRelocations - fp, NULL, FILE_);      
+      for (s1=s->this;s1;s1=s1->this) {
+	printf("write relocation rec,%p\n", s1->obj);
+	ObjectChain* oc = InitialObject;
+	uint32_t symbol_num = 0;
+	for (;oc;oc=oc->next) {
+	  if (oc == s1->obj) break;
+	  symbol_num += oc->symbol_num - 1;
+	  printf("symtable p:%p\n", oc->symbol_table_p);
+	  printf("sym num :%d\n", oc->symbol_num);	  
+	}
+	CoffReloc* r = s1->p->PointerToRelocations;
+	CoffReloc* rend = r + s1->p->NumberOfRelocations;
+	int i = 0;
+	for (;r<rend;r++,i++) {
+	  /* printf("%p,%p\n", r->VirtualAddress, size_of_code); */
+	  /* printf("%p,%p\n", r->SymbolTableIndex,symbol_num); */
+	  /* printf("%d,%p,%p\n", i,r, rend); */
+	  if (r->VirtualAddress == -1/*should be deleted**/) {
+	    printf("deleted entry\n");
+	    // r--;// this is because number of entry had been decremented already.
+	    continue;
+	  }
+	  r->VirtualAddress += size_of_code;
+	  r->SymbolTableIndex += symbol_num;	
+	  WriteFile
+	    (handle, r, sizeof(CoffReloc), &dwWriteSize, NULL);
+	}
+	size_of_code += s1->p->SizeOfRawData;	
+      }
+    }
+  }
+  printf("o\n");
+}
+
 void write_symbol_table(HANDLE handle) {
+  // 
   SymbolTablePointer = SetFilePointer(handle, 0, NULL, FILE_CURRENT);    
   ObjectChain* oc = InitialObject;
-  DWORD dwWriteSize;  
+  DWORD dwWriteSize;
+  uint8_t drop = 0;
+  IMAGE_SYMBOL* is;
+  IMAGE_SYMBOL* sym_end;
+  uint8_t ever_absolute = 0;
+  uint32_t str_table_length = 0;
+  void* p;
   for (;oc;oc=oc->next) {
-    SymbolNum += oc->symbol_num;
     printf("!symtable p:%p\n", oc->symbol_table_p);
     printf("!sym num :%d\n", oc->symbol_num);
-    WriteFile
-      (handle, oc->symbol_table_p,
-       (oc->symbol_num) * (sizeof(IMAGE_SYMBOL)), &dwWriteSize, NULL);
-    // break;
+    printf("str table len:%d\n", *(uint32_t*)oc->str_table_p);
+    // external records which had been resolved should be skipped.
+    // record for a merged section should be merged(one of them should be skipped.)
+    // Note you need to combine relocation information together.
+    // .absolute should not be redundunt.
+    is = oc->symbol_table_p;
+    sym_end = is + oc->symbol_num;
+    for (;is!=sym_end;is++) {
+      if (*(uint32_t*)is == 0) {
+	IMAGE_SYMBOL* q = is;// + str_table_length;
+	char* name = GET_NAME(q, oc->str_table_p);
+	printf("kkk:%s,%p\n", name, *((uint32_t*)is+1));
+	// printf("kkk:%s,%p\n", name, *((uint32_t*)is+1));
+      }
+      UPDATE_STRTABLE_OFFSET(is, str_table_length);
+      if (is->SectionNumber == IMAGE_SYM_ABSOLUTE) {
+	if (ever_absolute == 0) {
+	  ever_absolute = 1;
+	} else {
+	  drop = 1;
+	}
+      }
+      if (is->Value == -1) {	
+	printf("skip\n");
+	drop = 1;
+      }
+      if (drop) {
+	oc->symbol_num -= (is->NumberOfAuxSymbols + 1);
+	drop = 0;
+      }
+      else {
+	WriteFile(handle, is,
+		  (is->NumberOfAuxSymbols + 1) * sizeof(IMAGE_SYMBOL), &dwWriteSize, NULL);
+      }
+      for (p=is+is->NumberOfAuxSymbols;is<p;is++);
+      // you should probably decrease the relocation count on aux symbols on setion.
+      // In a meanwhile, it is as it was.
+    }
+    SymbolNum += oc->symbol_num;
+    str_table_length += *(uint32_t*)oc->str_table_p - 4;    
   }
-  // simplest case.
-  // TODO :: added for rather general case later on.
+  str_table_length += 4;
+  // first 4byte is for string table length.
+  // This cannot be determined until you compute whole length.
   WriteFile
-    (handle, InitialObject->str_table_p,
-     5, &dwWriteSize, NULL); 
-  // you should do something for string table.
-  /* for (;oc;oc=oc->next) { */
-  /*   WriteFile */
-  /*     (handle, oc->str_table_p, */
-  /*      oc->symbol_num * sizeof(IMAGE_SYMBOL), &dwWriteSize, NULL); */
-  /* } */
+    (handle, &str_table_length,
+     4, &dwWriteSize, NULL);
+  for (oc = InitialObject;oc;oc=oc->next) {
+    if (str_table_length = *(uint32_t*)oc->str_table_p - 4) {
+      WriteFile
+	(handle, oc->str_table_p + 4,
+	 str_table_length, &dwWriteSize, NULL);
+    }
+  }
 }
 
 HANDLE emit_dos(HANDLE hFile) {
@@ -356,9 +448,10 @@ HANDLE emit_obj(HANDLE hFile) {
   write_sections(hFile);
   write_raw_data_for_obj(hFile);
   write_symbol_table(hFile);
+  write_relocation_record(hFile);  
   fp = SetFilePointer(hFile, 0, NULL, FILE_BEGIN/*0*/);
   // fp should be 0.
-  write_image_file_header(hFile);  
+  write_image_file_header(hFile);
   return hFile;
 }
 

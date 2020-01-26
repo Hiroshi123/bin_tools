@@ -28,7 +28,7 @@ void alloc_obj_chain(void* sym_begin, void* str_begin, uint32_t sym_num) {
   CurrentObject->next = 0;
 }
 
-void collect_symbol_from_obj() {
+void update_symbol_table_info() {
   ObjectChain* oc = InitialObject;
   for (;oc;oc=oc->next) {
     printf("symtable p:%p\n", oc->symbol_table_p);
