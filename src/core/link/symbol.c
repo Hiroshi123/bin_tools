@@ -19,6 +19,7 @@ void* lookup_symbol(char* name, size_t* address) {
   if (*table_index == 0) {
     return address ? 0 : table_index;
   }
+  SymbolChain* pre;
   SymbolChain* pre_chain;
   IMAGE_SYMBOL* is;
   ObjectChain* oc;
@@ -35,19 +36,20 @@ void* lookup_symbol(char* name, size_t* address) {
       begin = oc->symbol_table_p;
       end = begin + oc->symbol_num;
       if (begin<is && is<end) {
-	_name = GET_NAME(is, oc->str_table_p);
-	break;
+    	_name = GET_NAME(is, oc->str_table_p);
+  	break;
       }
     }
     if (!strcmp(name,_name)) {
-      /* printf("matched,%p\n", address); */
       if (address)
-	*address = oc;      
+	*address = oc;
       return address ? is : 0;
     }
+    pre = pre_chain;
   }
   // the another way is return a last-put entry instead 0.
-  return address ? 0 : pre_chain;
+  printf("pre_next:%p\n", &pre->next);
+  return address ? 0 : &pre->next;
 }
 
 void* lookup_dynamic_symbol(char* name, size_t* address, uint32_t* ever) {
@@ -93,7 +95,7 @@ void alloc_symbol_chain(char* name, void* is) {
   /* printf("!!!!alloc sym:%p\n", chain); */
   if (ret) *ret = chain;
   else {
-    fprintf(stderr, "should raise an error as symbol is overrlapping.\n");
+    fprintf(stderr, "should raise an error as symbol is overrlapping.%s\n", name);
   }
   // you need to allocate another symbolchain for object chain.
   chain = __malloc(sizeof(SymbolChain));
@@ -142,5 +144,14 @@ void* alloc_dynamic_symbol(char* name, size_t* dllname) {
     printf("should not\n");
     // should not be happened.
   }
+}
+
+void* alloc_candidate_symbol(void* obj, void* sec) {
+  printf("alloc candidate symbol\n");
+  SymbolChain3* chain = __malloc(sizeof(SymbolChain3));
+  chain->next = 0;
+  chain->this = sec;
+  chain->name = obj;
+  return chain;
 }
 

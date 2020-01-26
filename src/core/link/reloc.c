@@ -17,8 +17,8 @@ extern uint8_t _Win32;
 extern uint64_t ImageBase;
 extern uint8_t EmitType;
 
-void wrapper_f(void* arg1, void* arg2, void* f) {
-  callback_arg3(arg1,arg2,f);
+uint8_t wrapper_f(void* arg1, void* arg2, void* f) {
+  return callback_arg3(arg1,arg2,f);
 }
 
 void do_reloc(void* f) {
@@ -32,6 +32,7 @@ void do_reloc(void* f) {
   uint32_t* addr;
   char* name;
   int i = 0;
+  uint8_t res = 0;
   for (;sec1;sec1=sec1->next) {
     for (sec2=sec1->this;sec2;sec2=sec2->this) {
       if (ish=sec2->p) {
@@ -51,8 +52,16 @@ void do_reloc(void* f) {
 	  arg.storage_class = is1->StorageClass;
 	  addr = sec2->data + reloc->VirtualAddress;
 	  // call wrapper function of callback
-	  wrapper_f(&arg,addr,f);
-	  printf("n:%s\n", name);
+	  res = wrapper_f(&arg,addr,f);
+	  if (res) {
+	    // you need to mark the relocation record as not more needed.
+	    // Any mark is welcome so long as be useful by distinction.
+	    reloc->VirtualAddress = -1;
+	    sec2->p->NumberOfRelocations -= 1;
+	    is1->Value = -1;
+	    printf("del\n");
+	  }
+	  printf("n:%s,%d\n", name, res);
 	}
       }
     }
@@ -86,7 +95,7 @@ void fill_address(uint32_t* addr, uint16_t type, uint32_t dst_vaddr, uint32_t sr
   }
 }
 
-void resolve_only_in_a_section(CallbackArgIn* _in, uint32_t* addr) {
+uint8_t resolve_only_in_a_section(CallbackArgIn* _in, uint32_t* addr) {
   char* name = _in->name;
   uint16_t type = _in->type;
   if (type == IMAGE_REL_AMD64_REL32) {
@@ -98,11 +107,12 @@ void resolve_only_in_a_section(CallbackArgIn* _in, uint32_t* addr) {
 	printf("within a section\n");
 	logger_emit("relocation:resolved on another file\n");
 	size_t* export_address = get_export_virtual_address(is, oc);
-	fill_address(addr, type, export_address, _in->virtual_address);      
+	fill_address(addr, type, export_address, _in->virtual_address);
+	return 1;
       }
-      return;
     }
   }
+  return 0; 
 }
 
 void resolve(CallbackArgIn* _in,uint32_t* addr) {
