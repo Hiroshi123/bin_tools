@@ -82,6 +82,19 @@ enum OBJECT_FORMAT check_pe(const uint32_t fd, const uint16_t* p, uint32_t* size
   return NONE;
 }
 
+/* enum OBJECT_FORMAT __detect_format(const void* buf, uint32_t* h_size) { */
+/*   uint8_t* p = buf; */
+/*   enum OBJECT_FORMAT o; */
+/*   o = check_elf(fd, p, h_size); */
+/*   if (o) goto done; */
+/*   o = check_macho(fd, p, h_size); */
+/*   if (o) goto done; */
+/*   o = check_pe(fd, p, h_size); */
+/*   if (o) goto done; */
+/*  done: */
+/*   return o; */
+/* } */
+
 enum OBJECT_FORMAT detect_format(const int fd, uint32_t* h_size) {
   uint8_t p[4] = {};
   if (!read(fd, &p, 4)) fprintf(stderr,"file read error\n");
