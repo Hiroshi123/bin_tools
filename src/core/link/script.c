@@ -62,7 +62,7 @@
 
 
 /* Copy the first part of user declarations.  */
-#line 2 "src/core/link/script.y" /* yacc.c:339  */
+#line 14 "src/core/link/script.y" /* yacc.c:339  */
 
   #include <stdio.h>
   #include <stdint.h>
@@ -87,19 +87,19 @@
   Memory Mem;
   // Since the above memory block is allocated on somewhere heap,
   // you need to make a chain for them as a linked list.
-  // After constructing the linked list, you can follow the elements by remembering its beginning.
-  Memory* InitialMemoryElem;
-  // CurrentMemoryElem is updated when a new entry comes.
-  Memory* CurrentMemoryElem;
+  // After constructing the linked list, you can follow the elements by remembering its beginning
+  ListContainer MemoryElem;
   
   ////////////////////////////////////////
   // these are about section.  
   uint8_t* OutputSectionName;
-  void* InputSectionName;
+
+  ListContainer CandidateList;
   void* InputObjectFileName;
+  void* InputSectionName;
+  
   void* CurrentSymbol;
-  SectionContainer* InitialSectionContainer;
-  SectionContainer* LastSectionContainer;
+  ListContainer SC;
   //////////////////////////////////////////
   
   int yylex(void);
@@ -422,7 +422,7 @@ union yyalloc
 /* YYNNTS -- Number of nonterminals.  */
 #define YYNNTS  21
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  36
+#define YYNRULES  35
 /* YYNSTATES -- Number of states.  */
 #define YYNSTATES  72
 
@@ -471,10 +471,10 @@ static const yytype_uint8 yytranslate[] =
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_uint8 yyrline[] =
 {
-       0,    58,    58,    59,    62,    65,    64,    67,    69,    71,
-      73,    75,    79,    81,    88,    96,    97,   101,   112,   118,
-     126,   131,   138,   139,   144,   147,   162,   166,   170,   171,
-     180,   185,   190,   196,   204,   210,   216
+       0,    70,    70,    71,    74,    77,    76,    79,    81,    83,
+      85,    87,    91,   100,   109,   110,   114,   125,   131,   139,
+     144,   151,   152,   157,   160,   174,   178,   179,   188,   195,
+     202,   208,   221,   227,   233,   237
 };
 #endif
 
@@ -489,8 +489,8 @@ static const char *const yytname[] =
   "'.'", "';'", "$accept", "input", "expr", "$@1", "assign_memory",
   "memory_list", "memory_group", "memory_elem", "memory_name", "attribute",
   "virtual_address", "memory_len", "sections_group", "sections_elem",
-  "num", "section_name", "section_group", "section_elem",
-  "object_file_name", "input_section_name", "word", YY_NULLPTR
+  "section_name", "section_group", "section_elem", "object_file_name",
+  "input_section_name", "num", "word", YY_NULLPTR
 };
 #endif
 
@@ -505,10 +505,10 @@ static const yytype_uint16 yytoknum[] =
 };
 # endif
 
-#define YYPACT_NINF -49
+#define YYPACT_NINF -48
 
 #define yypact_value_is_default(Yystate) \
-  (!!((Yystate) == (-49)))
+  (!!((Yystate) == (-48)))
 
 #define YYTABLE_NINF -1
 
@@ -519,14 +519,14 @@ static const yytype_uint16 yytoknum[] =
      STATE-NUM.  */
 static const yytype_int8 yypact[] =
 {
-     -49,     6,   -49,   -49,   -11,    -9,    10,   -49,   -49,    26,
-       1,     0,   -49,   -49,   -49,   -49,   -49,   -49,   -49,   -13,
-     -49,     2,     3,   -49,   -12,   -49,   -49,    20,    31,   -49,
-      24,    17,   -49,    14,   -49,   -49,   -49,    11,   -49,    21,
-     -49,    -1,    25,     7,   -49,    22,   -49,    23,    27,    42,
-      42,    43,    28,    24,    29,   -49,    30,   -49,    32,   -49,
-      33,   -49,    42,   -49,   -49,    36,    34,    37,   -49,    24,
-     -49,   -49
+     -48,     7,   -48,   -48,   -16,    -8,    30,   -48,   -48,    26,
+       2,     1,   -48,   -48,   -48,   -48,   -48,   -48,   -48,   -12,
+     -48,    -5,    -7,   -48,     5,   -48,   -48,    20,    21,   -48,
+      24,    17,   -48,     3,   -48,   -48,   -48,    11,   -48,    22,
+     -48,     0,    32,    -9,   -48,    23,   -48,    25,    27,    21,
+      21,    41,    28,    24,    29,   -48,    31,   -48,    33,   -48,
+      34,   -48,    21,   -48,   -48,    35,    36,    37,   -48,    24,
+     -48,   -48
 };
 
   /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -534,29 +534,29 @@ static const yytype_int8 yypact[] =
      means the default is an error.  */
 static const yytype_uint8 yydefact[] =
 {
-       2,     0,     1,     4,     0,     0,     3,    16,    23,     0,
-       0,     0,     5,     7,     8,     9,    36,    10,    15,     0,
-      18,    13,     0,    22,     0,    27,     6,     0,     0,    11,
-       0,     0,    19,     0,    14,    12,    26,     0,    29,     0,
-      24,     0,     0,     0,    25,     0,    28,     0,     0,     0,
-       0,     0,     0,     0,     0,    34,     0,    35,     0,    33,
-       0,    20,     0,    31,    32,     0,     0,     0,    30,     0,
-      17,    21
+       2,     0,     1,     4,     0,     0,     3,    15,    22,     0,
+       0,     0,     5,     7,     8,     9,    35,    10,    14,     0,
+      17,     0,     0,    21,     0,    25,     6,     0,     0,    11,
+       0,     0,    18,     0,    12,    13,    34,     0,    27,     0,
+      23,     0,     0,     0,    24,     0,    26,     0,     0,     0,
+       0,     0,     0,     0,     0,    32,     0,    33,     0,    31,
+       0,    19,     0,    29,    30,     0,     0,     0,    28,     0,
+      16,    20
 };
 
   /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-     -49,   -49,    52,   -49,   -49,   -49,   -49,   -49,   -49,   -49,
-     -49,   -49,   -49,   -49,   -48,   -49,   -49,   -49,   -49,    -7,
+     -48,   -48,    51,   -48,   -48,   -48,   -48,   -48,   -48,   -48,
+     -48,   -48,   -48,   -48,   -48,   -48,   -48,   -48,    -6,   -47,
      -10
 };
 
   /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
-      -1,     1,     9,    26,    29,    35,    10,    18,    19,    33,
-      60,    70,    11,    23,    37,    24,    41,    46,    54,    56,
+      -1,     1,     9,    26,    29,    34,    10,    18,    19,    33,
+      60,    70,    11,    23,    24,    41,    46,    54,    56,    37,
       57
 };
 
@@ -565,24 +565,24 @@ static const yytype_int8 yydefgoto[] =
      number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_uint8 yytable[] =
 {
-      20,    25,    16,    16,    16,    61,     2,     7,    27,     8,
-       3,    31,     4,     5,     3,    43,     4,     5,    44,    21,
-      17,    71,    28,    32,    49,    45,    22,    30,    50,    36,
-       3,    47,     4,     5,    34,    38,    39,    48,    40,    55,
-      12,    13,    14,    15,    42,    16,    51,    52,    58,    67,
-      62,    53,    63,     6,    59,    66,    68,     0,    65,    64,
-       0,    69
+      20,    25,     7,    16,    16,    16,    61,     2,    49,    27,
+       8,     3,    50,     4,     5,    28,    43,    30,    35,    44,
+      21,    17,    71,    32,    16,    39,    45,    22,    31,    36,
+       3,    47,     4,     5,     3,    38,     4,     5,    40,    55,
+      12,    13,    14,    15,    48,    42,    58,    51,    67,    52,
+      62,    53,     6,    63,    59,     0,    66,     0,    68,    65,
+      64,    69
 };
 
 static const yytype_int8 yycheck[] =
 {
-      10,    11,     3,     3,     3,    53,     0,    18,    21,    18,
-       4,    23,     6,     7,     4,    16,     6,     7,    19,    19,
-      19,    69,    20,     3,    17,    26,    26,    24,    21,     5,
-       4,    41,     6,     7,     3,    18,    22,    12,    27,    49,
-      14,    15,    16,    17,    23,     3,    24,    24,     5,    13,
-      21,    24,    22,     1,    26,    62,    22,    -1,    25,    27,
-      -1,    24
+      10,    11,    18,     3,     3,     3,    53,     0,    17,    21,
+      18,     4,    21,     6,     7,    20,    16,    24,    28,    19,
+      19,    19,    69,     3,     3,    22,    26,    26,    23,     5,
+       4,    41,     6,     7,     4,    18,     6,     7,    27,    49,
+      14,    15,    16,    17,    12,    23,     5,    24,    13,    24,
+      21,    24,     1,    22,    26,    -1,    62,    -1,    22,    25,
+      27,    24
 };
 
   /* YYSTOS[STATE-NUM] -- The (internal number of the) accessing
@@ -591,30 +591,30 @@ static const yytype_uint8 yystos[] =
 {
        0,    29,     0,     4,     6,     7,    30,    18,    18,    30,
       34,    40,    14,    15,    16,    17,     3,    19,    35,    36,
-      48,    19,    26,    41,    43,    48,    31,    21,    20,    32,
-      24,    23,     3,    37,     3,    33,     5,    42,    18,    22,
-      27,    44,    23,    16,    19,    26,    45,    48,    12,    17,
-      21,    24,    24,    24,    46,    48,    47,    48,     5,    26,
-      38,    42,    21,    22,    27,    25,    47,    13,    22,    24,
-      39,    42
+      48,    19,    26,    41,    42,    48,    31,    21,    20,    32,
+      24,    23,     3,    37,    33,    48,     5,    47,    18,    22,
+      27,    43,    23,    16,    19,    26,    44,    48,    12,    17,
+      21,    24,    24,    24,    45,    48,    46,    48,     5,    26,
+      38,    47,    21,    22,    27,    25,    46,    13,    22,    24,
+      39,    47
 };
 
   /* YYR1[YYN] -- Symbol number of symbol that rule YYN derives.  */
 static const yytype_uint8 yyr1[] =
 {
        0,    28,    29,    29,    30,    31,    30,    30,    30,    30,
-      30,    30,    32,    32,    33,    34,    34,    35,    36,    37,
-      38,    39,    40,    40,    41,    41,    42,    43,    44,    44,
-      45,    45,    45,    45,    46,    47,    48
+      30,    30,    32,    33,    34,    34,    35,    36,    37,    38,
+      39,    40,    40,    41,    41,    42,    43,    43,    44,    44,
+      44,    44,    45,    46,    47,    48
 };
 
   /* YYR2[YYN] -- Number of symbols on the right hand side of rule YYN.  */
 static const yytype_uint8 yyr2[] =
 {
        0,     2,     0,     2,     1,     0,     4,     3,     3,     3,
-       4,     5,     2,     0,     1,     2,     0,    12,     1,     1,
-       1,     1,     2,     0,     4,     5,     1,     1,     2,     0,
-       6,     4,     4,     3,     1,     1,     1
+       4,     5,     2,     1,     2,     0,    12,     1,     1,     1,
+       1,     2,     0,     4,     5,     1,     2,     0,     6,     4,
+       4,     3,     1,     1,     1,     1
 };
 
 
@@ -1291,70 +1291,71 @@ yyreduce:
   switch (yyn)
     {
         case 4:
-#line 63 "src/core/link/script.y" /* yacc.c:1646  */
+#line 75 "src/core/link/script.y" /* yacc.c:1646  */
     { printf("num!\n");        }
 #line 1297 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
   case 5:
-#line 65 "src/core/link/script.y" /* yacc.c:1646  */
+#line 77 "src/core/link/script.y" /* yacc.c:1646  */
     { printf("add!\n");        }
 #line 1303 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
   case 6:
-#line 66 "src/core/link/script.y" /* yacc.c:1646  */
+#line 78 "src/core/link/script.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[-3]) + (yyvsp[-2]);            }
 #line 1309 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
   case 7:
-#line 68 "src/core/link/script.y" /* yacc.c:1646  */
+#line 80 "src/core/link/script.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[-2]) - (yyvsp[-1]);            }
 #line 1315 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
   case 8:
-#line 70 "src/core/link/script.y" /* yacc.c:1646  */
+#line 82 "src/core/link/script.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[-2]) * (yyvsp[-1]);            }
 #line 1321 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
   case 9:
-#line 72 "src/core/link/script.y" /* yacc.c:1646  */
+#line 84 "src/core/link/script.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[-2]) / (yyvsp[-1]);            }
 #line 1327 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
   case 10:
-#line 74 "src/core/link/script.y" /* yacc.c:1646  */
+#line 86 "src/core/link/script.y" /* yacc.c:1646  */
     {printf("memory!!comp\n");}
 #line 1333 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
   case 11:
-#line 76 "src/core/link/script.y" /* yacc.c:1646  */
+#line 88 "src/core/link/script.y" /* yacc.c:1646  */
     {printf("section!!comp\n");}
 #line 1339 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
-  case 13:
-#line 81 "src/core/link/script.y" /* yacc.c:1646  */
+  case 12:
+#line 93 "src/core/link/script.y" /* yacc.c:1646  */
     {printf("assign memory\n");}
 #line 1345 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
-  case 14:
-#line 89 "src/core/link/script.y" /* yacc.c:1646  */
+  case 13:
+#line 101 "src/core/link/script.y" /* yacc.c:1646  */
     {
-	     printf("memory list:%p\n",p);
+	     printf("memory list:%p\n",p);	     
 	     check_memory_list(wordp);
+	     // p = _get_word(wordp);
 	   }
-#line 1354 "src/core/link/script.c" /* yacc.c:1646  */
+#line 1355 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
-  case 17:
-#line 102 "src/core/link/script.y" /* yacc.c:1646  */
+  case 16:
+#line 115 "src/core/link/script.y" /* yacc.c:1646  */
     {
 	     printf("memory elem processed\n");
 	     printf("memory name:");
@@ -1363,136 +1364,143 @@ yyreduce:
 	     printf("virtual address,%d\n", Mem.virtual_address);
 	     alloc_memory_elem();
 	   }
-#line 1367 "src/core/link/script.c" /* yacc.c:1646  */
+#line 1368 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
-  case 18:
-#line 113 "src/core/link/script.y" /* yacc.c:1646  */
+  case 17:
+#line 126 "src/core/link/script.y" /* yacc.c:1646  */
     {
 	     Mem.name = wordp;
 	   }
-#line 1375 "src/core/link/script.c" /* yacc.c:1646  */
+#line 1376 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
-  case 19:
-#line 119 "src/core/link/script.y" /* yacc.c:1646  */
+  case 18:
+#line 132 "src/core/link/script.y" /* yacc.c:1646  */
     {
 	   printf("get attribute\n");
 	   p = _get_attribute(wordp);
 	   Mem.attribute = 0x777;
 	 }
-#line 1385 "src/core/link/script.c" /* yacc.c:1646  */
+#line 1386 "src/core/link/script.c" /* yacc.c:1646  */
+    break;
+
+  case 19:
+#line 140 "src/core/link/script.y" /* yacc.c:1646  */
+    {Mem.virtual_address = wordp;}
+#line 1392 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
   case 20:
-#line 127 "src/core/link/script.y" /* yacc.c:1646  */
-    {Mem.virtual_address = wordp;}
-#line 1391 "src/core/link/script.c" /* yacc.c:1646  */
+#line 145 "src/core/link/script.y" /* yacc.c:1646  */
+    {Mem.len = 100/*wordp*/;}
+#line 1398 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
-  case 21:
-#line 132 "src/core/link/script.y" /* yacc.c:1646  */
-    {Mem.len = 100/*wordp*/;}
-#line 1397 "src/core/link/script.c" /* yacc.c:1646  */
+  case 23:
+#line 158 "src/core/link/script.y" /* yacc.c:1646  */
+    {printf("assignment\n");}
+#line 1404 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
   case 24:
-#line 145 "src/core/link/script.y" /* yacc.c:1646  */
-    {printf("assignment\n");}
-#line 1403 "src/core/link/script.c" /* yacc.c:1646  */
+#line 161 "src/core/link/script.y" /* yacc.c:1646  */
+    {
+	  printf("section was added,%p,%p,%p\n",
+		 OutputSectionName,*OutputSectionName,
+		 CandidateList.current
+		 );
+	  _get_word(OutputSectionName);	  
+	  alloc_section_container
+	    (0, OutputSectionName, CandidateList.init, &SC);
+	  CandidateList.init = 0;
+	}
+#line 1419 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
   case 25:
-#line 148 "src/core/link/script.y" /* yacc.c:1646  */
-    {
-	  printf("section was added,%p,%p\n",OutputSectionName,*OutputSectionName);
-	  _get_word(OutputSectionName);
-	  SectionContainer* sec = alloc_section_container(0, OutputSectionName);
-	  sec->candidate_list = 0;
-	  if (LastSectionContainer) {
-	    LastSectionContainer->next = sec;
-	  } else {
-	    InitialSectionContainer = sec;
-	  }
-	  LastSectionContainer = sec;
-	}
-#line 1420 "src/core/link/script.c" /* yacc.c:1646  */
-    break;
-
-  case 26:
-#line 163 "src/core/link/script.y" /* yacc.c:1646  */
-    {p = _print_digit(wordp);}
-#line 1426 "src/core/link/script.c" /* yacc.c:1646  */
-    break;
-
-  case 27:
-#line 167 "src/core/link/script.y" /* yacc.c:1646  */
+#line 175 "src/core/link/script.y" /* yacc.c:1646  */
     {OutputSectionName = wordp;}
-#line 1432 "src/core/link/script.c" /* yacc.c:1646  */
+#line 1425 "src/core/link/script.c" /* yacc.c:1646  */
+    break;
+
+  case 28:
+#line 189 "src/core/link/script.y" /* yacc.c:1646  */
+    {
+	      printf("input object name, input section name\n");
+	      alloc_candidate_symbol(InputObjectFileName,
+				     InputSectionName,
+				     &CandidateList);
+	    }
+#line 1436 "src/core/link/script.c" /* yacc.c:1646  */
+    break;
+
+  case 29:
+#line 196 "src/core/link/script.y" /* yacc.c:1646  */
+    {
+	      printf("section which are named as xxx comes into the section\n");
+	      alloc_candidate_symbol(0/*InputObjectFileName*/,
+				     InputSectionName,
+				     &CandidateList);
+	    }
+#line 1447 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
   case 30:
-#line 181 "src/core/link/script.y" /* yacc.c:1646  */
+#line 203 "src/core/link/script.y" /* yacc.c:1646  */
     {
-	      printf("input object name, input section name\n");
-	      // alloc_candidate_section(0, wordp);
+	      printf("current pointer should be updated\n");
+	      // CurrentDot = atoi(wordp);
+	      // num = 0;
 	    }
-#line 1441 "src/core/link/script.c" /* yacc.c:1646  */
+#line 1457 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
   case 31:
-#line 186 "src/core/link/script.y" /* yacc.c:1646  */
-    {
-	      printf("section which are named as xxx comes into the section\n");
-	      alloc_candidate_symbol(0, wordp);
-	    }
-#line 1450 "src/core/link/script.c" /* yacc.c:1646  */
-    break;
-
-  case 32:
-#line 191 "src/core/link/script.y" /* yacc.c:1646  */
-    {
-	      printf("current pointer should be updated\n");
-	      // CurrentDot = atoi(num);
-	      // num = 0;
-	    }
-#line 1460 "src/core/link/script.c" /* yacc.c:1646  */
-    break;
-
-  case 33:
-#line 197 "src/core/link/script.y" /* yacc.c:1646  */
+#line 209 "src/core/link/script.y" /* yacc.c:1646  */
     {
 	      printf("should add a symbol on a current virtual address\n");
 	      // should reflect CurrentDot
-	      // make_ImageSymbol(val);
+
+	      // if the name of symbol is short enough, provide it.
+	      void* is = make_ImageSymbol(CurrentDot, wordp);
+	      // should probably allocate string in a seperate place..
+	      // So far, it is placed as it was.
+	      // alloc_symbol_chain();
 	    }
-#line 1470 "src/core/link/script.c" /* yacc.c:1646  */
+#line 1472 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
-  case 34:
-#line 205 "src/core/link/script.y" /* yacc.c:1646  */
+  case 32:
+#line 222 "src/core/link/script.y" /* yacc.c:1646  */
     {
 	     InputObjectFileName = wordp;
 	   }
-#line 1478 "src/core/link/script.c" /* yacc.c:1646  */
+#line 1480 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
-  case 35:
-#line 211 "src/core/link/script.y" /* yacc.c:1646  */
+  case 33:
+#line 228 "src/core/link/script.y" /* yacc.c:1646  */
     {
 		    InputSectionName = wordp;
 		  }
-#line 1486 "src/core/link/script.c" /* yacc.c:1646  */
+#line 1488 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
-  case 36:
-#line 217 "src/core/link/script.y" /* yacc.c:1646  */
+  case 34:
+#line 234 "src/core/link/script.y" /* yacc.c:1646  */
+    {p = _print_digit(wordp);}
+#line 1494 "src/core/link/script.c" /* yacc.c:1646  */
+    break;
+
+  case 35:
+#line 238 "src/core/link/script.y" /* yacc.c:1646  */
     {p = _get_word(wordp);}
-#line 1492 "src/core/link/script.c" /* yacc.c:1646  */
+#line 1500 "src/core/link/script.c" /* yacc.c:1646  */
     break;
 
 
-#line 1496 "src/core/link/script.c" /* yacc.c:1646  */
+#line 1504 "src/core/link/script.c" /* yacc.c:1646  */
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -1720,7 +1728,7 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 222 "src/core/link/script.y" /* yacc.c:1906  */
+#line 243 "src/core/link/script.y" /* yacc.c:1906  */
 
 
 void* _get_attribute(uint8_t* s) {
@@ -1733,6 +1741,7 @@ void* _get_attribute(uint8_t* s) {
   }
   return s;
 }
+
 
 void* _get_word(uint8_t* s) {
   for (;;s++) {
@@ -1748,7 +1757,6 @@ void* _get_word(uint8_t* s) {
     // if (*s == 0x20 || *s == 0x0a || *s == 0x00) break;
   }
   printf("\n");
-  printf("_print ok\n");
   return s;
 }
 
@@ -1778,7 +1786,7 @@ void* _print_digit(uint8_t* s) {
 int yylex(void) {
 
   printf("in\n");
-  getchar();
+  // getchar();
   uint8_t* q;
   for(;*p == 0x20/* */ || *p == '\t' || *p == '\n' ;p++);
   if (*p == 0x40/*@*/) {
@@ -1787,7 +1795,7 @@ int yylex(void) {
     return 0;
   }
   if (*p == '\n'/*0x0a*/ || *p == '{' || *p == ',' ||
-      *p == '}' || *p == '.' || *p == '/' ||
+      *p == '}' || *p == '.' || *p == '/' || *p == '<' ||
       *p == '=' || *p == ':' || *p == '*' ||
       *p == ';' || *p == '(' || *p == ')') {
     printf("aaa,%p,%c\n",*p,*p);
@@ -1846,19 +1854,22 @@ void alloc_memory_elem() {
   m->attribute = Mem.attribute;
   m->virtual_address = Mem.virtual_address;
   m->len = Mem.len;
-  if (CurrentMemoryElem) {
-    CurrentMemoryElem->next = m;
+  if (MemoryElem.current) {
+    ((Memory*)MemoryElem.current)->next = m;
   } else {
-    InitialMemoryElem = m;
+    MemoryElem.init = m;
   }
-  CurrentMemoryElem = m;
+  MemoryElem.current = m;
 }
 
 // memory list is for 
 void check_memory_list(void* p) {
-  Memory* m = InitialMemoryElem;
+  Memory* m = MemoryElem.init;
   for (;m;m = m->next) {
+    printf("mmmmmmmmm\n");
+    _get_word(m->name);
     
+    // printf("m:%")
     // if the string matches, then you should say the entry is existed on the table.
     /* if (m->name) { */
       
@@ -1870,10 +1881,20 @@ void check_memory_list(void* p) {
 ////////////////////////////////////////////////////
 
 void __check_section() {
-  SectionContainer* sec = InitialSectionContainer;
+  SectionContainer* sec = SC.init;
   for (;sec;sec = sec->next) {
-    _get_word(sec->name);
-    printf("section virtual address:%p\n", sec->virtual_address);
+    _get_word(sec->name);    
+    printf("section virtual address:%p,%p\n",
+	   sec->virtual_address, sec->candidate_list);
+    SymbolChain3* p = sec->candidate_list;
+    if (p) {
+      for (;p;p = p->next) {
+    	_get_word(p->name);
+	if (p->this) {
+	  _get_word(p->this);
+	}
+      }
+    }
   }
 }
 
