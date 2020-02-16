@@ -1,60 +1,23 @@
 
+#ifdef _WIN32
 #include <windows.h>
 #include <winternl.h>
+#endif
+
+#ifdef linux
+#include <limits.h>
+#include <fcntl.h>
+
+#endif
 #include <stdio.h>
 #include <stdint.h>
-
-NTSYSAPI NTSTATUS  WINAPI NtCreateSection(HANDLE*,ACCESS_MASK,const OBJECT_ATTRIBUTES*,const LARGE_INTEGER*,ULONG,ULONG,HANDLE);
-NTSYSAPI NTSTATUS  WINAPI NtMapViewOfSection(HANDLE,HANDLE,PVOID*,ULONG,SIZE_T,const LARGE_INTEGER*,SIZE_T*,void*,ULONG,ULONG);
+#include "os.h"
 
 #define DEBUG 1
 
 extern void* get_caller_address();
-
-void* mmap(uint32_t size) {
-
-  LARGE_INTEGER MaximumSize;
-  HANDLE hSection = 0;
-  // *hSection = 0;
-  MaximumSize.QuadPart = size;
-  NTSTATUS status = NtCreateSection
-    (&hSection,
-     /* SECTION_MAP_READ, */
-     /* SECTION_ALL_ACCESS, */
-     SECTION_ALL_ACCESS,
-     0,
-     &MaximumSize,
-     // PAGE_NOACCESS,
-     PAGE_READWRITE,//|PAGE_NOCACHE,//|MEM_PRIVATE,
-     // |MEM_PRIVATE
-     SEC_COMMIT,//MEM_MAPPED,//|SEC_FILE,
-     // 
-     // MEM_MAPPED,
-     // SEC_RESERVE | SEC_COMMIT,
-     // SEC_FILE,
-     // SEC_IMAGE,
-     0// hFile
-     );
-  size_t* base = 0;//malloc(1000);
-  size_t* _size = 0;// malloc(8);
-  status = NtMapViewOfSection
-    (hSection,
-     //NtCurrentProcess(),
-     ((HANDLE) -1),
-     &base,
-     0, 0, 0,
-     &_size,
-     2/*ViewUnmap*/,
-     0,
-     // PAGE_NOACCESS);
-     PAGE_READWRITE);
-
-  logger_emit("------------------\n");
-  char log[15] = {};
-  sprintf(log, "mmap %p\n", base);
-  logger_emit(log);
-  return base;
-}
+extern void* mmap__(uint32_t size);
+extern int get_file_size__(void*);
 
 // chunk (0,1,2,3,4,5)
 // -----> chain of chunk
@@ -89,14 +52,18 @@ static H HeapMeta;
 Chunk* CUR_CHUNK;
 
 void mem_init() {
-
-  // allocate a page for a Bin which contains multiple chunks  
-  Bin* c = mmap(0x1000);
+  printf("mem init\n");
+  // allocate a page for a Bin which contains multiple chunks
+  Bin* c = mmap__(0x1000);
+  if (c == 0) {
+    printf("error,%p\n", c);
+    return;
+  }
   HeapMeta.bin_head = c;
   HeapMeta.bin_tail = c;
   c->bin[0] = 1;
   c->next = 0;
-  uint8_t* m = mmap(0x1000);
+  uint8_t* m = mmap__(0x1000);
   c->page_addr = m;
 }
 
@@ -181,6 +148,7 @@ void unset_bin(uint64_t* p, uint8_t s, uint8_t q) {
 }
 
 void printb(unsigned int v) {
+  
   unsigned int mask = (int)1 << (sizeof(v) * CHAR_BIT - 1);
   do {
     // putchar(mask & v ? '1' : '0');
@@ -197,7 +165,7 @@ void putb(unsigned int v) {
 }
 
 void printbin(Bin* c) {
-  char log[40] = {};
+  char log[60] = {};
   sprintf(log, "-----bitmap-----:%x(%x-%x)\n",
 	  c, c->page_addr, c->page_addr + 0x1000 - 1);
   logger_emit(log);
@@ -213,7 +181,7 @@ void printbin(Bin* c) {
 void* expand_heap(int size) {
   
   // size / 0xFFFFF000;
-  void* m = mmap(size);
+  void* m = mmap__(size);
   Bin* c = HeapMeta.bin_head;
   for (;c->next;c=c->next);
   Bin* pre = c;
@@ -253,7 +221,7 @@ void* __malloc(int size) {
     if (a) {
       set_bin(&c->bin[0], a, bin_size);
       r = (Block*)c->page_addr + a;
-      *(r - 1) = size + 1;
+      *(r - 1) = bin_size;
 #ifdef DEBUG
       printbin(c);
       logger_emit("-----------------\n");
@@ -267,7 +235,7 @@ void* __malloc(int size) {
   if (c) {
     printf("error\n");
   }
-  uint8_t* m = mmap(0x1000);
+  uint8_t* m = mmap__(0x1000);
   c->page_addr = m;
   c->next = 0;
   c->bin[0] = 1;
@@ -278,24 +246,24 @@ void* __malloc(int size) {
 }
 
 void __free(uint8_t* p) {
-  uint8_t size;
+  uint8_t bin_size;
   printf("free:%p\n",p);
   if (((size_t)p & 0xFFF) == 0) {
-    size = 255;
+    bin_size = 255;
     printf("mmmmmm\n");
   } else {
-    size = *(p-1);
+    bin_size = *(p-1);
   }
   Bin* c = HeapMeta.bin_head;
   void* q;
   uint8_t s;
-  uint8_t* l = p + size;
+  uint8_t* l = p + 0x10 * bin_size;
   // iterating bins will not be heavy in usual.
   for (;c;c=c->next) {
     q = p - c->page_addr;
     if (q < 0x1000) {
       s = (uint32_t)q / 0x10;
-      unset_bin(&c->bin[0], s, size);
+      unset_bin(&c->bin[0], s, bin_size);
       // real free will not clean up but i do.
       for (;p<l;*p=0,p++);
 #ifdef DEBUG
@@ -305,6 +273,8 @@ void __free(uint8_t* p) {
     }
   }
 }
+
+#ifdef _WIN32
 
 void* alloc_file(char* fname) {
   HANDLE hFile = CreateFile
@@ -327,4 +297,18 @@ void* alloc_file(char* fname) {
   CloseHandle(hFile);
   return p;
 }
+#endif
+
+#ifdef linux
+void* alloc_file(char* fname) {
+  void* fp = open__(fname, O_RDONLY);
+  printf("open ok,%p\n", fp);
+  int size = get_file_size__(fp);
+  printf("f1:%p,%d\n", fp, size);
+  void* p = __malloc(size);
+  __os__read(fp, p, size);
+  printf("aaa,%p,%p\n", p,*(uint64_t*)p);  
+  return p;
+}
+#endif
 
