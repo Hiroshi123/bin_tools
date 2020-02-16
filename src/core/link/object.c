@@ -1,10 +1,12 @@
 
-#include <windows.h>
+/* #include <windows.h> */
 #include <stdio.h>
 #include <stdint.h>
-#include "win_memory.h"
+#include "alloc.h"
 
+#ifdef _Win32
 #include "coff.h"
+#endif
 #include "link.h"
 
 ObjectChain* InitialObject = 0;

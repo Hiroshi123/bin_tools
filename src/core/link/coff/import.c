@@ -2,7 +2,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <stdint.h>
-#include "win_memory.h"
+#include "alloc.h"
 
 #include "coff.h"
 #include "link.h"

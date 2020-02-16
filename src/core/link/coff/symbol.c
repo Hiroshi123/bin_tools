@@ -161,3 +161,20 @@ void* alloc_candidate_symbol(void* obj, void* sec, ListContainer* lc) {
   return chain;
 }
 
+IMAGE_SYMBOL* make_ImageSymbol(void* val, void* name) {
+  IMAGE_SYMBOL* is = __malloc(sizeof(IMAGE_SYMBOL));
+  // value is provided from linker script.
+  is->Value = val;
+  // you can meanwhile specify index of section container.  
+  is->SectionNumber = 0;
+  // if ()
+  // is->Name = name;
+  is->Type = 0;
+  // should be external??
+  is->StorageClass = 0;
+  // if you add just symbol of file or section, you need to think
+  // the case this is not 0.
+  is->NumberOfAuxSymbols = 0;
+  return is;
+}
+
