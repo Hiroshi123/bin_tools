@@ -6,7 +6,11 @@
 #define EMIT_OBJ 2
 #define EMIT_EXE 3
 
-#define GET_NAME(X,Y) (*(uint32_t*)X == 0) ? (char*) ((size_t)Y+*((uint32_t*)X+1)) : X->N.ShortName;
+#define GET_NAME(X,Y) (*(uint32_t*)X == 0) ? (char*) ((size_t)Y+*((uint32_t*)X+1)) : X->N.ShortName
+
+#define UPDATE_STRTABLE_OFFSET(X,Y) if (*(uint32_t*)X == 0) *((uint32_t*)X+1) += Y
+
+// (*(uint32_t*)X == 0) ? *(uint32_t*) ((size_t)Y+*((uint32_t*)X+1)) : X->N.ShortName;
 
 typedef struct _SectionChain SectionChain;
 typedef struct _ObjectChain ObjectChain;
@@ -16,7 +20,10 @@ typedef struct _SymbolChain3 SymbolChain3;
 
 struct _SymbolChain {
   SymbolChain* next;
-  IMAGE_SYMBOL* p;
+  /*IMAGE_SYMBOL*/char* p;
+  SectionChain* schain;
+  // this is the pointer to string itself
+  char* name;
 };
 
 typedef struct SymbolHashTable {
@@ -33,6 +40,21 @@ typedef struct SymbolHashTable {
 //  -> should have this(a pointer to a section which is contained in a same section)
 
 // 2. SectionChain<Section> which represent each section and pointer to data.
+
+struct _SectionContainer {
+  SectionContainer* next;
+  SectionChain* init;
+  SectionChain* this;
+  // this is a pointer on either ImageSection or ELF_Shdr
+  uint32_t size;
+  uint32_t virtual_address;
+  void* name;
+  void* candidate_list;
+  /* ObjectChain* obj; */
+  /* SymbolChain* sym_head; */
+  /* SymbolChain* sym_tail; */
+};
+
 struct _SectionChain {
   // section_num
   void* data;
@@ -40,12 +62,14 @@ struct _SectionChain {
   SectionChain* this;
   union {
     size_t num;
-    IMAGE_SECTION_HEADER* p;
+    void*
+    /*IMAGE_SECTION_HEADER*/ p;
   };
   // pointer to object
   ObjectChain* obj;
   SymbolChain* sym_head;
   SymbolChain* sym_tail;
+  uint32_t virtual_address;  
 };
 
 // the role of object chain is to help symbol hash table to look-up
@@ -72,8 +96,12 @@ struct _ObjectChain {
   SectionChain* section_chain_head;
   SectionChain* section_chain_tail;
   // size_t otherwise
-  IMAGE_SYMBOL* symbol_table_p;
+  char*/*IMAGE_SYMBOL*/ symbol_table_p;
   uint8_t* str_table_p;
+  // tables which put pointer to relocation section onto(only used for elf)
+  void* reloc_section_head;
+  void* reloc_section_tail;
+  void* section_head;
 };
 
 typedef struct __attribute__((__packed__)) _CoffReloc {
@@ -92,6 +120,7 @@ typedef struct __attribute__((__packed__)) _CallbackArgIn {
   uint32_t storage_class;
 } CallbackArgIn;
 
+
 struct _SymbolChain3 {
   SymbolChain3* next;
   SymbolChain3* this;
@@ -104,3 +133,40 @@ struct _SymbolChain3 {
 /*   uint32_t data; */
 /* } PltCode __attribute__((packed)); */
 
+typedef struct {
+    void* init;
+    void* current;
+} ListContainer;
+
+// Input configuration setting comes here.
+typedef struct {
+  int virtual_address_offset;
+  int output_vaddr_alignment;
+  void* entry_address;
+  int program_header_num;
+  int shdr_num;
+  int shstrndx;
+  int strndx;
+  SectionContainer* initial_section;
+  SectionContainer* current_section;
+  ObjectChain* initial_object;
+  ObjectChain* current_object;  
+  struct SymbolHashTable HashTable;
+  struct SymbolHashTable DLLHashTable;
+  void* mem;
+} Config;
+
+SectionContainer* alloc_section_container_init(uint32_t va, void* name, void* candidate_list, ListContainer* Sc);
+
+SectionContainer* alloc_section_container(uint32_t va, void* name, void* candidate_list, ListContainer* Sc);
+
+SectionContainer* match_section(char* name);
+
+// object.c
+ObjectChain* alloc_obj_chain_init(void* sym_begin, void* str_begin, uint32_t sym_num);
+ObjectChain* _alloc_obj_chain(void* sym_begin, void* str_begin, uint32_t sym_num);
+void update_object_chain(ObjectChain* oc, SectionChain* schain);
+// section.c
+void* alloc_section_chain(void* s, void* offset, SectionContainer* scon);
+
+uint32_t elf_hash(const uint8_t* name);
