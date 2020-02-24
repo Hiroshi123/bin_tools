@@ -2,13 +2,17 @@
 
 misc for reverse engineering.
 
-1.bipatch (binary patch command)
+1. bipatch (binary patch command)
+   Not yet solid documentation.
+2. ld(d) (a linker which is intended for anti-malicious staff)
+   Its documentation is on wiki(https://github.com/Hiroshi123/bin_tools/wiki/ldd-specification).
+4. debug (my debugger which can be linked by ld(d))
 
-2.objtest (execution for functions in a pre-linked object format flle)
+---
 
-3.callgen (call_graph_generation)
-
-4.jvmtl (java dynamic analysis using jvmti)
+Duplicated and no longer maintained commands
+objtest (execution for functions in a pre-linked object format flle)
+callgen (call_graph_generation) 
 
 ## Aim
 
