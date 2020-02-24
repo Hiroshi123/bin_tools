@@ -26,7 +26,7 @@ uint32_t TotalImageSize = 0;
 uint8_t EmitType = 0;
 uint32_t SymbolNum = 0;
 uint32_t SymbolTablePointer = 0;
-  
+
 void* write_section(SectionChain* sc, HANDLE handle) {
   IMAGE_SECTION_HEADER* sec = sc->p;
   printf("!!!name:%s\n", sec->Name);

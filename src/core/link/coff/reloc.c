@@ -112,7 +112,7 @@ uint8_t resolve_only_in_a_section(CallbackArgIn* _in, uint32_t* addr) {
       }
     }
   }
-  return 0; 
+  return 0;
 }
 
 void resolve(CallbackArgIn* _in,uint32_t* addr) {
