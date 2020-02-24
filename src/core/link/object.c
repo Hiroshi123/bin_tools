@@ -12,6 +12,47 @@
 ObjectChain* InitialObject = 0;
 ObjectChain* CurrentObject = &InitialObject;
 
+extern Config* Confp;
+
+ObjectChain* alloc_obj_chain_init(void* sym_begin, void* str_begin, uint32_t sym_num) {
+  ObjectChain* sc = __malloc(sizeof(ObjectChain));
+  sc->symbol_chain_head = 0;
+  sc->symbol_chain_tail = 0;
+  sc->symbol_table_p = sym_begin;
+  sc->str_table_p = str_begin;
+  sc->symbol_num = sym_num;
+  sc->section_chain_head = 0;
+  sc->section_chain_tail = 0;
+  sc->next = 0;
+  return sc;
+}
+
+ObjectChain* _alloc_obj_chain(void* sym_begin, void* str_begin, uint32_t sym_num) {
+  ObjectChain* sc = alloc_obj_chain_init(sym_begin, str_begin, sym_num);
+  Confp->current_object->next = sc;
+  Confp->current_object = sc;
+  return sc;
+}
+
+void update_object_chain(ObjectChain* oc, SectionChain* schain) {
+
+  if (oc->section_chain_head == 0) {
+    oc->section_chain_head = schain;
+  } else {
+    oc->section_chain_tail->next = schain;
+  }
+  oc->section_chain_tail = schain;
+  return;
+}
+
+void iterate_object_chain(void* callback_f, void* arg1) {
+  
+  ObjectChain* oc = Confp->initial_object;  
+  for (;oc;oc = oc->next) {
+    callback_arg2_linux(oc, callback_f, arg1);
+  }
+}
+
 void alloc_obj_chain(void* sym_begin, void* str_begin, uint32_t sym_num) {
   ObjectChain* sc = __malloc(sizeof(ObjectChain));
   if (!InitialObject) {

@@ -3218,4 +3218,21 @@ void _on_elf_phdr_callback(void* arg1, Elf64_Phdr* arg2, void*);
 void _on_elf_symtab_callback(Elf64_Sym* arg1, info_on_elf* e1);
 void _on_elf_section_callback(uint8_t* arg1,uint8_t* strtable, Elf64_Shdr* arg2,void*);
 
+typedef struct {
+  void* section_head;
+  void* object_chain;
+  
+  
+  void* rel_offset;
+  int rel_size;
+  int rel_secndx;
+  void* rel_sec;
+  void* symbol_offset;
+  int symbol_size;
+  void* str_offset;
+  
+} sh_callback_arg;
+
+void _on_section_callback_for_link( uint8_t* p, uint8_t* strtable, Elf64_Shdr* shdr, sh_callback_arg* ret);
+void _on_elf_symtab_callback_for_link(Elf64_Sym* arg1, void* e1);
 

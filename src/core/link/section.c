@@ -14,8 +14,8 @@ extern uint32_t TotalImageSize;
 extern ObjectChain* CurrentObject;
 extern uint8_t _Win32;
 
-SectionContainer* InitialSection = 0;
-SectionContainer* CurrentSection = 0;
+/* SectionContainer* InitialSection = 0; */
+/* SectionContainer* CurrentSection = 0; */
 
 extern ObjectChain* InitialObject;// = 0;
 extern ObjectChain* CurrentObject;// = &InitialObject;
@@ -23,59 +23,72 @@ extern ObjectChain* CurrentObject;// = &InitialObject;
 /* ObjectChain* InitialObject = 0; */
 /* ObjectChain* CurrentObject = &InitialObject; */
 
-SectionContainer* alloc_section_container
+extern Config* Confp;
+
+SectionContainer* alloc_section_container_init
 (uint32_t va, void* name, void* candidate_list, ListContainer* Sc) {
   SectionContainer* sc = __malloc(sizeof(SectionContainer));
   sc->virtual_address = va;
   sc->name = name;
   sc->candidate_list = candidate_list;
-  if (Sc->init) {
-    ((SectionContainer*)Sc->current)->next = sc;
-  } else {
-    Sc->init = sc;
+  if (Sc) {
+    if (Sc->init) {
+      ((SectionContainer*)Sc->current)->next = sc;
+    } else {
+      Sc->init = sc;
+    }
+    Sc->current = sc;
   }
-  Sc->current = sc;
   return sc;
 }
 
-void* alloc_section_chain(void* s, void* offset, SectionContainer* _s) {
+SectionContainer* alloc_section_container
+  (uint32_t va, void* name, void* candidate_list, ListContainer* Sc) {
+  SectionContainer* sc = alloc_section_container_init(va, name, candidate_list, Sc);
+  Confp->current_section->next = sc;
+  Confp->current_section = sc;
+  return sc;
+}
 
+void* alloc_section_chain(void* s, void* offset, SectionContainer* scon) {
+  printf("alloc section chain,%p\n", Confp->current_section);
   SectionContainer* sec1;
   SectionChain* sec2;
-  if (!_s) {
-    sec1 = __malloc(sizeof(SectionContainer));    
-    TotalSectionNum += 1;
-  } else {
-    sec1 = _s;
-  }
   sec2 = __malloc(sizeof(SectionChain));
   sec2->p = s;
   sec2->data = offset;// datap;
   // sec2->data = obj ? obj + s->PointerToRawData : 0;// datap;
-  sec2->this = 0;  
   sec2->obj = CurrentObject;
+  // Confp->current_section;
   // sec2->obj = obj ? CurrentObject : 0;
-  sec2->next = 0;
-  sec1->this = sec2;
-  if (!InitialSection) {
-    InitialSection = sec1;
-    printf("init had been set,%p\n", sec1);
+  if (scon->init) {
+    scon->this->this = sec2;
+    scon->this = sec2;
   } else {
-    if (!_s) {
-      printf("next:%p\n", sec1);
-      CurrentSection->next = sec1;
-    }
+    scon->init = sec2;
+    scon->this = sec2;
   }
-  if (!_s)
-    CurrentSection = sec1;
   /* if (CurrentObject->section_chain_head == 0) { */
   /*   CurrentObject->section_chain_head = sec2; */
   /* } else { */
   /*   CurrentObject->section_chain_tail->next = sec2; */
   /* } */
   /* CurrentObject->section_chain_tail = sec2; */
-  /* TotalImageSize += (s->SizeOfRawData + SECTION_ALIGNMENT) & 0xFFFFF000; */  
+  /* TotalImageSize += (s->SizeOfRawData + SECTION_ALIGNMENT) & 0xFFFFF000; */
   return sec2;
 }
 
+SectionContainer* match_section(char* name) {
+  
+  SectionContainer* sec1;  
+  for (sec1 = Confp->initial_section;sec1;sec1 = sec1->next) {
+    if (sec1->name) {
+      if (!strcmp(sec1->name, name)) {
+	printf("matched section:%s\n", name);
+	return sec1;
+      }
+    }
+  }
+  return 0;
+}
 

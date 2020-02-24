@@ -8,14 +8,15 @@
 #include "link.h"
 #include "alloc.h"
 
-extern SectionChain* InitialSection;
+/* extern SectionChain* InitialSection; */
 static void* RawDataOffset = 0;
+static int FileOffset = 0;
 static int FileDescriptor = 0;
 static void* SectionHeaderOffset;
-static int NumberOfSectionHeader = 0;
-static int NumberOfProgramHeader = 2;
-static void* VirtualAddressOffset = 0x400000;
-static void* EntryAddress = 0x4000b0;
+static uint8_t FIRST_PHDR = 1;
+static Elf64_Shdr* SymTableSectionHeader = 0;
+
+extern Config* Confp;
 
 static void write_elf_header() {
   
@@ -35,40 +36,32 @@ static void write_elf_header() {
   ehdr->e_type = ET_EXEC;
   ehdr->e_machine = R_IA64_PLTOFF64MSB/**/;
   ehdr->e_version = EV_CURRENT;
-  ehdr->e_entry = EntryAddress;
+  ehdr->e_entry = Confp->entry_address;
   ehdr->e_phoff = sizeof(Elf64_Ehdr);
   // can you fix section offset at this stage?
   // if not, should wait writing.
-  ehdr->e_shoff = 0;//SectionHeaderOffset;
+  ehdr->e_shoff = SectionHeaderOffset;
   ehdr->e_flags = 0;
   ehdr->e_ehsize = sizeof(Elf64_Ehdr);
   ehdr->e_phentsize = sizeof(Elf64_Phdr);
-  ehdr->e_phnum = NumberOfProgramHeader;
+  ehdr->e_phnum = Confp->program_header_num;
   ehdr->e_shentsize = sizeof(Elf64_Ehdr);
   // 0x3c
-  ehdr->e_shnum = NumberOfSectionHeader;
-  ehdr->e_shstrndx = SHN_UNDEF;
+  ehdr->e_shnum = Confp->shdr_num;
+  ehdr->e_shstrndx = Confp->shstrndx;// SHN_UNDEF;
   __os__write(FileDescriptor, ehdr, sizeof(Elf64_Ehdr));
 }
-
-static uint8_t FIRST_PHDR = 1;
 
 static void write_program_header(void* arg1) {
   SectionContainer* sec1 = arg1;
   // arg1;
   SectionChain* sec2 = sec1->this;
   Elf64_Shdr* shdr = sec2->p;
-  int size = 0;
-  if (!sec1->size) {
-    for (;sec2;sec2 = sec2->this) {
-      size += ((Elf64_Shdr*)(sec2->p))->sh_size;
-    }
-    sec1->size = size;
-    if (FIRST_PHDR) {
-      size += NumberOfProgramHeader * sizeof(Elf64_Phdr) + sizeof(Elf64_Ehdr);
-      FIRST_PHDR = 0;
-    }
-  }
+  /* if (sec1->size == 0) { */
+  /*   for (;sec2;sec2 = sec2->this) { */
+  /*     sec1->size += ((Elf64_Shdr*)(sec2->p))->sh_size; */
+  /*   } */
+  /* } */
   printf
     ("!!!%p,%p,%p,%p\n",
      shdr,
@@ -106,16 +99,26 @@ static void write_program_header(void* arg1) {
     }
     phdr->p_flags = ph_flags;
     phdr->p_offset = RawDataOffset;
-    phdr->p_vaddr = VirtualAddressOffset;
-    phdr->p_paddr = VirtualAddressOffset;
-    phdr->p_filesz = size;
-    phdr->p_memsz = size;
-    phdr->p_align = 0x200000;
+    phdr->p_vaddr = sec1->virtual_address;
+    phdr->p_paddr = sec1->virtual_address;
+    if (FIRST_PHDR) {
+      phdr->p_filesz = Confp->program_header_num * sizeof(Elf64_Phdr) + sizeof(Elf64_Ehdr);
+      phdr->p_memsz = phdr->p_filesz;
+      // 1st program header should contain the range of virtual address
+      // that program header itself posesses.
+      phdr->p_vaddr -= phdr->p_filesz;
+      phdr->p_paddr -= phdr->p_filesz;
+      printf("called\n");
+      FIRST_PHDR = 0;
+    }
+    phdr->p_filesz += sec1->size;
+    phdr->p_memsz += sec1->size;
+    phdr->p_align = Confp->output_vaddr_alignment;
     __os__write(FileDescriptor, phdr, sizeof(Elf64_Phdr));
-    RawDataOffset += size;
-    // NumberOfProgramHeader += 1;
-    shdr->sh_addr = VirtualAddressOffset;
-    VirtualAddressOffset += 0x200000 + size;
+    RawDataOffset += ((phdr->p_filesz + 3) >> 2) << 2;
+    // program_header_num += 1;
+    shdr->sh_addr = sec1->virtual_address;//VirtualAddressOffset;
+    // VirtualAddressOffset += 0x200000 + sec1->size;
   }
 }
 
@@ -124,7 +127,7 @@ static void merge_section_chain() {
   SectionChain* sec2;
   Elf64_Shdr* shdr;
   int previous_flags = 0;
-  for (sec1 = InitialSection;sec1;sec1 = sec1->next) {
+  for (sec1 = Confp->initial_section;sec1;sec1 = sec1->next) {
     sec2 = sec1->this;
     shdr = sec2->p;
     for (sec2 = sec1->this;sec2;sec2 = sec2->this) {
@@ -143,16 +146,26 @@ static void merge_section_chain() {
 
 static void write_raw_data(void* arg1) {
   SectionContainer* sc = arg1;
-  SectionChain* sec2 = sc->this;  
+  SectionChain* sec2 = sc->this;
   Elf64_Shdr* shdr = sec2->p;
-  void* cp = 0;
+  int cp = 0;
+  int cp2 = 0;
   for (;sec2;sec2 = sec2->this) {
     cp = __os__seek(FileDescriptor, 0, 1);
+    cp2 = ((cp + 3) >> 2) << 2;
+    cp = __os__seek(FileDescriptor, cp2 - cp, 1);    
     __os__write(FileDescriptor, shdr->sh_offset, shdr->sh_size);
+    printf("write raw data,%p,%p,%p\n", FileOffset,FileOffset + shdr->sh_offset, cp);
     shdr->sh_offset = cp;
-    printf("write raw data,%p\n", cp);
-      // size += ((Elf64_Shdr*)(sec2->p))->sh_size;
   }
+  if (shdr->sh_type == SHT_STRTAB) {
+    if (Confp->shstrndx == 0) {
+      Confp->shstrndx = Confp->shdr_num;
+    } else {
+      Confp->strndx = Confp->shdr_num;
+    }
+  }
+  Confp->shdr_num++;
   /* __os__seek(FileDescriptor, sizeof(Elf64_Ehdr), 0);   */  
 }
 
@@ -161,11 +174,16 @@ static void write_section_header(void* arg1) {
   SectionChain* sec2 = sc->this;
   Elf64_Shdr* shdr = sec2->p;
   shdr->sh_size = sc->size;
-  // printf("%p\n", shdr->sh_name);
-  // shdr->sh_addr = VirtualAddressOffset;
-  // virtual_address = sec2->virtual_address;
-  // shdr->
-  __os__write(FileDescriptor, shdr, sizeof(Elf64_Shdr));    
+  printf("sh name : %p\n", shdr->sh_name);
+  printf("sh size : %p\n", shdr->sh_size);
+  printf("sh addr : %p\n", shdr->sh_addr);
+  printf("sh offset : %p\n", shdr->sh_offset);
+  printf("-------------------------\n");
+  if (shdr->sh_type == SHT_SYMTAB) {
+    shdr->sh_link = Confp->strndx;
+    // shdr->sh_info = Confp->strndx;    
+  }
+  __os__write(FileDescriptor, shdr, sizeof(Elf64_Shdr));
   /* for (;sec2;sec2 = sec2->this) { */
   /*   __os__write(FileDescriptor, shdr, sizeof(Elf64_Shdr)); */
   /*   printf("write section header\n"); */
@@ -174,38 +192,23 @@ static void write_section_header(void* arg1) {
   /* NumberOfSectionHeader += 1; */
 }
 
-static void iterate_section(void* callback_f) {
-  
-  printf("initial section : %p\n",InitialSection);
-  
-  SectionContainer* sec1;
-  SectionChain* sec2;
-  Elf64_Shdr* shdr;
-  int previous_flags = 0;
-  int size = 0;
-  int same_flags = 0;
-  for (sec1 = InitialSection;sec1;sec1 = sec1->next) {
-    printf("s:%p,%p,%p\n", sec1, sec1->this, sec1->next);
-    callback_arg2_linux(sec1, callback_f);    
-  }
-}
-
 void gen() {
+  /* RawDataOffset = Confp->program_header_num * sizeof(Elf64_Phdr) + sizeof(Elf64_Ehdr); */
   char* fname = "out01.o";
   FileDescriptor = open__(fname, O_CREAT | O_WRONLY | O_TRUNC);
   // printf("gen!,%d\n", fd);
   __os__seek(FileDescriptor, sizeof(Elf64_Ehdr), 0);
-  /* NumberOfProgramHeader = 2; */
+  /* program_header_num = 2; */
   iterate_section(write_program_header);
   // __os__seek(FileDescriptor, 0xb0, 1);  
   // if you do not allocate raw_data before program header, you do not know the offset.
+  FileOffset = __os__seek(FileDescriptor, 0, 1);
   iterate_section(write_raw_data);
   SectionHeaderOffset = __os__seek(FileDescriptor, 0, 1);
   printf("sec head:%p\n", SectionHeaderOffset);
   iterate_section(write_section_header);  
   __os__seek(FileDescriptor, 0, 0);
-  write_elf_header();
-  
+  write_elf_header();  
 }
 
 

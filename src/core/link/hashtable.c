@@ -1,15 +1,19 @@
 
-
+#ifdef _WIN32
 #include <windows.h>
+#include "coff.h"
+
+#endif
 #include <stdio.h>
 #include <stdint.h>
-#include "alloc.h"
 
-#include "coff.h"
+#include "alloc.h"
 #include "link.h"
 
-struct SymbolHashTable HashTable = {};
-struct SymbolHashTable DLLHashTable = {};
+/* struct SymbolHashTable HashTable = {}; */
+/* struct SymbolHashTable DLLHashTable = {}; */
+
+extern Config* Confp;
 
 uint32_t elf_hash(const uint8_t* name) {
   uint32_t h = 0, g;
@@ -95,19 +99,22 @@ void iterate_table(uint8_t* p) {
 }
 
 void init_hashtable(char* fname) {
-  
-  HashTable.nbucket = 100;
-  HashTable.nchain = 0;
-  int hashSize = HashTable.nbucket*sizeof(void*);
-  HashTable.bucket = __malloc(hashSize);
-  memset(HashTable.bucket, 0, hashSize);  
-  DLLHashTable.nbucket = 10;
-  DLLHashTable.nchain = 0;
-  hashSize = DLLHashTable.nbucket*sizeof(void*);
-  DLLHashTable.bucket = __malloc(hashSize);
-  memset(DLLHashTable.bucket, 0, hashSize);
+
+  Confp->HashTable.nbucket = 100;
+  Confp->HashTable.nchain = 0;
+  int hashSize = Confp->HashTable.nbucket*sizeof(void*);
+  Confp->HashTable.bucket = __malloc(hashSize);
+  memset(Confp->HashTable.bucket, 0, hashSize);  
+  Confp->DLLHashTable.nbucket = 10;
+  Confp->DLLHashTable.nchain = 0;
+  hashSize = Confp->DLLHashTable.nbucket*sizeof(void*);
+  Confp->DLLHashTable.bucket = __malloc(hashSize);
+  memset(Confp->DLLHashTable.bucket, 0, hashSize);
+  return;
+
   uint8_t* p = alloc_file(fname);
   printf("!!!!! :: %p,%p\n", p, *p);
+
   if (isSqlite(p)) {
     iterate_table(p);
   } else {
@@ -118,5 +125,4 @@ void init_hashtable(char* fname) {
     alloc_dynamic_symbol("MessageBoxA","user32");
   }
 }
-
 
