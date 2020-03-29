@@ -5,7 +5,7 @@ misc for reverse engineering.
 1. bipatch (binary patch command)
    Not yet solid documentation.
 2. ld(d) (a linker which is intended for anti-malicious staff)
-   Its documentation is on wiki(https://github.com/Hiroshi123/bin_tools/wiki/ldd-specification).
+   Its documentation is on wiki(https://github.com/Hiroshi123/bin_tools/wiki/LDD-documentation).
 4. debug (my debugger which can be linked by ld(d))
 
 ---
