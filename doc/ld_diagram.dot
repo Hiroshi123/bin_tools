@@ -1,0 +1,54 @@
+
+
+digraph graph_name {
+  SectionContainer1[label = "SectionContainer1\n[name=.text]\n[virtual_address=0x400000]" color="red"];
+  SectionContainer2[label = "SectionContainer2\n[.rdata]\nvirtual_address=0x600000]" color="red"];
+  SectionChain1_1;
+  SectionChain1_2;
+  
+  SectionChain2_1;
+  SectionChain2_2;
+  SectionContainer1 -> SectionContainer2;
+
+  SectionContainer1 -> SectionChain1_1[color="red"];
+  SectionChain1_1 -> SectionChain1_2[color="red"];
+  
+  SectionContainer2 -> SectionChain2_1[color="red"];
+  SectionChain2_1 -> SectionChain2_2[color="red"];
+
+  ObjectChain1[label = "ObjectChain1\n filename=input01.obj " color = "blue"];
+  ObjectChain2[label = "ObjectChain2\n filename=input02.obj " color = "blue"];
+  ObjectChain1 -> ObjectChain2;
+
+  SymbolChain1_1[color = "green"];
+  SymbolChain1_2[color = "green"];
+  SymbolChain2_1[color = "green"];
+  SymbolChain2_2[color = "green"];
+
+  SymbolChain1_1 -> SectionChain1_1[color = "green"];
+  SymbolChain1_2 -> SectionChain1_2[color = "green"];
+  
+  ObjectChain1 -> SymbolChain1_1;
+  SymbolChain1_1 -> SymbolChain1_2;
+
+  ObjectChain1 -> SectionChain1_1[style = "dashed" color = "blue"];
+  SectionChain1_1 -> SectionChain2_1[style = "dashed" color = "blue"];
+
+  ObjectChain2 -> SectionChain1_2[style = "dashed" color = "blue"];
+  SectionChain1_2 -> SectionChain2_2[style = "dashed" color = "blue"];
+
+  SymbolChain2_1 -> SectionChain1_2[color = "green"];
+  SymbolChain2_2 -> SectionChain2_2[color = "green"];
+  
+  ObjectChain2 -> SymbolChain2_1;
+  SymbolChain2_1 -> SymbolChain2_2;
+
+  HashTable[shape=record color="purple" label="HashTable|<key0>bucket0|<key1>bucket1|bucket2"];
+  HashTable:key0 -> SymbolChain1_1[color="purple"];
+  SymbolChain1_1 -> SymbolChain2_2[color="purple"];
+
+  HashTable:key1 -> SymbolChain2_1[color="purple"];
+  
+}
+
+
