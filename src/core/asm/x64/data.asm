@@ -1059,7 +1059,7 @@ _extend_opcode_table:
 	dq 0
 
 	
-	section .text
+	;; section .text
 ;;;
 
 	extern _add
@@ -1469,16 +1469,16 @@ _extend_opcode_table:
 	extern _shl7
 	extern _shl8	
 	
-	section .text
-	global _hello_world
+	;; section .text
+;; 	global _hello_world
 	
-_hello_world:
-	;; mov rax, 0x2000004 ; write
-	mov rax, 0x0000001 ; write
-	mov rdi, 1 ; stdout
-	mov rsi, msg1
-	mov rdx, msg1.len
-	syscall
-	ret
+;; _hello_world:
+;; 	;; mov rax, 0x2000004 ; write
+;; 	mov rax, 0x0000001 ; write
+;; 	mov rdi, 1 ; stdout
+;; 	mov rsi, msg1
+;; 	mov rdx, msg1.len
+;; 	syscall
+;; 	ret
 
 	

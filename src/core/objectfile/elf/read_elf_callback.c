@@ -16,25 +16,9 @@ void _on_elf_phdr_callback(void* arg1, Elf64_Phdr* arg2,void* arg3) {
 void _on_elf_symtab_callback(Elf64_Sym* arg1, info_on_elf* e1) {
   //
   uint8_t* p = (uint8_t*)e1;
-  printf("sym tab callback!,%p\n",p + arg1->st_name);
-}
-
-void _on_section_callback_for_link
-(
- uint8_t* p, uint8_t* strtable, Elf64_Shdr* shdr, sh_callback_arg* ret) {
-  char* sh_name = (uint8_t*)strtable + shdr->sh_name;
-  if (!strcmp(sh_name, ".rela.text")) {
-    ret->rel_offset = p + shdr->sh_offset;
-    printf(".rela.text!!!!!!!!!!!!,%p\n", p);
-  }
-  if (shdr->sh_type == SHT_SYMTAB) {
-    ret->symbol_offset = p + shdr->sh_offset;
-    printf("sym size,%d\n", shdr->sh_size);
-    ret->symbol_size = shdr->sh_size;
-  }
-  if (shdr->sh_type == SHT_STRTAB) {
-    ret->str_offset = p + shdr->sh_offset;
-  }
+  printf("sym tab callback!,%s,%d,%d,%d\n",
+	 p + arg1->st_name, arg1->st_size, arg1->st_shndx, arg1->st_value);
+  alloc_symbol_chain();  
 }
 
 void _on_elf_section_callback(uint8_t* arg1,uint8_t* strtable, Elf64_Shdr* arg2,void* p) {

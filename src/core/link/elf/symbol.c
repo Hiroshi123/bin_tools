@@ -8,11 +8,13 @@
 
 extern Config* Confp;
 
+#define COMPUTE_HASH(X) (Confp->HashTable.bucket + (elf_hash(X) % Confp->HashTable.nbucket))
+
 void alloc_symbol_chain(void* is, char* name, int shndx) {
 
   // Confp->HashTable.bucket
   // is;
-  size_t* table_index = (Confp->HashTable.bucket + (elf_hash(name) % Confp->HashTable.nbucket));
+  size_t* table_index = COMPUTE_HASH(name);
   SectionChain* schain = Confp->current_object->section_chain_head;
   int i = 0;
   for (;schain && i == shndx;schain = schain->next,i++);
