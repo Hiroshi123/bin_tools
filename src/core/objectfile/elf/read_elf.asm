@@ -122,13 +122,15 @@ run_through_elf_shdr3:
 	cmp r13,rbx
 	je run_through_elf_shdr3._b2
 	;; arg preparation(needed every time before a call)
-	mov rdi,[rsp-0x10]
+	;; [rsp-0x10]
+	;;  rbp
+	mov rdi,[rsp+0x10]
 	mov rsi,r15
-	add r13,r14
 	mov rdx,r13
 	;; extra arguments which are passed
 	mov rcx,[rsp]
 	call r12
+	add r13,r14
 	jmp run_through_elf_shdr3._b1
 ._b2:
 	;; callee might violate the contents of registers.

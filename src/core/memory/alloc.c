@@ -178,7 +178,7 @@ void printbin(Bin* c) {
   // printf("----------\n");
 }
 
-void* expand_heap(int size) {
+static void* expand_heap(int size) {
   
   // size / 0xFFFFF000;
   void* m = mmap__(size);
@@ -195,7 +195,13 @@ void* expand_heap(int size) {
     c->bin[i] = -1;
     putb(c->bin[i]);
   }
+  printf("bb\n");
   return m;
+}
+
+void* __thalloc() {
+  printf("a\n");
+  return expand_heap(1024);
 }
 
 void* __malloc(int size) {
