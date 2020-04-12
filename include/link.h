@@ -140,6 +140,10 @@ typedef struct {
 
 // Input configuration setting comes here.
 typedef struct {
+  int base_address;
+  int out_size;
+  char* outfile_name;
+  int dynamic_entry_num;
   int virtual_address_offset;
   int output_vaddr_alignment;
   void* entry_address;
@@ -147,6 +151,7 @@ typedef struct {
   int shdr_num;
   int shstrndx;
   int strndx;
+  //  PhdrList;
   SectionContainer* initial_section;
   SectionContainer* current_section;
   ObjectChain* initial_object;
@@ -170,3 +175,5 @@ void update_object_chain(ObjectChain* oc, SectionChain* schain);
 void* alloc_section_chain(void* s, void* offset, SectionContainer* scon);
 
 uint32_t elf_hash(const uint8_t* name);
+
+
