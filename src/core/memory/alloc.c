@@ -14,6 +14,7 @@
 #include "os.h"
 
 #define DEBUG 1
+#define __logger_emit(X) logger_emit("memory.log", X)
 
 extern void* get_caller_address();
 extern void* mmap__(uint32_t size);
@@ -52,7 +53,9 @@ static H HeapMeta;
 Chunk* CUR_CHUNK;
 
 void mem_init() {
-  printf("mem init\n");
+  
+  logger_init("memory.log");
+  
   // allocate a page for a Bin which contains multiple chunks
   Bin* c = mmap__(0x1000);
   if (c == 0) {
@@ -152,23 +155,23 @@ void printb(unsigned int v) {
   unsigned int mask = (int)1 << (sizeof(v) * CHAR_BIT - 1);
   do {
     // putchar(mask & v ? '1' : '0');
-    logger_emit(mask & v ? "1" : "0");
+    __logger_emit(mask & v ? "1" : "0");
   }
   while (mask >>= 1);
 }
 
 void putb(unsigned int v) {
-  logger_emit("0b");
+  __logger_emit("0b");
   // putchar('0'), putchar('b'), printb(v), putchar('\n');
   printb(v);
-  logger_emit("\n");
+  __logger_emit("\n");
 }
 
 void printbin(Bin* c) {
   char log[60] = {};
   sprintf(log, "-----bitmap-----:%x(%x-%x)\n",
 	  c, c->page_addr, c->page_addr + 0x1000 - 1);
-  logger_emit(log);
+  __logger_emit(log);
   // printf("-----bitmap-----:%x(%x-%x)\n",
   //	 c, c->page_addr, c->page_addr + 0x1000 - 1);
   uint8_t i=0;
@@ -182,6 +185,11 @@ static void* expand_heap(int size) {
   
   // size / 0xFFFFF000;
   void* m = mmap__(size);
+  char log[40] = {};  
+  __logger_emit("-----------------\n");
+  sprintf(log, "expand heap:%p,%d\n", m, size);
+  __logger_emit(log);
+
   Bin* c = HeapMeta.bin_head;
   for (;c->next;c=c->next);
   Bin* pre = c;
@@ -195,52 +203,53 @@ static void* expand_heap(int size) {
     c->bin[i] = -1;
     putb(c->bin[i]);
   }
-  printf("bb\n");
   return m;
 }
 
 void* __thalloc() {
-  printf("a\n");
   return expand_heap(1024);
 }
 
 void* __malloc(int size) {
 #ifdef DEBUG
-  logger_emit("-----------------\n");
+  __logger_emit("-----------------\n");
   // printf("-----------------\n");
   char log[40] = {};
   sprintf(log, "malloc:size:%d(0x%x),bin:%d\n",size+1,size+1,((size+1)/0x10)+1);
-  logger_emit(log);
+  __logger_emit(log);
 #endif
-  if (size >= 0x1000) {
+  if (size >= 0x1000 - 0x10) {
     return expand_heap(size);
   }
   Bin* c = HeapMeta.bin_tail;
   uint8_t* r;
   uint8_t a;
   Bin* pre = c;
-  uint8_t bin_size = (size / 0x10) + 1;
+  printf("bins:%d\n", (size / 0x10) + 1);
+  uint8_t bins_size = (size / 0x10) + 1;
   for (;c;c=c->next) {
     pre = c;
   b1:
-    a = slowest_find_consecutive_bin(&c->bin[0], bin_size);
+    a = slowest_find_consecutive_bin(&c->bin[0], bins_size);    
     if (a) {
-      set_bin(&c->bin[0], a, bin_size);
+      set_bin(&c->bin[0], a, bins_size);
       r = (Block*)c->page_addr + a;
-      *(r - 1) = bin_size;
+      *(r - 1) = bins_size;
 #ifdef DEBUG
       printbin(c);
-      logger_emit("-----------------\n");
+      __logger_emit("-----------------\n");
       sprintf(log, "index:%p,%d,%p\n", a, a, r);
-      logger_emit(log);
+      __logger_emit(log);
 #endif
       return r;
     }
   }
-  c = pre+=1;
+  /* printf("e:%p,%p,%p,%p\n", a,pre,c,bins_size); */
   if (c) {
-    printf("error\n");
+    printf("error:%p\n", c);
+    return 0;
   }
+  c = pre + 1;
   uint8_t* m = mmap__(0x1000);
   c->page_addr = m;
   c->next = 0;
@@ -252,24 +261,24 @@ void* __malloc(int size) {
 }
 
 void __free(uint8_t* p) {
-  uint8_t bin_size;
+  uint8_t bins_size;
   printf("free:%p\n",p);
   if (((size_t)p & 0xFFF) == 0) {
-    bin_size = 255;
+    bins_size = 255;
     printf("mmmmmm\n");
   } else {
-    bin_size = *(p-1);
+    bins_size = *(p-1);
   }
   Bin* c = HeapMeta.bin_head;
   void* q;
   uint8_t s;
-  uint8_t* l = p + 0x10 * bin_size;
+  uint8_t* l = p + 0x10 * bins_size;
   // iterating bins will not be heavy in usual.
   for (;c;c=c->next) {
     q = p - c->page_addr;
     if (q < 0x1000) {
       s = (uint32_t)q / 0x10;
-      unset_bin(&c->bin[0], s, bin_size);
+      unset_bin(&c->bin[0], s, bins_size);
       // real free will not clean up but i do.
       for (;p<l;*p=0,p++);
 #ifdef DEBUG
@@ -308,12 +317,9 @@ void* alloc_file(char* fname) {
 #ifdef linux
 void* alloc_file(char* fname) {
   void* fp = open__(fname, O_RDONLY);
-  printf("open ok,%p\n", fp);
   int size = get_file_size__(fp);
-  printf("f1:%p,%d\n", fp, size);
   void* p = __malloc(size);
   __os__read(fp, p, size);
-  printf("aaa,%p,%p\n", p,*(uint64_t*)p);  
   return p;
 }
 #endif

@@ -33,8 +33,12 @@ static void write_elf_header() {
   // EI_VERSION
   ehdr->e_ident[6] = 0x01;
   // 7,8,9 is special but be 0 meanwhile.
-  // and the rest is padded by 0.  
-  ehdr->e_type = ET_EXEC;
+  // and the rest is padded by 0.
+  ehdr->e_type = Confp->outfile_type;
+  /* if (Confp->outfile_type == 0) { */    
+  /* } else if (Confp->outfile_type == 1) { */
+  /*   ehdr->e_type = ET_DYN; */
+  /* } */
   ehdr->e_machine = R_IA64_PLTOFF64MSB/**/;
   ehdr->e_version = EV_CURRENT;
   ehdr->e_entry = Confp->entry_address;
@@ -180,7 +184,7 @@ static void __write_program_header(void* arg1) {
   }
   _plist->next = alloc_phdr(sec1, shdr);
   shdr->sh_addr = sec1->virtual_address;//VirtualAddressOffset;
-
+  
   /*
   if (shdr->sh_type == SHT_PROGBITS || shdr->sh_type == SHT_DYNAMIC) {
     Elf64_Phdr* phdr = __malloc(sizeof(Elf64_Phdr));
@@ -252,7 +256,7 @@ static void write_fixed_program_header() {
   phdr->p_paddr = Confp->base_address;
   phdr->p_filesz = Confp->out_size;
   phdr->p_memsz = Confp->out_size;
-  phdr->p_align = 0;//0x200000;
+  phdr->p_align = 0x200000;
   __os__write(FileDescriptor, phdr, sizeof(Elf64_Phdr));
   
   phdr = __malloc(sizeof(Elf64_Phdr));
@@ -263,7 +267,7 @@ static void write_fixed_program_header() {
   phdr->p_paddr = Confp->base_address + DynamicOffset;
   phdr->p_filesz = Confp->dynamic_entry_num * sizeof(Elf64_Dyn);
   phdr->p_memsz = Confp->dynamic_entry_num * sizeof(Elf64_Dyn);
-  phdr->p_align = 0;//0x200000;
+  phdr->p_align = 0x200000;
   __os__write(FileDescriptor, phdr, sizeof(Elf64_Phdr));
 }
 
@@ -295,6 +299,8 @@ static void write_raw_data(void* arg1) {
     Confp->shdr_num++;
     return;
   }
+  printf("write raw data,%s\n",
+	 sc->name);
   SectionChain* sec2 = sc->init;
   Elf64_Shdr* shdr = sec2->p;
   int cp = 0;
@@ -305,22 +311,25 @@ static void write_raw_data(void* arg1) {
     DynamicOffset = cp;
   }
   // cp2 = ((cp + /*shdr->sh_addralign*/3) >> 2) << 2;
-  // cp = __os__seek(FileDescriptor, cp2 - cp, 1);
-  
+  // cp = __os__seek(FileDescriptor, cp2 - cp, 1);  
   for (;sec2;sec2 = sec2->this) {
     shdr = sec2->p;
     cp = __os__seek(FileDescriptor, 0, 1);
-    __os__write(FileDescriptor, shdr->sh_offset, shdr->sh_size);
-    printf("write raw data,%p,%p,%p,%p\n", FileOffset, FileOffset + shdr->sh_offset, shdr->sh_size, cp);
+    printf("write raw data,%p,%p,%p,%p\n",
+	   FileOffset, /*FileOffset + */shdr->sh_offset, shdr->sh_size, sc->virtual_address);
+
+    if (shdr->sh_size)
+      __os__write(FileDescriptor, shdr->sh_offset, shdr->sh_size);
     shdr->sh_offset = cp;
   }
-  if (shdr->sh_type == SHT_STRTAB) {
-    if (Confp->shstrndx == 0) {
-      Confp->shstrndx = Confp->shdr_num;
-    } else {
-      Confp->strndx = Confp->shdr_num;
-    }
-  }
+  printf("kk\n");
+  /* if (shdr->sh_type == SHT_STRTAB) { */
+  /*   if (Confp->shstrndx == 0) { */
+  /*     Confp->shstrndx = Confp->shdr_num; */
+  /*   } else { */
+  /*     Confp->strndx = Confp->shdr_num; */
+  /*   } */
+  /* } */
   Confp->shdr_num++;
 }
 
@@ -356,6 +365,7 @@ static void write_section_header(void* arg1) {
 }
 
 void gen(char* fname) {
+
   FileDescriptor = open__(fname, O_CREAT | O_WRONLY | O_TRUNC);
   // __os__seek(FileDescriptor, sizeof(Elf64_Ehdr), 0);
   __os__seek

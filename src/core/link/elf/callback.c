@@ -5,24 +5,31 @@
 #include "elf.h"
 #include "link.h"
 
+extern Config* Confp;
+
 void _on_elf_symtab_callback_for_link(Elf64_Sym* arg1, void* e1) {
   //
   uint8_t* p = (uint8_t*)e1;
-  printf("sym tab callback!,%s,%d,%d,%d,%p,%p,%p,%p\n",
-	 p + arg1->st_name,
-	 arg1->st_size,
-	 arg1->st_shndx,
-	 arg1->st_value,
-	 arg1->st_info,
-	 ELF64_ST_BIND(arg1->st_info),
-	 arg1->st_other,
-	 ELF64_ST_VISIBILITY(arg1->st_other)	 
-	 );
+
+  char max_name[100] = {};
+  sprintf(max_name, "[link/elf/callback.c]\t symbol table callback : %s\n", p + arg1->st_name);
+  logger_emit("misc.log", max_name);
+  /* printf("sym tab callback!,%s,%d,%d,%d,%p,%p,%p,%p\n", */
+  /* 	 p + arg1->st_name, */
+  /* 	 arg1->st_size, */
+  /* 	 arg1->st_shndx, */
+  /* 	 arg1->st_value, */
+  /* 	 arg1->st_info, */
+  /* 	 ELF64_ST_BIND(arg1->st_info), */
+  /* 	 arg1->st_other, */
+  /* 	 ELF64_ST_VISIBILITY(arg1->st_other) */
+  /* 	 );   */
   // only globally binded symbol will be registered on hash table.
   if (ELF64_ST_BIND(arg1->st_info) == STB_GLOBAL &&
       ELF64_ST_VISIBILITY(arg1->st_other) == STV_DEFAULT &&
       arg1->st_shndx != STN_UNDEF) {
     alloc_symbol_chain(arg1, p + arg1->st_name, arg1->st_shndx);
+    
   }
 }
 
@@ -42,19 +49,19 @@ void _on_section_callback_for_link
     oc->section_head = shdr;
     return;
   }
-  printf("%s,%p.%p,%p\n", sh_name, oc, ret, *ret);
+  // printf("%s,%p.%p,%p\n", sh_name, oc, ret, *ret);
   shdr->sh_offset += p;
   // TODO :: all of section prefixed as .rela should be resolved correctly.
   if (shdr->sh_type == SHT_RELA) {
     if (!strcmp(sh_name, ".rela.text")) {
-      printf(".rela.text!,%p\n", &oc->reloc_section_head);
+      /* printf(".rela.text!,%p\n", &oc->reloc_section_head); */
       oc->reloc_section_head = shdr;
       oc->reloc_section_tail = shdr;
-      printf(".rela.text!,%p\n", oc->reloc_section_head);
+      /* printf(".rela.text!,%p\n", oc->reloc_section_head); */
       // sh_link should point to section index of symbol table.
       // Since symbol table is recorded in another way, and it is not often
       // that objectfile contains multiple symbol tables, it is omitted.
-    }    
+    }
     return;
   }
   if (shdr->sh_type == SHT_SYMTAB) {
@@ -84,11 +91,18 @@ void _on_section_callback_for_link
   }
   // if you find previous section that the name is matched with other section,
   // you do not need to reallocate new SectionContainer.
+  
+  if (Confp->outfile_type == ET_DYN || Confp->outfile_type == ET_EXEC) {
+    if (shdr->sh_type != SHT_PROGBITS) {
+      return;
+    }
+  }
   SectionContainer* sc = match_section(sh_name);
   if (sc == 0) {
     sc = alloc_section_container(0, sh_name, 0, 0);
   }
   void* schain = alloc_section_chain(shdr, 0, sc);
   update_object_chain(oc, schain);
+
 }
 

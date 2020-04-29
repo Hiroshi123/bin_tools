@@ -68,7 +68,6 @@ static void* mmap_linux(uint32_t size) {
   void *tmp = mmap
     (NULL, size/*PAGE_SIZE*/, PROT_READ | PROT_WRITE,
      MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-  printf("tmp:%p\n", tmp);
   return tmp;
 }
 #endif

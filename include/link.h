@@ -1,10 +1,15 @@
 
+#include <stdint.h>
+
 /* #define DEBUG 1 */
 #define SECTION_ALIGNMENT 0x1000
 #define FILE_ALIGNMENT 0x200
 #define EMIT_DLL 1
 #define EMIT_OBJ 2
 #define EMIT_EXE 3
+
+// #define ET_EXEC	2
+// #define ET_DYN	3
 
 #define GET_NAME(X,Y) (*(uint32_t*)X == 0) ? (char*) ((size_t)Y+*((uint32_t*)X+1)) : X->N.ShortName
 
@@ -87,6 +92,7 @@ struct _SectionChain {
 struct _ObjectChain {
   ObjectChain* next;
   uint32_t symbol_num;
+  uint32_t export_symbol_num;
   // this is not for strcmp() but get all of entry under this object chain.
   // it will point entry if the bit is set, then the entry is stored on the record.
   // this is used for constructing export table virtual address.
@@ -138,11 +144,22 @@ typedef struct {
     void* current;
 } ListContainer;
 
+typedef struct /*dt_hash_table */{
+  uint32_t nbucket;
+  uint32_t nchain;
+  // it depends on above 2.
+  // uint32_t bucket[0];
+  // uint32_t chain[0];
+} DtHashTable;
+
 // Input configuration setting comes here.
 typedef struct {
   int base_address;
   int out_size;
+  uint8_t pack;
+  uint8_t nodynamic;
   char* outfile_name;
+  uint8_t outfile_type;
   int dynamic_entry_num;
   int virtual_address_offset;
   int output_vaddr_alignment;

@@ -47,11 +47,15 @@ SectionContainer* alloc_section_container
   SectionContainer* sc = alloc_section_container_init(va, name, candidate_list, Sc);
   Confp->current_section->next = sc;
   Confp->current_section = sc;
+  char max_name[100] = {};
+  sprintf(max_name, "[link/section.c]\t alloc section container : %s\n", name);
+  logger_emit("misc.log", max_name);
   return sc;
 }
 
 void* alloc_section_chain(void* s, void* offset, SectionContainer* scon) {
-  printf("alloc section chain,%p\n", Confp->current_section);
+  
+  logger_emit("misc.log", "[link/section.c]\t alloc section chain\n");
   SectionContainer* sec1;
   SectionChain* sec2;
   sec2 = __malloc(sizeof(SectionChain));

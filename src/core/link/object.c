@@ -46,9 +46,9 @@ void update_object_chain(ObjectChain* oc, SectionChain* schain) {
 }
 
 void iterate_object_chain(void* callback_f, void* arg1) {
-  
   ObjectChain* oc = Confp->initial_object;  
   for (;oc;oc = oc->next) {
+    printf("l\n");
     callback_arg2_linux(oc, callback_f, arg1);
   }
 }
