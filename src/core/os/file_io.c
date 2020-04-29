@@ -4,9 +4,8 @@
 #include <stdlib.h>
 #include <fcntl.h>
 
-int open__(char* filename, int mode) {
-  printf("fopen!!\n");
-  return open(filename, mode);
+int open__(char* filename, int flags) {
+  return open(filename, flags, 0777);
   // sys_open(filename, O_RDONLY|O_CLOEXEC);  
 }
 
@@ -16,7 +15,6 @@ int get_file_size__(void* fd) {
   lseek(fd, 0, SEEK_END); // seek to end of file
   int size = lseek(fd, 0, SEEK_CUR);
   // ftell(f); // get current file pointer
-  printf("size:%d\n", size);
   lseek(fd, 0, SEEK_SET);
   return size;
 }
