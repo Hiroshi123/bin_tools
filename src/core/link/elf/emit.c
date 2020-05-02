@@ -245,7 +245,6 @@ static void write_program_header() {
 
 static void write_fixed_program_header() {
 
-  printf("fixed\n");
   // prepare two program headers.
   Elf64_Phdr* phdr = __malloc(sizeof(Elf64_Phdr));
   phdr->p_type = PT_LOAD;
@@ -299,8 +298,9 @@ static void write_raw_data(void* arg1) {
     Confp->shdr_num++;
     return;
   }
-  printf("write raw data,%s\n",
-	 sc->name);
+  char max_name[100] = {};
+  /* printf("write raw data,%s\n", */
+  /* 	 sc->name); */
   SectionChain* sec2 = sc->init;
   Elf64_Shdr* shdr = sec2->p;
   int cp = 0;
@@ -315,14 +315,15 @@ static void write_raw_data(void* arg1) {
   for (;sec2;sec2 = sec2->this) {
     shdr = sec2->p;
     cp = __os__seek(FileDescriptor, 0, 1);
-    printf("write raw data,%p,%p,%p,%p\n",
-	   FileOffset, /*FileOffset + */shdr->sh_offset, shdr->sh_size, sc->virtual_address);
-
+    /* printf("write raw data,%p,%p,%p,%p\n", */
+    /* 	   FileOffset, /\*FileOffset + *\/shdr->sh_offset, shdr->sh_size, sc->virtual_address); */
+    sprintf(max_name, "[link/elf/emit.c]\t write raw data:%s,size:%p,vaddr:%p\n",
+	  sc->name, shdr->sh_size, sc->virtual_address);
+    logger_emit("misc.log", max_name);
     if (shdr->sh_size)
       __os__write(FileDescriptor, shdr->sh_offset, shdr->sh_size);
     shdr->sh_offset = cp;
   }
-  printf("kk\n");
   /* if (shdr->sh_type == SHT_STRTAB) { */
   /*   if (Confp->shstrndx == 0) { */
   /*     Confp->shstrndx = Confp->shdr_num; */

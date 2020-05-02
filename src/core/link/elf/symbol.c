@@ -8,39 +8,86 @@
 
 extern Config* Confp;
 
-#define COMPUTE_HASH(X) (Confp->HashTable.bucket + (elf_hash(X) % Confp->HashTable.nbucket))
+SymbolChain* alloc_symbol_chain(void* is, char* name, void* schain) {
 
-void alloc_symbol_chain(void* is, char* name, int shndx) {
-
-  // Confp->HashTable.bucket
-  // is;
-  size_t* table_index = COMPUTE_HASH(name);
-  SectionChain* schain = Confp->current_object->section_chain_head;
-  int i = 0;
-  for (;schain && i == shndx;schain = schain->next,i++);
-  char max_name[100] = {};
-  sprintf(max_name, "[link/elf/symbol.c]\t alloc symbol chain\n");
-  logger_emit("misc.log", max_name);
-  /* printf("alloc symbol chain,%p,%p,%d,%p\n", */
-  /* 	 table_index, Confp->current_object, shndx, schain);   */
   SymbolChain* chain = __malloc(sizeof(SymbolChain));
   chain->name = name;
   chain->p = is;
   chain->schain = schain;
+  return chain;
+}
+
+void alloc_export_symbol_chain(void* is, char* name, int shndx) {
+
+  char max_name[100] = {};
+  sprintf(max_name, "[link/elf/symbol.c]\t alloc export symbol chain\n");
+  logger_emit("misc.log", max_name);
+
+  SectionChain* schain = Confp->current_object->section_chain_head;
+  int i = 0;
+  for (;schain && i == shndx;schain = schain->next,i++);
+  
+  size_t* table_index = M1(Confp->ExportHashTable, elf_hash, name);
+  
+  SymbolChain* chain = alloc_symbol_chain(is, name, schain);
   *table_index = chain;
+
   if (!Confp->current_object->symbol_chain_head) {
-    Confp->current_object->symbol_chain_head = chain;
-    Confp->current_object->symbol_chain_tail = chain;
+    Confp->current_object->symbol_chain_head = chain;    
   } else {
     Confp->current_object->symbol_chain_tail->next = chain;
-    Confp->current_object->symbol_chain_tail = chain;    
   }
+  Confp->current_object->symbol_chain_tail = chain;
   Confp->current_object->export_symbol_num ++;
-  // (!Confp->current_object->symbol_chain_head)
-  // *table_index
-  // size_t* ret = lookup_symbol(name, 0);
-  // if (ret) *ret = chain;
-  
+}
+
+void* lookup_symbol(char* name, int ht) {
+
+  uint32_t index = 0;
+  size_t* table_index = 0;
+  switch (ht) {
+  case 0:
+    M2(index, table_index, Confp->ExportHashTable, elf_hash, name);
+    break;
+  case 1:
+    M2(index, table_index, Confp->DynamicImportHashTable, elf_hash, name);
+    break;
+  default:
+    break;
+  }
+  if (*table_index) {
+    // printf("bucket index:%d,%p\n",index, *table_index);
+  } else {
+    // printf("empty\n");
+    return 0;
+  }
+  SymbolChain* chain = *table_index;
+  for (;chain;chain = chain->next) {
+    // printf("%s\n", chain->name);
+    if (!strcmp(name, chain->name)) {
+      // printf("matched:%s\n", chain->name);
+      return chain->p;
+    }
+  }
+  return 0;
+}
+
+void alloc_dynamic_symbol_chain(void* is, char* name, void* schain) {
+
+  SymbolChain* chain;// = *table_index;
+  // printf("alloc dynamic symbol\n");
+  size_t* table_index = M1(Confp->DynamicImportHashTable, elf_hash, name);
+  if (*table_index == 0) {
+    *table_index = alloc_symbol_chain(is, name, schain);
+    return;
+  } else {
+    chain = *table_index;
+    for (;chain->next;chain = chain->next) {
+      // printf("n:%s\n", chain->name);
+    }
+    chain->next = alloc_symbol_chain(is, name, schain);
+  }
+  return;
 }
 
 void iterate_symbol_chain() {

@@ -100,21 +100,27 @@ void iterate_table(uint8_t* p) {
 
 void init_hashtable(char* fname) {
 
-  Confp->HashTable.nbucket = 100;
-  Confp->HashTable.nchain = 0;
-  int hashSize = Confp->HashTable.nbucket*sizeof(void*);
-  Confp->HashTable.bucket = __malloc(hashSize);
-  memset(Confp->HashTable.bucket, 0, hashSize);  
+  Confp->ExportHashTable.nbucket = 100;
+  Confp->ExportHashTable.nchain = 0;
+  int hashSize = Confp->ExportHashTable.nbucket*sizeof(void*);
+  Confp->ExportHashTable.bucket = __malloc(hashSize);
+  memset(Confp->ExportHashTable.bucket, 0, hashSize);
+  
   Confp->DLLHashTable.nbucket = 10;
   Confp->DLLHashTable.nchain = 0;
   hashSize = Confp->DLLHashTable.nbucket*sizeof(void*);
   Confp->DLLHashTable.bucket = __malloc(hashSize);
   memset(Confp->DLLHashTable.bucket, 0, hashSize);
+  
+  Confp->DynamicImportHashTable.nbucket = 10;
+  Confp->DynamicImportHashTable.nchain = 0;
+  hashSize = Confp->DynamicImportHashTable.nbucket*sizeof(void*);
+  Confp->DynamicImportHashTable.bucket = __malloc(hashSize);
+  // memset(Confp->DynamicImportHashTable.bucket, 0, hashSize);
+  
   return;
 
   uint8_t* p = alloc_file(fname);
-  printf("!!!!! :: %p,%p\n", p, *p);
-
   if (isSqlite(p)) {
     iterate_table(p);
   } else {
@@ -125,4 +131,5 @@ void init_hashtable(char* fname) {
     alloc_dynamic_symbol("MessageBoxA","user32");
   }
 }
+
 

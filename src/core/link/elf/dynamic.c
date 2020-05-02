@@ -19,7 +19,6 @@ extern Config* Confp;
 // |.dynamic|SHT_STRTAB|SHF_ALLOC , SHF_WRITE|SHF_ALLOC|
 // |.dynstr |SHT_STRTAB|SHF_ALLOC |SHF_ALLOC|SHF_ALLOC|
 // |.dynsym |SHT_DYNSYM|SHF_ALLOC |SHF_ALLOC|SHF_ALLOC|
-
  
 static SectionContainer* plt_got_p = 0;
 static void* plt_got_d = 0;
@@ -37,7 +36,7 @@ static int dynstr_entry_num = 0;
 static int deps_lib_num = 0;
 
 static void* rela_plt_p = 0;
-static void* rela_plt_d = 0;
+static Elf64_Rela* rela_plt_d = 0;
 
 #define ALLOCATE_SIZE 0x100
 #define NBUCKET 10
@@ -87,11 +86,12 @@ void check_collision(uint32_t* bucket, uint32_t* chain, uint32_t mod, uint32_t s
 
   uint32_t* p = 0;
   if (*(bucket + mod)) {
-    printf("collision:%p,%p\n", *(bucket+mod), sym_index);
-    printf("chain:%p\n", chain + *(bucket+mod));
+    // printf("collision:%p,%p\n", *(bucket+mod), sym_index);
+    // printf("chain:%p\n", chain + *(bucket+mod));
     // uint32_t index = *(bucket + mod);
     // p = chain + index;
     // uint32_t q = *p;
+    // for (p = chain + *(bucket + mod) ; *p ; p = chain + *p);
     for (p = chain + *(bucket + mod) ; *p ; p = chain + *p);
     *p = sym_index;
   } else {
@@ -103,12 +103,13 @@ void check_collision(uint32_t* bucket, uint32_t* chain, uint32_t mod, uint32_t s
 void add_dt_hash_entry(char* name, int sym_index) {
   uint32_t hash = sysv_hash(name);
   int mod = hash % NBUCKET;
-  dt_hash_table_p->nchain ++;  
+  dt_hash_table_p->nchain ++;
   uint32_t* bucket = dt_hash_table_p + 1;
   uint32_t* chain = bucket + dt_hash_table_p->nbucket;
-  printf("mod:%d,%p\n", mod, bucket);
   check_collision(bucket, chain, mod, sym_index);
   dt_hash_size += 4;
+  // printf("mod:%d,%d,%p,%p\n",
+  //	 mod, sym_index, bucket, dt_hash_size);
   // hash_table_p->bucket = 
 }
 
@@ -140,7 +141,7 @@ void add_dt_hash_sc() {
   int nchain_size = sizeof(uint32_t);
   int nbucket = sizeof(uint32_t) * NBUCKET;
 
-  printf("export symbol num : %d\n", Confp->current_object->export_symbol_num);
+  /* printf("export symbol num : %d\n", Confp->current_object->export_symbol_num); */
   
   int nchain_max = (Confp->current_object->export_symbol_num + 1) * sizeof(uint32_t);
   int size = bucket_size + nchain_size + nbucket + nchain_max;
@@ -165,7 +166,7 @@ void* add_dynamic_sc() {
   // Elf64_Dyn  
   int size = sizeof(Elf64_Dyn) * 20/*Confp->dynamic_entry_num*/;
   void* d = __malloc(size);
-  dynamic_d = d;  
+  dynamic_d = d;
   shdr->sh_offset = d;
   dynamic_size_p = &(shdr->sh_size);
   // shdr->sh_size = size;
@@ -189,11 +190,12 @@ void add_dynsym_entry(uint32_t str_offset, uint32_t shndx, uint32_t value) {
 }
 
 void add_dynsym_sc() {
-  printf("add dynamic symbol,%p\n", Confp->current_section);
+  /* printf("add dynamic symbol,%p,%d\n", Confp->current_section, Confp->current_object->symbol_num); */
   SectionContainer* sc = alloc_section_container(0, ".dynsym", 0, 0);
   dynsym = sc;
   Elf64_Shdr* shdr = alloc_elf_section(SHT_DYNSYM, SHF_ALLOC);
   alloc_section_chain(shdr, 0, sc);
+  
   int symnum_max = Confp->current_object->symbol_num + 100;
   int size = symnum_max * sizeof(Elf64_Sym);
   void* d = __malloc(size);
@@ -201,7 +203,7 @@ void add_dynsym_sc() {
   dynsym_size_p = &(shdr->sh_size);
   // shdr->sh_size = size;
   dynsym_d = d;// + sizeof(Elf64_Sym);
-  printf("!!!!%p,%p,%p\n", size, dynsym_d, d);
+  /* printf("!!!!%p,%p,%p\n", size, dynsym_d, d); */
   add_dynsym_entry(0, 0, 0);
 }
 
@@ -218,9 +220,7 @@ uint32_t add_dynstr_entry(char* name) {
 // you cannot determine how much amount of entry is required at this stage.
 
 void add_dynstr_sc() {
-  printf("add dynamic string,%p\n", Confp->current_section);
   SectionContainer* sc = alloc_section_container(0, ".dynstr", 0, 0);
-  printf("add dynamic string,%p\n", Confp->current_section);
   dynstr = sc;
   Elf64_Shdr* shdr = alloc_elf_section(SHT_STRTAB, SHF_ALLOC);
   alloc_section_chain(shdr, 0, sc);
@@ -248,15 +248,19 @@ uint32_t add_pltgot_entry() {
 }
 
 uint32_t add_dynamic_entry(char* str) {
-  // 4. .got.plt
-  // 5. .got
-  uint32_t r = add_pltgot_entry();
+
+  uint32_t r = (uint32_t)lookup_symbol(str, 1);
+  if (r) {
+    return r;
+  }
+
+  char max_name[100] = {};
+  sprintf(max_name, "[link/elf/dynamic.c]\t add dynamic import symbol:%s\n", str);
+  logger_emit("misc.log", max_name);
+  
+  r = add_pltgot_entry();
+  alloc_dynamic_symbol_chain(r, str, 0);  
   // 1. Dynamic string entry
-  printf("aa:%s\n", str);
-  /* if (1) { */
-  /*   char* lib = "libc.so"; */
-  /*   add_dynstr_entry(lib); */
-  /* } */
   // 2. Dynsym entry
   add_dynsym_entry(add_dynstr_entry(str), 0, 0);
   // 3. .rela.dyn or .rela.plt entry
@@ -296,6 +300,7 @@ void add_rela_plt_sc() {
 void add_rela_plt_entry(size_t offset) {
   
   Elf64_Rela* d = rela_plt_d;
+  rela_plt_d ++;  
   d->r_offset = offset;
   // uint64_t sym = ELF64_R_SYM(1);
   // REL_PLT
@@ -338,7 +343,6 @@ void add_export_symbol() {
     add_dt_hash_entry(str, dynsym_entry_num-1);
   }
   logger_emit("memory.log", "done export\n");
-
 }
 
 uint32_t set_dynamic_entry(Elf64_Dyn* dyn, int tag, uint32_t offset) {
@@ -351,9 +355,10 @@ uint32_t set_dynamic_entry(Elf64_Dyn* dyn, int tag, uint32_t offset) {
   case DT_HASH:
     dyn->d_tag = tag;
     dyn->d_un.d_val = offset;
+    dt_hash_size += 4;
     offset += dt_hash_size;
     *dt_hash_size_p = dt_hash_size;
-    break;  
+    break;
   case DT_RELA:
     dyn->d_tag = tag;
     dyn->d_un.d_val = offset;
@@ -372,7 +377,7 @@ uint32_t set_dynamic_entry(Elf64_Dyn* dyn, int tag, uint32_t offset) {
   case DT_SYMTAB:
     dyn->d_tag = tag;
     dyn->d_un.d_val = offset;
-    printf("dynsym ent num:%d\n", dynsym_entry_num);
+    // printf("dynsym ent num:%d\n", dynsym_entry_num);
     offset += (1 + dynsym_entry_num) * sizeof(Elf64_Sym);
     *dynsym_size_p = (1 + dynsym_entry_num) * sizeof(Elf64_Sym);
     break;
@@ -413,19 +418,18 @@ void set_dynanmic() {
   Elf64_Dyn* dyn = dynamic_d;  
   int i = 0;
   uint32_t p = 1;
-  printf("deps lib num:%d,%p\n", deps_lib_num, r);
+  /* printf("deps lib num:%d,%p\n", deps_lib_num, r); */
   for (;i < deps_lib_num;i++) {
     set_dynamic_entry(dyn, DT_NEEDED, p);
     uint8_t* q = dynstr_p + p;
     // go to next entry
-    for (;*q;q++,p++);
-    dyn++;
+    for (p++;*q;q++,p++);
+    dyn++;    
     Confp->dynamic_entry_num ++;
   }
   r += Confp->dynamic_entry_num * sizeof(Elf64_Dyn);
-  *dynamic_size_p = Confp->dynamic_entry_num * sizeof(Elf64_Dyn);
-  
-  printf("r:%p\n", r);
+  *dynamic_size_p = Confp->dynamic_entry_num * sizeof(Elf64_Dyn);  
+  /* printf("r:%p\n", r); */
   i = 1;
   for (;i<=Confp->dynamic_entry_num;i++) {
     r = set_dynamic_entry(dyn, DynamicEntryTag[i], r);
@@ -446,9 +450,7 @@ void add_dynamic() {
   add_rela_plt_sc();
   // these are needed for hiding 
   add_dynsym_sc();
-  logger_emit("memory.log", "dynamic 04\n");
   add_dynstr_sc();
-  logger_emit("memory.log", "dynamic 05\n");
   
   // dependencies should be added after relocation.
   // add_deps();
