@@ -156,8 +156,10 @@ typedef struct /*dt_hash_table */{
 typedef struct {
   int base_address;
   int out_size;
+  uint8_t verbose;
   uint8_t pack;
   uint8_t nodynamic;
+  uint8_t dynlib;
   char* outfile_name;
   uint8_t outfile_type;
   int dynamic_entry_num;
@@ -173,8 +175,9 @@ typedef struct {
   SectionContainer* current_section;
   ObjectChain* initial_object;
   ObjectChain* current_object;  
-  struct SymbolHashTable HashTable;
+  struct SymbolHashTable ExportHashTable;
   struct SymbolHashTable DLLHashTable;
+  struct SymbolHashTable DynamicImportHashTable;  
   void* mem;
 } Config;
 
@@ -193,4 +196,9 @@ void* alloc_section_chain(void* s, void* offset, SectionContainer* scon);
 
 uint32_t elf_hash(const uint8_t* name);
 
+#define M1(H,F,X) (H.bucket + (F(X) % H.nbucket))
+
+#define M2(A,B,H,F,X) \
+  A = (F(X) % H.nbucket);\
+  B = H.bucket + A
 

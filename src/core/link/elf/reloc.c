@@ -48,7 +48,6 @@ void set_virtual_address(void* arg1) {
   sprintf(max_name, "[link/elf/reloc.c] size:%p, virtual address;%p\n",
 	  sc->size, sc->virtual_address);
   logger_emit("misc.log", max_name);
-  // printf("f2,%p,%d,%p,%d\n",sc, sc->size, sc->virtual_address, tmp);
 }
 
 static void fill_address(void* addr, uint8_t type, uint32_t src_addr, uint32_t dst_addr) {
@@ -78,9 +77,9 @@ static void fill_address(void* addr, uint8_t type, uint32_t src_addr, uint32_t d
 }
 
 static uint32_t resolve_external(char* name) {
-  size_t* table_index = (Confp->HashTable.bucket + (elf_hash(name) % Confp->HashTable.nbucket));
+  size_t* table_index = M1(Confp->ExportHashTable, elf_hash, name);
   if (*table_index) {
-    printf("bucket is %d\n", *table_index);
+    // printf("bucket is %d\n", *table_index);
   }
   SymbolChain* chain = *table_index;
   for (;chain;chain = chain->next) {
@@ -114,11 +113,8 @@ static void resolve(ObjectChain* oc, Elf64_Rela* rela, Elf64_Shdr* sub_shdr/*, v
 	  name);
       logger_emit("misc.log", max_name);
       // printf("resolve dynamically:%s,%p,%p\n", oc->str_table_p + sym->st_name, addr, src_addr);
-      printf("d2\n");
       dst_addr = add_dynamic_entry(name);
-      printf("d0\n");
       fill_address(addr, rel_type, src_addr + 4, dst_addr);
-      printf("d\n");
     } else {
       // uint32_t src_addr = 0;
       sprintf(max_name, "[link/elf/reloc.c]\t resolve externally\n");
@@ -140,7 +136,7 @@ static void resolve(ObjectChain* oc, Elf64_Rela* rela, Elf64_Shdr* sub_shdr/*, v
     break;
   }
   }
-  printf("resolve\n");
+  // printf("resolve\n");
 }
 
 void do_reloc(void* _oc, void* arg1) {
@@ -158,10 +154,9 @@ void do_reloc(void* _oc, void* arg1) {
     sub_shdr = (Elf64_Shdr*)oc->section_head + rel_shdr->sh_info;
     uint8_t* addr = rel_shdr->sh_offset + rela->r_offset;
     for (;rela<rela_end;rela++) {
-      addr = rel_shdr->sh_offset + rela->r_offset;
-      printf("addr:%p\n", addr);
+      // addr = rel_shdr->sh_offset + rela->r_offset;
       // addr = sub_shdr->sh_offset + rela->r_offset;
-      printf("rrrrrrrrrrrrrrrr\n");
+      // printf("rrrrrrrrrrrrrrrr\n");
       resolve(oc, rela, sub_shdr);
     }
   }
