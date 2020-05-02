@@ -225,7 +225,6 @@ void* __malloc(int size) {
   uint8_t* r;
   uint8_t a;
   Bin* pre = c;
-  printf("bins:%d\n", (size / 0x10) + 1);
   uint8_t bins_size = (size / 0x10) + 1;
   for (;c;c=c->next) {
     pre = c;
