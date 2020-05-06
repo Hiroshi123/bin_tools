@@ -88,7 +88,7 @@ SectionContainer* match_section(char* name) {
   for (sec1 = Confp->initial_section;sec1;sec1 = sec1->next) {
     if (sec1->name) {
       if (!strcmp(sec1->name, name)) {
-	printf("matched section:%s\n", name);
+	/* printf("matched section:%s\n", name); */
 	return sec1;
       }
     }

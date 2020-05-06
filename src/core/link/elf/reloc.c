@@ -84,8 +84,8 @@ static uint32_t resolve_external(char* name) {
   SymbolChain* chain = *table_index;
   for (;chain;chain = chain->next) {
     if (!strcmp(name, chain->name)) {
-      printf("name:%s\n", chain->name);
-      printf("vaddr:%p\n", chain->schain->virtual_address);
+      /* printf("name:%s\n", chain->name); */
+      /* printf("vaddr:%p\n", chain->schain->virtual_address); */
       return chain->schain->virtual_address;
     }
   }
@@ -120,7 +120,7 @@ static void resolve(ObjectChain* oc, Elf64_Rela* rela, Elf64_Shdr* sub_shdr/*, v
       sprintf(max_name, "[link/elf/reloc.c]\t resolve externally\n");
       logger_emit("misc.log", max_name);
       // printf("resolve externally,%p,%p,\n", sub_shdr->sh_addr + rela->r_offset, dst_addr);
-      fill_address(addr, rel_type, src_addr/*sub_shdr->sh_addr + rela->r_offset*/, dst_addr);      
+      fill_address(addr, rel_type, src_addr + 4/*sub_shdr->sh_addr + rela->r_offset*/, dst_addr);      
     }
     break;
   }
@@ -132,7 +132,7 @@ static void resolve(ObjectChain* oc, Elf64_Rela* rela, Elf64_Shdr* sub_shdr/*, v
     /* printf("resolve internally..,%s,%p,%p\n", */
     /* 	   oc->str_table_p + sym->st_name, */
     /* 	   addr, shdr->sh_addr + rela->r_addend); */
-    fill_address(addr, rel_type, src_addr, dst_addr);
+    fill_address(addr, rel_type, src_addr + 4, dst_addr);
     break;
   }
   }

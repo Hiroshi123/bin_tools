@@ -29,7 +29,7 @@ void _on_elf_symtab_callback_for_link(Elf64_Sym* arg1, void* e1) {
       ELF64_ST_VISIBILITY(arg1->st_other) == STV_DEFAULT &&
       arg1->st_shndx != STN_UNDEF) {
     alloc_export_symbol_chain(arg1, p + arg1->st_name, arg1->st_shndx);    
-  }
+  }  
 }
 
 void _on_section_callback_for_link
