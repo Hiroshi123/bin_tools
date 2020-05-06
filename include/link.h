@@ -152,6 +152,17 @@ typedef struct /*dt_hash_table */{
   // uint32_t chain[0];
 } DtHashTable;
 
+typedef struct {
+  uint32_t nbuckets;
+  uint32_t symoffset;
+  uint32_t bloom_size;
+  uint32_t bloom_shift;
+  // uint64_t bloom[/*bloom_size*/]; /* uint32_t for 32-bit binaries */
+  // uint32_t buckets[/*nbuckets*/];
+  // uint32_t chain[];
+} gnu_hash_table;
+
+
 // Input configuration setting comes here.
 typedef struct {
   int base_address;
@@ -179,6 +190,10 @@ typedef struct {
   struct SymbolHashTable DLLHashTable;
   struct SymbolHashTable DynamicImportHashTable;  
   void* mem;
+  // elf specific
+  uint8_t use_init_array;
+  uint8_t use_fini_array;  
+  uint8_t use_gnu_hash;
 } Config;
 
 SectionContainer* alloc_section_container_init(uint32_t va, void* name, void* candidate_list, ListContainer* Sc);
