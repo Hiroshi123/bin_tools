@@ -54,6 +54,9 @@ void* read_cmdline(int argc, char** argv) {
       config.dynlib = i;// argv[i+1];
       p++;
       continue;
+    } else if (!strcmp(argv[i], "-use-dt-hash")) {
+      config.use_dt_hash = 1;
+      continue;
     }
     *p = argv[i];
     p++;
@@ -79,7 +82,7 @@ static void set_default_config() {
   if (config.nodynamic) {
     config.dynamic_entry_num = 1;
   } else {
-    config.dynamic_entry_num = 9;
+    config.dynamic_entry_num = 13;
   }
   config.output_vaddr_alignment = 0;//0x200000;  
   config.virtual_address_offset = config.base_address + 
@@ -87,6 +90,12 @@ static void set_default_config() {
   config.shdr_num = 0;
   if (!config.entry_address) {
     config.entry_address = config.virtual_address_offset;
+  }
+  config.hash_table_param.nbucket = 1;
+  config.hash_table_param.bloom_size = 2;
+  config.hash_table_param.bloom_shift = 5;
+  if (config.use_dt_hash == 0) {
+    config.use_gnu_hash = 1;
   }
 }
 
@@ -98,13 +107,14 @@ int main(int argc, char** argv) {
   size_t* p2 = p1;
   if (p1 == 0) {
     printf("usage\n");
-    printf("-ef : specify an entry point function name\n");
-    printf("-ib : specify image base\n");
-    printf("-l : dynamic library\n");
-    printf("-p : pack binary\n");
-    printf("-v : vervose stdout\n");
-    printf("-nodynamic : nodynamic entry\n");
-    printf("-o : specify an outputfile. candidate suffix .exe/.dll/.o/.so\n");
+    printf("-ef:\t specify an entry point function name\n");
+    printf("-ib :\t specify image base\n");
+    printf("-l :\t dynamic library\n");
+    printf("-p :\t pack binary\n");
+    printf("-v :\t vervose stdout\n");
+    printf("-nodynamic :\t nodynamic entry\n");
+    printf("-use-gnu-hash ;\t use gnu hash(not dt-hash)\n");
+    printf("-o :\t specify an outputfile. candidate suffix .exe/.dll/.o/.so\n");
     return 0;
   }
   static_data_init(&config);
