@@ -27,11 +27,12 @@ void alloc_export_symbol_chain(void* is, char* name, int shndx) {
   int i = 0;
   for (;schain && i == shndx;schain = schain->next,i++);
   
-  size_t* table_index = M1(Confp->ExportHashTable, elf_hash, name);
   
   SymbolChain* chain = alloc_symbol_chain(is, name, schain);
-  *table_index = chain;
-
+  // DUPRECARED :: symbol table resolution had been replaced by gnu hash which is also used for runtime resolution..
+  // size_t* table_index = M1(Confp->ExportHashTable, elf_hash, name);
+  // *table_index = chain;
+  
   if (!Confp->current_object->symbol_chain_head) {
     Confp->current_object->symbol_chain_head = chain;    
   } else {

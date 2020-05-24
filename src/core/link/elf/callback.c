@@ -10,7 +10,6 @@ extern Config* Confp;
 void _on_elf_symtab_callback_for_link(Elf64_Sym* arg1, void* e1) {
   //
   uint8_t* p = (uint8_t*)e1;
-
   char max_name[100] = {};
   sprintf(max_name, "[link/elf/callback.c]\t symbol table callback : %s\n", p + arg1->st_name);
   logger_emit("misc.log", max_name);
@@ -48,18 +47,18 @@ void _on_section_callback_for_link
     oc->section_head = shdr;
     return;
   }
-  // printf("%s,%p.%p,%p\n", sh_name, oc, ret, *ret);
   shdr->sh_offset += p;
   // TODO :: all of section prefixed as .rela should be resolved correctly.
+  // how about .rela.eh_frame?
   if (shdr->sh_type == SHT_RELA) {
-    if (!strcmp(sh_name, ".rela.text")) {
-      /* printf(".rela.text!,%p\n", &oc->reloc_section_head); */
+    if (!strcmp(sh_name, ".rela.text") || !strcmp(sh_name, ".rela.data")) {
+      // if (!strcmp(sh_name, ".rela.text")) {
       oc->reloc_section_head = shdr;
       oc->reloc_section_tail = shdr;
-      /* printf(".rela.text!,%p\n", oc->reloc_section_head); */
       // sh_link should point to section index of symbol table.
       // Since symbol table is recorded in another way, and it is not often
       // that objectfile contains multiple symbol tables, it is omitted.
+      // }    
     }
     return;
   }
@@ -92,7 +91,11 @@ void _on_section_callback_for_link
   // you do not need to reallocate new SectionContainer.
   
   if (Confp->outfile_type == ET_DYN || Confp->outfile_type == ET_EXEC) {
-    if (shdr->sh_type != SHT_PROGBITS) {
+    // TODO :: .bss section will be truned into a part of .data section which is initialized as 0.
+    // if you set a distinct one, rewrite this.
+    if (shdr->sh_type == SHT_NOBITS) {
+      Confp->bss_size += shdr->sh_size;
+    } else if (shdr->sh_type != SHT_PROGBITS) {
       return;
     }
   }
@@ -102,6 +105,5 @@ void _on_section_callback_for_link
   }
   void* schain = alloc_section_chain(shdr, 0, sc);
   update_object_chain(oc, schain);
-
 }
 

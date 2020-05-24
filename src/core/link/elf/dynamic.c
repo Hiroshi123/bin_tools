@@ -24,8 +24,9 @@ static SectionContainer* plt_got_p = 0;
 static uint8_t use_init_array = 1;
 static uint8_t use_fini_array = 1;
 
-#define ALLOCATE_SIZE 0x100
+#define ALLOCATE_SIZE 0x1000
 #define NBUCKET 10
+#define DEFAULT_ENTRY_NUM 14
 
 #define DT_DYNAMIC_INDEX 0
 #define INIT_ARRAY_INDEX 1
@@ -48,6 +49,7 @@ static char* DT_DYNSYM_NAME = ".dynsym";
 static char* DT_DYNSTR_NAME = ".dynstr";
 
 struct DynamicParams {
+  SectionContainer* sc_p;
   uint32_t* size_p;
   uint8_t* data_p;
   union {
@@ -55,27 +57,27 @@ struct DynamicParams {
     uint32_t num;
   };
   uint32_t alloc_size;
+  uint32_t remain_size;
   char* name;
 };
 
 struct DynamicParams D[10];
 
-static int DEFAULT_DYNAMIC_ENTRY_NUM = 0x20;
-static int DEFAULT_DYNSYM_NUM = 0x1000;
-static int DEFAULT_DYNSTR_NUM = 0x1000;
-static int DEFAULT_PLTGOT_NUM = 0x100;
-static int DEFAULT_RELA_PLT_NUM = 0x100;
-static int DEFAULT_DT_HASH_CHAIN_NUM = 0x100;
+static int DEFAULT_DYNAMIC_ENTRY_NUM = 0x1000;
+static int DEFAULT_DYNSYM_NUM = 0x2000;
+static int DEFAULT_DYNSTR_NUM = 0x2000;
+static int DEFAULT_PLTGOT_NUM = 0x2000;
+static int DEFAULT_RELA_PLT_NUM = 0x2000;
+static int DEFAULT_DT_HASH_CHAIN_NUM = 0x2000;
 static int DEFAULT_INIT_ARRAY_NUM = 0x10;
 
-static uint32_t DynamicEntryTag[14] = {
+static uint32_t DynamicEntryTag[DEFAULT_ENTRY_NUM] = {
   DT_NEEDED,   // no need
   DT_INIT_ARRAY,
   DT_INIT_ARRAYSZ,
   DT_FINI_ARRAY,
   DT_FINI_ARRAYSZ,
-  DT_GNU_HASH, // need
-  // DT_HASH,  // need
+  DT_GNU_HASH, // or DT_HASH
   DT_RELA,     // need
   DT_RELASZ,   // no need
   DT_RELAENT,  // no need
@@ -86,7 +88,7 @@ static uint32_t DynamicEntryTag[14] = {
   DT_NULL,
 };
 
-int need_allocate(int tag) {
+static int need_allocate(int tag) {
   switch (tag) {
   case DT_INIT_ARRAY:
     return INIT_ARRAY_INDEX;
@@ -117,13 +119,16 @@ static void init_dynamic() {
 
   // D[10];
   D[DT_DYNAMIC_INDEX].alloc_size = sizeof(Elf64_Dyn) * 0x20;
+  D[DT_DYNAMIC_INDEX].remain_size = sizeof(Elf64_Dyn) * 0x20;
   D[DT_DYNAMIC_INDEX].name = DT_DYNAMIC_NAME;
 
   D[INIT_ARRAY_INDEX].alloc_size = 0x20;
-  D[INIT_ARRAY_INDEX].name = ".init_array";
+  D[INIT_ARRAY_INDEX].remain_size = 0x20;
+  D[INIT_ARRAY_INDEX].name = DT_INIT_ARRAY_NAME;
 
   D[FINI_ARRAY_INDEX].alloc_size = 0x20;
-  D[FINI_ARRAY_INDEX].name = ".fini_array";
+  D[INIT_ARRAY_INDEX].remain_size = 0x20;
+  D[FINI_ARRAY_INDEX].name = DT_FINI_ARRAY_NAME;
 
   int nchain_max = DEFAULT_DT_HASH_CHAIN_NUM * sizeof(uint32_t);
 
@@ -136,7 +141,7 @@ static void init_dynamic() {
     size = bucket_size + nchain_size + nbucket;
     D[DT_HASH_INDEX].alloc_size = size + nchain_max;
     D[DT_HASH_INDEX].size = size;
-    D[DT_HASH_INDEX].name = ".dt.hash";
+    D[DT_HASH_INDEX].name = DT_HASH_NAME;
     int i = 0;
     for (;i < Confp->dynamic_entry_num;i++) {
       if (DynamicEntryTag[i] == DT_GNU_HASH)
@@ -151,22 +156,60 @@ static void init_dynamic() {
     int bucket = (Confp->hash_table_param.nbucket/*nbucket*/) * sizeof(size_t);
     size = sizeof(gnu_hash_table) + bloom + bucket;
     D[GNU_HASH_INDEX].alloc_size = size + nchain_max;
+    D[GNU_HASH_INDEX].remain_size = size + nchain_max;
     D[GNU_HASH_INDEX].size = size;
-    D[GNU_HASH_INDEX].name = ".gnu.hash";
+    D[GNU_HASH_INDEX].name = DT_GNU_HASH_NAME;
   }
 
   D[RELA_PLT_INDEX].alloc_size = DEFAULT_RELA_PLT_NUM * sizeof(Elf64_Rela);
-  D[RELA_PLT_INDEX].name = ".rela.plt";
+  D[RELA_PLT_INDEX].remain_size = DEFAULT_RELA_PLT_NUM * sizeof(Elf64_Rela);
+  D[RELA_PLT_INDEX].name = DT_RELA_PLT_NAME;
 
   //
   D[DYNSYM_INDEX].alloc_size = DEFAULT_DYNSYM_NUM * sizeof(Elf64_Sym);
-  D[DYNSYM_INDEX].name = ".dynsym";
+  D[DYNSYM_INDEX].remain_size = DEFAULT_DYNSYM_NUM * sizeof(Elf64_Sym);
+  D[DYNSYM_INDEX].name = DT_DYNSYM_NAME;
 
   //
   D[DYNSTR_INDEX].alloc_size = DEFAULT_DYNSTR_NUM;
+  D[DYNSTR_INDEX].remain_size = DEFAULT_DYNSTR_NUM;
   D[DYNSTR_INDEX].size = 1;
-  D[DYNSTR_INDEX].name = ".dynstr";
+  D[DYNSTR_INDEX].name = DT_DYNSTR_NAME;
 
+}
+
+static Elf64_Shdr* alloc_elf_section(int type, int flags) {
+  Elf64_Shdr* shdr = __malloc(sizeof(Elf64_Shdr));
+  shdr->sh_type = type;
+  shdr->sh_name = 0;// ".dynamic";
+  shdr->sh_flags = flags;
+  shdr->sh_addr = 0;
+  shdr->sh_size = 0;// size;
+  shdr->sh_link = 5;
+  shdr->sh_info = 0;
+  shdr->sh_addralign = 0;
+  shdr->sh_entsize = 0;
+  return shdr;
+}
+
+void* add_dynamic_sc(int index, char* _name, SectionContainer* _sc) {
+  char* name = _name != 0 ? _name : D[index].name;
+  SectionContainer* sc;
+  if (!_sc) {
+    sc = alloc_section_container(0, name, 0, 0);
+    D[index].sc_p = sc;
+  } else {
+    // set (maximum) size for previous one as it is full.
+    *D[index].size_p = D[index].size;
+    sc = _sc;
+  }
+  Elf64_Shdr* shdr = alloc_elf_section(SHT_DYNAMIC, SHF_ALLOC | SHF_WRITE);
+  alloc_section_chain(shdr, 0, sc);
+  void* d = __malloc(D[index].alloc_size);
+  D[index].data_p = d;
+  shdr->sh_offset = d;
+  D[index].size_p = &(shdr->sh_size);
+  return d;
 }
 
 static void check_dt_hash_collision
@@ -193,9 +236,11 @@ static void add_dt_hash_entry(char* name, int sym_index) {
   uint32_t* chain = bucket + hash_table_p->nbucket;
   check_dt_hash_collision(bucket, chain, mod, sym_index);
   D[DT_HASH_INDEX].size += 4;
-  // printf("mod:%d,%d,%p,%p\n",
-  //	 mod, sym_index, bucket, dt_hash_size);
-  // hash_table_p->bucket =
+  // TODO :: If size is not enough, it should allocate new area reffered from new section chain.
+  // But chain is referred from bucket and will be collappsed.
+  /* if (D[DT_HASH_INDEX].size == D[DT_HASH_INDEX].alloc_size) { */
+  /*   add_dynamic_sc(DT_HASH_INDEX, 0, D[DT_HASH_INDEX].sc_p); */
+  /* } */
 }
 
 static void check_gnu_hash_collision
@@ -236,7 +281,6 @@ static void set_bloom_bits(uint32_t gh) {
   /* printf("shift1:%p,%p\n", shift1, bit1); */
   /* printf("shift2:%p,%p\n", shift2, bit2); */
   /* printf("v:%p\n", *vector); */
-
 }
 
 static void add_gnu_hash_entry(char* name, int sym_index) {
@@ -249,40 +293,42 @@ static void add_gnu_hash_entry(char* name, int sym_index) {
   uint32_t* chain = bucket + hash_table_p->nbuckets;
   check_gnu_hash_collision(bucket, chain, gh, mod, sym_index, hash_table_p->symoffset);
   D[GNU_HASH_INDEX].size += 4;
-}
-
-static Elf64_Shdr* alloc_elf_section(int type, int flags) {
-  Elf64_Shdr* shdr = __malloc(sizeof(Elf64_Shdr));
-  shdr->sh_type = type;
-  shdr->sh_name = 0;// ".dynamic";
-  shdr->sh_flags = flags;
-  shdr->sh_addr = 0;
-  shdr->sh_size = 0;// size;
-  shdr->sh_link = 5;
-  shdr->sh_info = 0;
-  shdr->sh_addralign = 0;
-  shdr->sh_entsize = 0;
-  return shdr;
+  // only allocate chain when needed
+  /* if (D[GNU_HASH_INDEX].size == D[GNU_HASH_INDEX].alloc_size) { */
+  /*   add_dynamic_sc(GNU_HASH_INDEX, 0, D[GNU_HASH_INDEX].sc_p); */
+  /* } */
 }
 
 static void add_dynsym_entry(uint32_t str_offset, uint32_t shndx, uint32_t value) {
   Elf64_Sym* sym = D[DYNSYM_INDEX].data_p;
   D[DYNSYM_INDEX].data_p += sizeof(Elf64_Sym);
+  // D[DYNSYM_INDEX].remain_size -= sizeof(Elf64_Sym);
   sym->st_name = str_offset;
   int bind = STB_GLOBAL;//ELF64_ST_BIND(STB_GLOBAL);
   int type = STT_FUNC;//ELF64_ST_TYPE(STT_FUNC);
   sym->st_info = ELF64_ST_INFO(bind, type);
-  // printf("st info:%p,%p\n", dynsym_d, sym->st_info);
   sym->st_other = ELF64_ST_VISIBILITY(STV_DEFAULT);
-  // this tells if
   sym->st_shndx = shndx;
   sym->st_value = value;
   sym->st_size = 0;
   D[DYNSYM_INDEX].num += 1;
+  if (D[DYNSYM_INDEX].num * sizeof(Elf64_Sym) == D[DYNSYM_INDEX].alloc_size) {
+    D[DYNSYM_INDEX].size = D[DYNSYM_INDEX].alloc_size;
+    add_dynamic_sc(DYNSYM_INDEX, 0, D[DYNSYM_INDEX].sc_p);
+  } else if (D[DYNSYM_INDEX].remain_size < 0) {
+    printf("allocation size needs to be fixed as moduler.\n");
+  }
 }
 
+// returns head offset of the allocated string.
 static uint32_t add_dynstr_entry(char* name) {
   char* p = D[DYNSTR_INDEX].data_p + D[DYNSTR_INDEX].size;
+  // if it is likely to exceed the remaining size, leave the left as blank,
+  // and start to fill on the new one.
+  if (D[DYNSTR_INDEX].alloc_size < D[DYNSTR_INDEX].size + strlen(name)) {
+    add_dynamic_sc(DYNSTR_INDEX, 0, D[DYNSTR_INDEX].sc_p);
+    p = D[DYNSTR_INDEX].data_p;
+  }
   uint32_t r = D[DYNSTR_INDEX].size;
   for (;*name!=0;p++, name++) {
     *p = *name;
@@ -291,51 +337,107 @@ static uint32_t add_dynstr_entry(char* name) {
   return r;
 }
 
+// return heads pointer
 static uint32_t add_pltgot_entry() {
   uint8_t* s = D[PLT_GOT_INDEX].data_p;
   uint32_t r = plt_got_p->virtual_address + D[PLT_GOT_INDEX].num * 0x10;
   D[PLT_GOT_INDEX].num ++;
   D[PLT_GOT_INDEX].data_p += 0x10;
-  uint8_t p[] = {0xff, 0x25, 0x2, 0x0, 0x0, 0x0};
+  static uint8_t p[] = {0xff, 0x25, 0x2, 0x0, 0x0, 0x0};
   int i = 0;
   for (;i < 6;s++,i++) {
     *s = p[i];
   }
+  if (D[PLT_GOT_INDEX].num * 0x10 == D[PLT_GOT_INDEX].alloc_size) {
+    D[PLT_GOT_INDEX].size = D[PLT_GOT_INDEX].alloc_size;
+    add_dynamic_sc(PLT_GOT_INDEX, 0, plt_got_p/*D[DYNSTR_INDEX].sc_p*/);
+  }
   return r;
 }
 
-static void add_rela_plt_entry(size_t offset, int index) {
+void* add_rela_plt_entry(size_t offset, int sym_index, int _type, size_t addend) {
 
   Elf64_Rela* d = D[RELA_PLT_INDEX].data_p;
   D[RELA_PLT_INDEX].data_p += sizeof(Elf64_Rela);
+  D[RELA_PLT_INDEX].size += sizeof(Elf64_Rela);
   d->r_offset = offset;
-  // uint64_t sym = ELF64_R_SYM(1);
-  // REL_PLT
-  int sym = index;// D[DYNSYM_INDEX].num;
-  int type = ELF64_R_TYPE(R_X86_64_JUMP_SLOT);
+  int sym = sym_index;// D[DYNSYM_INDEX].num;
+  int type = ELF64_R_TYPE(_type);
   d->r_info = ELF64_R_INFO(sym, type);
-  d->r_addend = 0;
+  d->r_addend = addend;
+  if (D[RELA_PLT_INDEX].size == D[RELA_PLT_INDEX].alloc_size) {
+    add_dynamic_sc(RELA_PLT_INDEX, 0, D[RELA_PLT_INDEX].sc_p);
+  }
+  return d;
 }
 
+void add_dyn_relative_entry(size_t offset, size_t addend) {
+
+  Elf64_Rela* d = D[RELA_PLT_INDEX].data_p;
+  D[RELA_PLT_INDEX].data_p += sizeof(Elf64_Rela);
+  D[RELA_PLT_INDEX].size += sizeof(Elf64_Rela);
+  d->r_offset = offset;
+  int sym = 0;
+  int type = ELF64_R_TYPE(R_X86_64_RELATIVE);
+  d->r_info = ELF64_R_INFO(sym, type);
+  d->r_addend = addend;
+  if (D[RELA_PLT_INDEX].size == D[RELA_PLT_INDEX].alloc_size) {
+    add_dynamic_sc(RELA_PLT_INDEX, 0, D[RELA_PLT_INDEX].sc_p);
+  }
+}
 
 uint32_t add_dynamic_entry(char* str) {
 
-  uint32_t r = (uint32_t)lookup_symbol(str, 1);
-  if (r) {
-    return r;
+  uint32_t r;
+  void* rela = lookup_symbol(str, 1);
+  uint8_t add_symbol_entry = 1;
+  uint8_t add_alloc_symbol_chain = 1;
+  if (rela) {
+    // return head of plt got entry.
+    return rela;
+    /* if (ELF64_R_TYPE(rela->r_info) == R_X86_64_JUMP_SLOT) { */
+    /*   return (size_t)rela->r_offset - 8; */
+    /* } */
+    /* add_symbol_entry = 0; */
+    /* add_alloc_symbol_chain = 0; */
   }
   char max_name[100] = {};
   sprintf(max_name, "[link/elf/dynamic.c]\t add dynamic import symbol:%s\n", str);
   logger_emit("misc.log", max_name);
-
   r = add_pltgot_entry();
-  alloc_dynamic_symbol_chain(r, str, 0);
   // 1. Dynamic string entry
   // 2. Dynsym entry
-  add_dynsym_entry(add_dynstr_entry(str), 0, 0);
+  if (add_symbol_entry)
+    add_dynsym_entry(add_dynstr_entry(str), 0, 0);
   // 3. .rela.dyn or .rela.plt entry
-  add_rela_plt_entry(r + 8, D[DYNSYM_INDEX].num - 1);
+  rela = add_rela_plt_entry(r + 8, D[DYNSYM_INDEX].num - 1, R_X86_64_JUMP_SLOT, 0);
+  // if (add_alloc_symbol_chain)
+  alloc_dynamic_symbol_chain(r, str, 0);
   return r;
+}
+
+uint32_t add_dynamic_entry2(size_t offset, char* str) {
+
+  char max_name[100] = {};
+  sprintf(max_name, "[link/elf/dynamic.c]\t add dynamic GLOB_DAT symbol:%s\n", str);
+  logger_emit("misc.log", max_name);
+
+  add_dynsym_entry(add_dynstr_entry(str), 0, 0);
+
+  /* void* _r = lookup_symbol(str, 1); */
+  /* if (_r == 0) { */
+  /*   // 1. Dynamic string entry */
+  /*   // 2. Dynsym entry */
+  /*   add_dynsym_entry(add_dynstr_entry(str), 0, 0); */
+  /*   // 3. .rela.dyn or .rela.plt entry */
+  /*   r = D[DYNSYM_INDEX].num - 1; */
+  /* } else { */
+  /*   printf("might get wrong as symbol duprecation:%s\n", str); */
+  /*   (uint32_t)lookup_symbol(str, 1); */
+  /* } */
+  Elf64_Rela* rela = add_rela_plt_entry(offset, D[DYNSYM_INDEX].num - 1, R_X86_64_GLOB_DAT, 0);
+  // alloc_dynamic_symbol_chain(rela, str, 0);
+  return rela;
 }
 
 void add_pltgot_sc(int index, char* name) {
@@ -361,16 +463,27 @@ void add_fini() {
 
 }
 
-void add_init_array(void* addr) {
+static void add_init_array(void* addr) {
   *(size_t*)(D[INIT_ARRAY_INDEX].data_p) = addr;
   D[INIT_ARRAY_INDEX].data_p += 8;
   D[INIT_ARRAY_INDEX].size += 8;
+  // if the remaining size is not left, allocate new section as another SectionChain
+  if (D[INIT_ARRAY_INDEX].size == D[INIT_ARRAY_INDEX].alloc_size == 0) {
+    add_dynamic_sc(INIT_ARRAY_INDEX, 0, D[INIT_ARRAY_INDEX].sc_p);
+  } else if (D[INIT_ARRAY_INDEX].remain_size < 0) {
+    printf("error\n");
+  }
 }
 
-void add_fini_array(void* addr) {
+static void add_fini_array(void* addr) {
   *(size_t*)(D[FINI_ARRAY_INDEX].data_p) = addr;
   D[FINI_ARRAY_INDEX].data_p += 8;
   D[FINI_ARRAY_INDEX].size += 8;
+  if (D[FINI_ARRAY_INDEX].size == D[FINI_ARRAY_INDEX].alloc_size) {
+    add_dynamic_sc(FINI_ARRAY_INDEX, 0, D[FINI_ARRAY_INDEX].sc_p);
+  } else if (D[FINI_ARRAY_INDEX].remain_size < 0) {
+    printf("error\n");
+  }
 }
 
 void add_export_symbol(void* _oc, void* arg1) {
@@ -384,7 +497,7 @@ void add_export_symbol(void* _oc, void* arg1) {
   static uint64_t* fini = "____fini";
   for (;sym;sym = sym->next) {
     str = sym->name;
-    sprintf(max_name, "[link/elf/dynamic.c]\t add export symbol:%s\n", str);
+    sprintf(max_name, "[link/elf/dynamic.c]\t add export symbol:%s,%d\n", str, D[DYNSYM_INDEX].num);
     logger_emit("misc.log", max_name);
     value = sym->schain->virtual_address +
       ((Elf64_Sym*)(sym->p))->st_value - Confp->base_address;
@@ -405,7 +518,7 @@ void add_export_symbol(void* _oc, void* arg1) {
   }
 }
 
-uint32_t set_dynamic_entry(Elf64_Dyn* dyn, int tag, uint32_t offset) {
+static uint32_t set_dynamic_entry(Elf64_Dyn* dyn, int tag, uint32_t offset) {
 
   dyn->d_tag = tag;
   switch (tag) {
@@ -440,12 +553,15 @@ uint32_t set_dynamic_entry(Elf64_Dyn* dyn, int tag, uint32_t offset) {
     break;
   case DT_RELA:
     dyn->d_un.d_val = offset;
-    offset += D[PLT_GOT_INDEX].num * sizeof(Elf64_Rela);
-    *D[RELA_PLT_INDEX].size_p = D[PLT_GOT_INDEX].num * sizeof(Elf64_Rela);
+    // RELA_PLT_INDEX might be more than PLT_GOT_INDEX.
+    *D[RELA_PLT_INDEX].size_p = D[RELA_PLT_INDEX].size;
+    offset += D[RELA_PLT_INDEX].size;
+    // *D[RELA_PLT_INDEX].size_p = D[PLT_GOT_INDEX].num * sizeof(Elf64_Rela);
     *D[PLT_GOT_INDEX].size_p = D[PLT_GOT_INDEX].num * 0x10;
     break;
   case DT_RELASZ:
-    dyn->d_un.d_val = D[PLT_GOT_INDEX].num * sizeof(Elf64_Rela);
+    dyn->d_un.d_val = D[RELA_PLT_INDEX].size;
+    // dyn->d_un.d_val = D[PLT_GOT_INDEX].num * sizeof(Elf64_Rela);
     break;
   case DT_RELAENT:
     dyn->d_un.d_val = sizeof(Elf64_Rela);
@@ -489,9 +605,10 @@ void set_dynanmic() {
   Elf64_Dyn* dyn = D[DT_DYNAMIC_INDEX].data_p;
   int i = 0;
   uint32_t p = 1;
+  uint8_t* q = 0;
   for (;i < D[DT_DYNAMIC_INDEX].num;i++) {
     set_dynamic_entry(dyn, DT_NEEDED, p);
-    uint8_t* q = D[DYNSTR_INDEX].data_p + p;
+    q = D[DYNSTR_INDEX].data_p + p;
     // go to next entry
     for (p++;*q;q++,p++);
     dyn++;
@@ -507,30 +624,14 @@ void set_dynanmic() {
   Confp->out_size = r - Confp->base_address;
 }
 
-void* add_dynamic_sc(int index, char* _name) {
-  char* name = _name != 0 ? _name : D[index].name;
-  SectionContainer* sc = alloc_section_container(0, name, 0, 0);
-  Elf64_Shdr* shdr = alloc_elf_section(SHT_DYNAMIC, SHF_ALLOC | SHF_WRITE);
-  alloc_section_chain(shdr, 0, sc);
-  // Elf64_Dyn
-  int size = D[index].alloc_size;
-  // sizeof(Elf64_Dyn) * DEFAULT_DYNAMIC_ENTRY_NUM;
-  void* d = __malloc(size);
-  D[index].data_p = d;
-  shdr->sh_offset = d;
-  D[index].size_p = &(shdr->sh_size);
-  // shdr->sh_size = size;
-  return d;
-}
-
 static alloc_dynamic() {
 
   int i = 0;
   int res = 0;
-  for (;i<14;i++) {
+  for (;i<DEFAULT_ENTRY_NUM;i++) {
     res = need_allocate(DynamicEntryTag[i]);
     if (res) {
-      add_dynamic_sc(res, 0);
+      add_dynamic_sc(res, 0, 0);
     } else {
       // printf("no add entry:%d\n", DynamicEntryTag[i]);
     }
@@ -545,7 +646,7 @@ void add_dynamic() {
 
   init_dynamic();
   // dynamic vector which is refferred from another program header.
-  add_dynamic_sc(DT_DYNAMIC_INDEX, ".dynamic");
+  add_dynamic_sc(DT_DYNAMIC_INDEX, DT_DYNAMIC_NAME, 0);
   alloc_dynamic();
 
   if (Confp->use_dt_hash) {
@@ -560,5 +661,10 @@ void add_dynamic() {
     gh->bloom_shift = Confp->hash_table_param.bloom_shift;
   }
   // dynamic symbol initialization
+  Confp->dynstr_head = D[DYNSTR_INDEX].data_p;
+  Confp->dynsym_head = D[DYNSYM_INDEX].data_p;
+  Confp->gnu_hash_head = D[GNU_HASH_INDEX].data_p;
+
   add_dynsym_entry(0, 0, 0);
+
 }

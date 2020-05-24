@@ -30,6 +30,7 @@ void* read_cmdline(int argc, char** argv) {
   for (;i<argc;i++) {
     if (!strcmp(argv[i], "-v")) {
       config.verbose = 1;
+      continue;
     } else if (!strcmp(argv[i], "-o")) {
       config.outfile_name = argv[i+1];
       char* s = config.outfile_name;
@@ -57,6 +58,9 @@ void* read_cmdline(int argc, char** argv) {
     } else if (!strcmp(argv[i], "-use-dt-hash")) {
       config.use_dt_hash = 1;
       continue;
+    } else if (!strcmp(argv[i], "-no-pie")) {
+      config.nopie = 1;
+      continue;
     }
     *p = argv[i];
     p++;
@@ -76,7 +80,8 @@ static void set_default_config() {
   if (config.outfile_type == ET_DYN) {
     config.base_address = 0x00000;
   } else {
-    config.base_address = 0x400000;
+    config.base_address = 0x00000;
+      // 0x400000;
   }
   config.program_header_num = 2;  
   if (config.nodynamic) {
@@ -128,7 +133,6 @@ int main(int argc, char** argv) {
   config.current_object = oc;
   // used for future.
   // config.mem = __thalloc();
-  
   ObjectChain* ocp;
   // this should be done as concurrent as it could be in the end.
   for (;*p1;p1++) {
@@ -161,7 +165,6 @@ int main(int argc, char** argv) {
   }
   iterate_object_chain(add_export_symbol, 0);
   iterate_object_chain(do_reloc, 0);
-
   set_dynanmic();
   gen(config.outfile_name);
   if (config.verbose) {
