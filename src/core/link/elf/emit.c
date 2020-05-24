@@ -317,8 +317,8 @@ static void write_raw_data(void* arg1) {
     cp = __os__seek(FileDescriptor, 0, 1);
     /* printf("write raw data,%p,%p,%p,%p\n", */
     /* 	   FileOffset, /\*FileOffset + *\/shdr->sh_offset, shdr->sh_size, sc->virtual_address); */
-    sprintf(max_name, "[link/elf/emit.c]\t write raw data:%s,size:%p,vaddr:%p\n",
-	  sc->name, shdr->sh_size, sc->virtual_address);
+    sprintf(max_name, "[link/elf/emit.c]\t write raw data:%s,size:%p(%p),vaddr:%p\n",
+	    sc->name, shdr->sh_size, &shdr->sh_size, sc->virtual_address);
     logger_emit("misc.log", max_name);
     if (shdr->sh_size)
       __os__write(FileDescriptor, shdr->sh_offset, shdr->sh_size);

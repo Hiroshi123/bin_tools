@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "alloc.h"
+#include "elf.h"
 #include "link.h"
 
 /* struct SymbolHashTable HashTable = {}; */
@@ -27,8 +28,83 @@ uint32_t elf_hash(const uint8_t* name) {
   return h;
 }
 
+uint32_t sysv_hash(const char *s0)
+{
+  const unsigned char *s = (void *)s0;
+  uint_fast32_t h = 0;
+  while (*s) {
+    h = 16*h + *s++;
+    h ^= h>>24 & 0xf0;
+  }
+  return h & 0xfffffff;
+}
+
+uint32_t gnu_hash(const char *s0)
+{
+  const unsigned char *s = (void *)s0;
+  uint_fast32_t h = 5381;
+  for (; *s; s++)
+    h += h*32 + *s;
+  return h;
+}
+
+/* static Sym *sysv_lookup(const char *s, uint32_t h, struct dso *dso) */
+/* { */
+/*   size_t i; */
+/*   Sym *syms = dso->syms; */
+/*   Elf_Symndx *hashtab = dso->hashtab; */
+/*   char *strings = dso->strings; */
+/*   for (i=hashtab[2+h%hashtab[0]]; i; i=hashtab[2+hashtab[0]+i]) { */
+/*     if ((!dso->versym || dso->versym[i] >= 0) */
+/* 	&& (!strcmp(s, strings+syms[i].st_name))) */
+/*       return syms+i; */
+/*   } */
+/*   return 0; */
+/* } */
+
+
+static int gnu_lookup(uint32_t h1, uint32_t *hashtab, const char *s) {
+
+  uint32_t nbuckets = hashtab[0];
+  uint32_t *buckets = hashtab + 4 + hashtab[2]*(sizeof(size_t)/4);
+  uint32_t i = buckets[h1 % nbuckets];  
+  Elf64_Sym* sym = Confp->dynsym_head;
+
+  if (!i) return 0;
+  uint32_t *hashval = buckets + nbuckets + (i - hashtab[1]);
+  for (h1 |= 1; ; i++) {
+    uint32_t h2 = *hashval++;
+    // && (!dso->versym || dso->versym[i] >= 0)
+    if ((h1 == (h2|1)) && !strcmp(s, Confp->dynstr_head + sym[i].st_name /*dso->strings + dso->syms[i].st_name*/))
+      return i;
+    if (h2 & 1) break;
+  }
+  return 0;
+}
+
+static int gnu_lookup_filtered(uint32_t h1, uint32_t *hashtab, const char *s, uint32_t fofs, size_t fmask)
+{
+  const size_t *bloomwords = (const void *)(hashtab+4);
+  size_t f = bloomwords[fofs & (hashtab[2]-1)];
+  if (!(f & fmask)) return 0;
+  f >>= (h1 >> hashtab[3]) % (8 * sizeof f);
+  if (!(f & 1)) return 0;
+  return gnu_lookup(h1, hashtab, s);
+}
+
+int find_sym2(char* s) {
+  
+  uint32_t h = 0, gh = gnu_hash(s), gho = gh / (8*sizeof(size_t)), *ght;
+  size_t ghm = 1ul << gh % (8*sizeof(size_t));
+  // TODO :: DTHUSH support
+  ght = Confp->gnu_hash_head;
+  int p = gnu_lookup_filtered(gh, ght, s, gho, ghm);
+  return p;
+}
+
+
 uint8_t isSqlite(uint64_t* p) {
-  printf("%p\n", *(p+1));
+  // printf("%p\n", *(p+1));
   if (*p == 0x66206574694C5153 && *(p+1) == 0x00332074616D726F) {
     return 1;
   }
