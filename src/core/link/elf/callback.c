@@ -2,14 +2,16 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include "alloc.h"
 #include "elf.h"
 #include "link.h"
 
 extern Config* Confp;
 
-void _on_elf_symtab_callback_for_link(Elf64_Sym* arg1, void* e1) {
-  //
-  uint8_t* p = (uint8_t*)e1;
+void _on_elf_symtab_callback_for_link(Elf64_Sym* arg1, void* _oc) {
+
+  ObjectChain* oc = _oc;
+  uint8_t* p = (ObjectChain*)oc->str_table_p;
   char max_name[100] = {};
   sprintf(max_name, "[link/elf/callback.c]\t symbol table callback : %s\n", p + arg1->st_name);
   logger_emit("misc.log", max_name);
@@ -26,9 +28,26 @@ void _on_elf_symtab_callback_for_link(Elf64_Sym* arg1, void* e1) {
   // only globally binded symbol will be registered on hash table.
   if (ELF64_ST_BIND(arg1->st_info) == STB_GLOBAL &&
       ELF64_ST_VISIBILITY(arg1->st_other) == STV_DEFAULT &&
-      arg1->st_shndx != STN_UNDEF) {
-    alloc_export_symbol_chain(arg1, p + arg1->st_name, arg1->st_shndx);    
-  }  
+      arg1->st_shndx != SHN_UNDEF) {
+
+    // TODO :: SHN_COMMON(communal variables)
+    // Merge them if they are duplicated,
+    // if not, simply put on .bss section
+    if (arg1->st_shndx == SHN_COMMON) {
+      printf("SHN_COMMON is not yet supported:%s\n", p + arg1->st_name);
+      return;
+    }
+    if (arg1->st_shndx & 0xff00 == 0xff) {
+      printf("%p is not yet supported:%s\n", arg1->st_shndx, p + arg1->st_name);
+      return;
+    }
+    alloc_export_symbol_chain(arg1, p + arg1->st_name, arg1->st_shndx);
+
+    Elf64_Shdr* shdr = ((Elf64_Shdr*)(oc->section_head)) + arg1->st_shndx;
+    char* sec_name = oc->sh_str_table_p + shdr->sh_name;
+    uint16_t index = get_section_index_by_name(sec_name, shdr);
+    arg1->st_shndx = index;
+  }
 }
 
 void _on_section_callback_for_link
@@ -45,6 +64,7 @@ void _on_section_callback_for_link
     *ret = _alloc_obj_chain(0, 0, 0);
     oc = *ret;
     oc->section_head = shdr;
+    oc->sh_str_table_p = strtable;
     return;
   }
   shdr->sh_offset += p;
@@ -58,7 +78,7 @@ void _on_section_callback_for_link
       // sh_link should point to section index of symbol table.
       // Since symbol table is recorded in another way, and it is not often
       // that objectfile contains multiple symbol tables, it is omitted.
-      // }    
+      // }
     }
     return;
   }
@@ -68,16 +88,16 @@ void _on_section_callback_for_link
     oc->symbol_num = shdr->sh_size / sizeof(Elf64_Sym);
     oc->symbol_table_p = shdr->sh_offset;
     oc->str_table_p = p + (((Elf64_Shdr*)oc->section_head) + shdr->sh_link)->sh_offset;
-    
+
     // string table is also fed here.
     /* ret->str_offset = p + (((Elf64_Shdr*)ret->section_head) + shdr->sh_link)->sh_offset; */
     /* ret->symbol_offset = shdr->sh_offset; */
     /* ret->symbol_size = shdr->sh_size; */
-    
+
     // return;
   }
   if (shdr->sh_type == SHT_STRTAB) {
-    // if this is section header string table, do not add it, as this will be resolved 
+    // if this is section header string table, do not add it, as this will be resolved
     /* if (shdr->sh_offset == strtable) { */
     /*   return; */
     /* } */
@@ -89,12 +109,13 @@ void _on_section_callback_for_link
   }
   // if you find previous section that the name is matched with other section,
   // you do not need to reallocate new SectionContainer.
-  
+
   if (Confp->outfile_type == ET_DYN || Confp->outfile_type == ET_EXEC) {
     // TODO :: .bss section will be truned into a part of .data section which is initialized as 0.
     // if you set a distinct one, rewrite this.
     if (shdr->sh_type == SHT_NOBITS) {
       Confp->bss_size += shdr->sh_size;
+      shdr->sh_offset = __malloc(shdr->sh_size);
     } else if (shdr->sh_type != SHT_PROGBITS) {
       return;
     }

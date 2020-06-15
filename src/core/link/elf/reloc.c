@@ -46,12 +46,11 @@ void set_virtual_address(void* arg1) {
   }
   for (;schain;schain = schain->this) {
     shdr = schain->p;
-    schain->virtual_address = sc->virtual_address + sc->size;
+    // schain->virtual_address = sc->virtual_address + sc->size;
     // printf("%p,%p\n", shdr->sh_offset, schain->virtual_address);
-    shdr->sh_addr = Confp->virtual_address_offset + sc->size;
+    shdr->sh_addr = schain->virtual_address = Confp->virtual_address_offset + sc->size;
     sc->size += shdr->sh_size;
   }
-  // printf("\n");
   int tmp = sc->size;//((sc->size + 3/*3shdr->sh_addralign*/) >> 2) << 2;
   Confp->virtual_address_offset += Confp->output_vaddr_alignment + tmp;
   char max_name[100] = {};
@@ -125,10 +124,10 @@ static void resolve(ObjectChain* oc, Elf64_Rela* rela, Elf64_Shdr* sub_shdr/*, v
   // if it is not -4, then should pay attention the bug which relates this.
   size_t addend = 0 - rela->r_addend;
   switch (sym_type) {
-  case STT_NOTYPE: {
-    if (addend != 4) {
-      // printf("addend:%s,%p\n", name, addend);
-    }
+
+  case STT_NOTYPE:
+  case STT_OBJECT:
+  case STT_FUNC: {
     // dst_addr = resolve_external(name);
     Elf64_Sym* p = (Elf64_Sym*)Confp->dynsym_head + find_sym2(name);
     dst_addr = p->st_value;
@@ -148,7 +147,7 @@ static void resolve(ObjectChain* oc, Elf64_Rela* rela, Elf64_Shdr* sub_shdr/*, v
 	fill_address(addr, rel_type, src_addr + addend, dst_addr);
       }
     } else {
-      // uint32_t src_addr = 0;
+
       external_resolve_num += 1;
       sprintf(max_name, "[link/elf/reloc.c]\t resolve externally:%s\n", name);
       logger_emit("misc.log", max_name);
@@ -180,13 +179,17 @@ static void resolve(ObjectChain* oc, Elf64_Rela* rela, Elf64_Shdr* sub_shdr/*, v
     // ISSUES :: Compiler provides apparently -4 offset value before data?????
     // But src.addr is also negated by 4, it will be ok to be as it is.
     if (rel_type == R_X86_64_64) {
-      // printf("internal\n");
+      /* printf("internal\n"); */
       add_rela_plt_entry(src_addr, 0, R_X86_64_RELATIVE, dst_addr);
     } else {
+      // printf("fill\n");
       fill_address(addr, rel_type, src_addr, dst_addr);
     }
     break;
   }
+  default:
+    printf("not yet supported type:%p\n", sym_type);
+    break;
   }
 }
 

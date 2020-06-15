@@ -104,6 +104,7 @@ struct _ObjectChain {
   // size_t otherwise
   char*/*IMAGE_SYMBOL*/ symbol_table_p;
   uint8_t* str_table_p;
+  char* sh_str_table_p;
   // tables which put pointer to relocation section onto(only used for elf)
   void* reloc_section_head;
   void* reloc_section_tail;
@@ -176,6 +177,7 @@ typedef struct {
   uint8_t verbose;
   uint8_t pack;
   uint8_t nodynamic;
+  uint8_t nopie;
   uint8_t dynlib;
   char* outfile_name;
   uint8_t outfile_type;
@@ -202,6 +204,10 @@ typedef struct {
   uint8_t use_gnu_hash;
   uint8_t use_dt_hash;
   hash_table_parameter hash_table_param;
+  int bss_size;
+  void* dynsym_head;
+  void* dynstr_head;
+  void* gnu_hash_head;
 } Config;
 
 SectionContainer* alloc_section_container_init(uint32_t va, void* name, void* candidate_list, ListContainer* Sc);
@@ -216,7 +222,8 @@ ObjectChain* _alloc_obj_chain(void* sym_begin, void* str_begin, uint32_t sym_num
 void update_object_chain(ObjectChain* oc, SectionChain* schain);
 // section.c
 void* alloc_section_chain(void* s, void* offset, SectionContainer* scon);
-
+// SectionChain* get_section_chain_by_index(uint8_t index1, uint8_t index2);
+SectionChain* get_section_chain_by_index(uint16_t index1);
 uint32_t elf_hash(const uint8_t* name);
 
 #define M1(H,F,X) (H.bucket + (F(X) % H.nbucket))

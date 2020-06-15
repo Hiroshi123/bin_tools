@@ -333,13 +333,14 @@ static struct dso *load_library(const char *name, struct dso *_dso, uint8_t recu
   }
   dso->name = name;
   map_library(fd, dso);
+
+  TAIL->next = dso;
+  TAIL = dso;
+  
   if (recurse) {
     load_deps(dso);
   }
   __close(fd);
-
-  TAIL->next = dso;
-  TAIL = dso;
 
   reloc_all(dso);
 
@@ -457,7 +458,7 @@ void __start(void* rsp) {
   mem_init();
 
   logger_emit_p(sizeof(struct dso) * 4);
-
+  
   /* void* initial_dso_heap = __malloc(sizeof(struct dso) * 4); */
   /* memcpy(&dsos[0], initial_dso_heap, sizeof(struct dso) * 4);   */
 
