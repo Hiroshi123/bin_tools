@@ -26,15 +26,14 @@ void alloc_export_symbol_chain(void* is, char* name, int shndx) {
   SectionChain* schain = Confp->current_object->section_chain_head;
   int i = 0;
   for (;schain && i == shndx;schain = schain->next,i++);
-  
-  
+
   SymbolChain* chain = alloc_symbol_chain(is, name, schain);
   // DUPRECARED :: symbol table resolution had been replaced by gnu hash which is also used for runtime resolution..
   // size_t* table_index = M1(Confp->ExportHashTable, elf_hash, name);
   // *table_index = chain;
-  
+
   if (!Confp->current_object->symbol_chain_head) {
-    Confp->current_object->symbol_chain_head = chain;    
+    Confp->current_object->symbol_chain_head = chain;
   } else {
     Confp->current_object->symbol_chain_tail->next = chain;
   }
@@ -105,17 +104,17 @@ void iterate_symbol_chain() {
     SectionChain* schain = sym->schain;
     printf("%p\n", schain->virtual_address + p->st_value);
   }
-  
+
   /* SectionChain* schain = Confp->current_object->section_chain_head; */
   /* int i = 0; */
   /* printf("a\n"); */
   /* for (;schain;schain = schain->next,i++) { */
   /*   printf("pp::%p\n", schain->p); */
   /* } */
-  
+
 }
 
 void alloc_dynamic_symbol(void* a, void* b) {
-  
+
 }
 

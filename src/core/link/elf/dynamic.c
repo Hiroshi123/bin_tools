@@ -63,7 +63,7 @@ struct DynamicParams {
 
 struct DynamicParams D[10];
 
-static int DEFAULT_DYNAMIC_ENTRY_NUM = 0x1000;
+static int DEFAULT_DYNAMIC_ENTRY_NUM = 0x2000;
 static int DEFAULT_DYNSYM_NUM = 0x2000;
 static int DEFAULT_DYNSTR_NUM = 0x2000;
 static int DEFAULT_PLTGOT_NUM = 0x2000;
@@ -497,11 +497,14 @@ void add_export_symbol(void* _oc, void* arg1) {
   static uint64_t* fini = "____fini";
   for (;sym;sym = sym->next) {
     str = sym->name;
-    sprintf(max_name, "[link/elf/dynamic.c]\t add export symbol:%s,%d\n", str, D[DYNSYM_INDEX].num);
+    SectionChain* sc1 = get_section_chain_by_index(((Elf64_Sym*)(sym->p))->st_shndx);
+    sprintf(max_name, "[link/elf/dynamic.c]\t add export symbol:%s,%d,%p,%p\n",
+	    str, D[DYNSYM_INDEX].num, sym->schain->virtual_address, sc1->virtual_address);
     logger_emit("misc.log", max_name);
-    value = sym->schain->virtual_address +
+    // value = sym->schain->virtual_address +
+    value = sc1->virtual_address +
       ((Elf64_Sym*)(sym->p))->st_value - Confp->base_address;
-    add_dynsym_entry(add_dynstr_entry(str), 1, value);
+    add_dynsym_entry(add_dynstr_entry(str), ((Elf64_Sym*)(sym->p))->st_shndx, value);
     if (Confp->use_dt_hash) {
       add_dt_hash_entry(str, D[DYNSYM_INDEX].num-1);
     } else {
