@@ -1014,7 +1014,7 @@ typedef struct {
 #define AT_L2_CACHESHAPE	36
 #define AT_L3_CACHESHAPE	37
 
-
+#define AT_MAX 38
 
 
 typedef struct {
@@ -3236,6 +3236,8 @@ void _on_section_callback_for_link( uint8_t* p, uint8_t* strtable, Elf64_Shdr* s
 				    // sh_callback_arg* ret);
 void _on_elf_symtab_callback_for_link(Elf64_Sym* arg1, void* e1);
 
+void* run_through_elf_symtable3(void*,void*,void*,void*);
+
 typedef struct _PhdrList PhdrList;
 
 struct _PhdrList {
@@ -3244,3 +3246,7 @@ struct _PhdrList {
   void* scon_tail;
   PhdrList* next;
 };
+
+
+
+

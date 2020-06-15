@@ -1,4 +1,5 @@
 
+#include <stdint.h>
 #include "types.h"
 
 enum OBJECT_FORMAT {
@@ -15,4 +16,5 @@ enum OBJECT_FORMAT {
 p_host check_fname(void* meta, p_guest f_addr, enum OBJECT_FORMAT o);
 // enum OBJECT_FORMAT detect_format(const int p);
 
+enum OBJECT_FORMAT detect_format(int fd, uint32_t* header_size);
 
