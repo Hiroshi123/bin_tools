@@ -141,7 +141,7 @@ int main(int argc, char** argv) {
     run_through_elf_shdr3(scr, &_on_section_callback_for_link, &ocp);
     run_through_elf_symtable3
       (ocp->symbol_table_p, ((Elf64_Sym*)ocp->symbol_table_p) + ocp->symbol_num,
-       &_on_elf_symtab_callback_for_link, ocp->str_table_p);
+       &_on_elf_symtab_callback_for_link, ocp);
   }
   if (config.pack)
     iterate_section_container(__p1);
