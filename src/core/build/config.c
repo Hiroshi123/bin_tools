@@ -15,26 +15,20 @@
 build_conf* Confp = 0;
 static build_conf Conf;
 
-int a = 1;
+void __z__build__init() {
 
-// static rules TMPRULE;
-// _bind* BUF_P;
-// size_t* CMD_P;
-// void* DotFileHandle;
-
-void f1() {}
-
-void init() {
-
-  f1();
   Conf.vars.first_var = __malloc(50 * sizeof(void*));
   Conf.rules.first_rule = __malloc(50 * sizeof(void*));
   
   char deps_graph_fname[] = "deps.dot";
   Conf.dot_file_handle = __os__open(deps_graph_fname, O_CREAT | O_WRONLY | O_TRUNC, 0777);
   Confp = &Conf;
+  Conf.vars.var_hash_table.nbucket = 100;
+  int hash_size = Conf.vars.var_hash_table.nbucket * sizeof(void*);
+  Conf.vars.var_hash_table.bucket = __malloc(hash_size);
   
-  /* char str[] = "digraph graph_name {\n"; */
-  /* __os__write(DotFileHandle, str, strlen(str));   */
+  __z__std__init_hash_table(&Conf.vars.var_hash_table);
+  __z__std__init_thread_pool(1);
+  
 }
 

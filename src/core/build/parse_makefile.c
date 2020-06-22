@@ -46,26 +46,42 @@ static State do_context_read_now(uint8_t* p) {
   var* a_var;
   rule* a_rule;
   switch (*p) {
-  case 0x3a/*:*/:
+  case 0x2b/*+*/:
     if (*(p+1) == 0x3d/*=*/) {
+      *p = 0;
       a_var = Confp->vars.first_var + Confp->vars.num;
-      a_var->name = retrieve(&a_var->name, p, PARSE_DATA.str, 0);
+      a_var->name = PARSE_DATA.str;
+      a_var->kind = ASSIGN_ADD;
       PARSE_DATA.str = p + 2;
       return CONTEXT_VARIABLE;
     }
-    a_rule = Confp->rules.first_rule + Confp->rules.num;
+    break;
+
+  case 0x3a/*:*/:
+    if (*(p+1) == 0x3d/*=*/) {
+      *p = 0;
+      a_var = Confp->vars.first_var + Confp->vars.num;
+      a_var->name = PARSE_DATA.str;
+      a_var->kind = ASSIGN_IMMEDIATE;
+      PARSE_DATA.str = p + 2;
+      return CONTEXT_VARIABLE;
+    }
     Confp->rules.num++;
-    a_rule->target = retrieve(&a_rule->target, p, PARSE_DATA.str, 1);
+    a_rule = Confp->rules.first_rule + Confp->rules.num - 1;
+    a_rule->target = retrieve(&a_rule->target, p, PARSE_DATA.str, 0);
+    PARSE_DATA.str = p + 1;
     return CONTEXT_RULE_DEPS;
   case 0x3d/*=*/:
     a_var = Confp->vars.first_var + Confp->vars.num;
     a_var->name = retrieve(&a_var->name, p, PARSE_DATA.str, 0);
+    a_var->kind = ASSIGN_RECURSIVE;
     PARSE_DATA.str = p + 1;
     return CONTEXT_VARIABLE;
   case 0x3f/*?*/:
     if (*(p+1) == 0x3d/*=*/) {
       a_var = Confp->vars.first_var + Confp->vars.num;
       a_var->name = retrieve(&a_var->name, p, PARSE_DATA.str, 0);
+      a_var->kind = ASSIGN_RECURSIVE_ALLOW_NON_DEFINED;
       PARSE_DATA.str = p + 1;
       return CONTEXT_VARIABLE;
     }
@@ -74,58 +90,12 @@ static State do_context_read_now(uint8_t* p) {
     return CONTEXT_READ_NOW;
   }
   return 0;
-  if (*p == 0x20/* */) return PARSE_DATA.context;
-  if ((0x41 <= *p && *p <= 0x5a) || (0x61 <= *p && *p <= 0x7a)) {
-    __os__write(1, "u\n", 2);
-    return CONTEXT_READ_NOW;
-  }
-  if (*p == 0x3a/*:*/) {
-    if (*(p+1) == 0x3d/*=*/) {
-      var* a_var = Confp->vars.first_var + Confp->vars.num;
-      a_var->name = retrieve(&a_var->name, p, PARSE_DATA.str, 0);
-      PARSE_DATA.str = p + 2;
-      // PARSE_DATA.context |= CONTEXT_VARIABLE;
-      // PARSE_DATA.context &= ~CONTEXT_READ_NOW;
-      return CONTEXT_VARIABLE;
-    } else {
-      __os__write(1, "i\n", 2);
-      rule* a_rule = Confp->rules.first_rule + Confp->rules.num;
-      Confp->rules.num++;
-      a_rule->target = retrieve(&a_rule->target, p, PARSE_DATA.str, 1);
-      // PARSE_DATA.context |= CONTEXT_RULE_DEPS;
-      // PARSE_DATA.context &= ~CONTEXT_READ_NOW;
-      PARSE_DATA.str = p + 1;
-      return CONTEXT_RULE_DEPS;
-    }
-  }
-  if (*p == 0x3d/*=*/) {
-    var* a_var = Confp->vars.first_var + Confp->vars.num;
-    a_var->name = retrieve(&a_var->name, p, PARSE_DATA.str, 0);
-    PARSE_DATA.str = p + 1;
-    return CONTEXT_VARIABLE;
-  }
-  if (*p == 0x3f/*?*/) {
-    if (*(p+1) == 0x3d/*=*/) {
-      var* a_var = Confp->vars.first_var + Confp->vars.num;
-      a_var->name = retrieve(&a_var->name, p, PARSE_DATA.str, 0);
-      PARSE_DATA.str = p + 1;
-      return CONTEXT_VARIABLE;
-    }
-  }
-  return PARSE_DATA.context;
-  /* if (*p == 0x0a/\*LF\n*\/) { */
-  /*   PARSE_DATA.context &= ~CONTEXT_READ_NOW; */
-  /*   return; */
-  /* } */
-  /* if (*p == 0x09/\*HT*\/) { */
-  /*   PARSE_DATA.context &= ~CONTEXT_READ_NOW; */
-  /*   return; */
-  /* } */
 }
 
 static State do_context_sep(uint8_t* p) {
   if (*p == 0x09/*TAB*/ && *(p-1) == 0x0a) {
     __os__write(1, "s\n", 2);
+    PARSE_DATA.str = p + 1;
     /* PARSE_DATA.context |= CONTEXT_RULE_CMD; */
     /* PARSE_DATA.context &= ~CONTEXT_RULE_SEP; */
     return CONTEXT_RULE_CMD;
@@ -135,11 +105,30 @@ static State do_context_sep(uint8_t* p) {
 
 static State do_context_variable(uint8_t* p) {
 
+  State r;
   switch (*p) {
   case 0x0a/*LF\n*/:
-    return CONTEXT_NONE;
+    r = CONTEXT_NONE;
+    goto b1;
   case 0x23/*#*/:
-    return CONTEXT_COMMENT;
+    r = CONTEXT_COMMENT;
+  b1: {
+      var* a_var = Confp->vars.first_var + Confp->vars.num;
+      int col_type = COL_OVERRIDE;
+      *p = 0;
+      if (a_var->kind == ASSIGN_IMMEDIATE) {
+        void* r = resolve_vars(PARSE_DATA.str);
+	if (r) a_var->value = r;
+	else a_var->value = PARSE_DATA.str;
+      } else if (a_var->kind == ASSIGN_ADD) {
+	col_type = COL_ADD;
+	*(char*)(PARSE_DATA.str - 1) = 0x20;
+	a_var->value = PARSE_DATA.str - 1;
+      } else a_var->value = PARSE_DATA.str;
+      __z__std__hash_set(a_var->name, a_var->value, col_type);
+      PARSE_DATA.str = 0;
+    }
+    return r;
   default:
     return CONTEXT_VARIABLE;
   }
@@ -156,7 +145,7 @@ static State do_context_rule_cmd(uint8_t* p) {
     ret = CONTEXT_COMMENT;
   b1: {
       __os__write(1, "c\n", 2);
-      rule* a_rule = Confp->rules.first_rule + Confp->rules.num;
+      rule* a_rule = Confp->rules.first_rule + Confp->rules.num - 1;
       a_rule->num_cmd++;
       list* li = __malloc(sizeof(list));
       // if there is precedented list element, set this as next of previous one.
@@ -167,7 +156,7 @@ static State do_context_rule_cmd(uint8_t* p) {
       } else {
 	a_rule->cmd = li;
       }
-      li->p = retrieve(&a_rule->cmd, p, PARSE_DATA.str, 1);
+      li->p = retrieve(&a_rule->cmd, p, PARSE_DATA.str, 0);
       PARSE_DATA.str = 0;
       // PARSE_DATA.context |= CONTEXT_RULE_SEP;
       // PARSE_DATA.context &= ~CONTEXT_RULE_CMD;
@@ -181,7 +170,11 @@ static State do_context_rule_cmd(uint8_t* p) {
 static State do_context_rule_deps(uint8_t* p) {
   if (*p == 0x0a/*LF\n*/) {
     __os__write(1, "d\n", 2);
-    /* PARSE_DATA.context |= CONTEXT_RULE_SEP; */
+    rule* a_rule = Confp->rules.first_rule + Confp->rules.num - 1;
+    a_rule->deps = retrieve(&a_rule->deps, p, PARSE_DATA.str, 0);
+    PARSE_DATA.str = 0;
+
+    /* PARSE_DATA.context |= CONTEXT_RULE_SEP;
     /* PARSE_DATA.context &= ~CONTEXT_RULE_DEPS; */
     /* PARSE_DATA.context &= ~CONTEXT_READ_NOW; */
     return CONTEXT_RULE_SEP;
@@ -193,7 +186,11 @@ static State do_context_rule_deps(uint8_t* p) {
 ///// export ////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////
 
-void* parse_makefile(uint8_t* p, uint8_t* e) {
+void tmp1() {
+  __os__write(1, "tmp\n", 4);
+}
+
+void* __z__build__parse_makefile(uint8_t* p, uint8_t* e) {
 
   State next = 0;
   for (;p<e;p++) {
@@ -224,5 +221,8 @@ void* parse_makefile(uint8_t* p, uint8_t* e) {
       break;
     }
   }
+
+  __z__std__put_task(&tmp1);
+
 }
 

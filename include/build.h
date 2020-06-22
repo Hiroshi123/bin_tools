@@ -1,4 +1,5 @@
 
+#include "hash_table.h"
 
 #define _(X)->(Y) (X)
 
@@ -26,6 +27,7 @@ typedef uint32_t DWORD;
 typedef struct {
   uint8_t* name;
   uint8_t* value;  
+  uint8_t kind;
 } var;
 
 typedef struct _list list;
@@ -51,7 +53,7 @@ typedef struct {
 typedef struct {
   uint64_t num;
   var* first_var;
-  uint8_t kind;
+  hash_table var_hash_table;
 } vars;
 
 typedef struct {
@@ -67,10 +69,10 @@ typedef struct {
 } parse_data;
 
 enum var_kind {
-  RECURSIVE,// :=
-  IMMIDIATE,// =
-  IMMIDIATE_ALLOW_NON_DEFINED,// ?=
-  ADD,// +=
+  ASSIGN_IMMEDIATE = 1,// :=
+  ASSIGN_RECURSIVE,// =
+  ASSIGN_RECURSIVE_ALLOW_NON_DEFINED,// ?=
+  ASSIGN_ADD,// +=
 };
 
 typedef struct {
@@ -79,7 +81,6 @@ typedef struct {
   void* dot_file_handle;
 } build_conf;
 
-static void* search_rule(void* p);
 static void* bind_cmd(rule* r);
 static uint8_t check_assign_var(uint8_t** _p, uint8_t** _q);
 static void do_wildcard(uint8_t* s, uint8_t** _p, uint8_t** _q);
@@ -87,4 +88,5 @@ static void unbind_rule();
 static void* assign_var(uint8_t* p, uint8_t* q);
 static int get_length_var(uint8_t* p);
 
+void* search_rule(void* p);
 void* retrieve(uint64_t** dest, uint8_t* p, uint8_t* p1, uint8_t var_check);

@@ -169,6 +169,7 @@ static uint8_t resolve_deps(rule* r) {
   uint8_t* p;
   rule* v;
   uint8_t needs_exec = 0;
+  __os__write(1, "a!\n", 3);
   for (;;) {
     p = _strtok(p1);
     // printf("look for %s\n",p1);
@@ -213,7 +214,7 @@ static void* convert_path_slash(uint8_t* p) {
 }
 
 static void do_exec(void* cmd) {
-
+  
   char* p = ((list*)cmd)->p;
   size_t* args = __malloc(sizeof(void*) * 10);
   void* q = 0;
@@ -230,8 +231,6 @@ static void do_exec(void* cmd) {
       break;
     }
     args[i] = p;
-    /* __os__write(1, p, strlen(p)); */
-    /* __os__write(1, "\n", 1); */
     p = q;
   }
   int pid = __os__fork();
@@ -250,24 +249,6 @@ static void do_exec(void* cmd) {
   }
   __os__write(1, p, strlen(p));
   __os__write(1, "exec\n", 5);
-}
-
-static uint8_t need_resolve(char* p) {
-  for (;*p;p++) {
-    if (*p == 0x24) {
-      p++;
-      switch (*p) {
-      case 0x28:
-      case 0x3c:
-      case 0x40:
-      case 0x5e:
-	return 1;
-      default:
-	break;
-      }
-    }
-  }
-  return 0;
 }
 
 static void* get_fullpath(void* r) {
@@ -385,6 +366,7 @@ static void unbind_rule() {
 // args1 : Specify target string.
 void* search_rule(void* p) {
 
+  __os__write(1, "search\n", 7);
   uint64_t len = Confp->rules.num;// *RULES_P;
   uint8_t* cmd;
   uint8_t* suffix;
