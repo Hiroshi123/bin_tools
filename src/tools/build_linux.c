@@ -5,10 +5,13 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 
 #include "alloc.h"
 #include "os.h"
 #include "build.h"
+#include "thread.h"
 
 static void* read_build_file(char* fname, int* size) {
 
@@ -25,8 +28,17 @@ static void* read_build_file(char* fname, int* size) {
   return buf;
 }
 
-void start(char** argv) {
+static void th1(void* arg,uint64_t* arg2,uint64_t* arg3,uint64_t* arg4) {
+  __os__write(1, "a!!\n", 4);
+  for(;;);
+}
 
+static void th2() {
+  __os__write(1, "b!!\n", 4);
+}
+
+void start(char** argv) {
+  
   int argc = *argv++;
   if (argc == 1) {
     char* str = "usage\n"\
@@ -36,10 +48,11 @@ void start(char** argv) {
     __os__write(1, str, strlen(str));
     return;
   }
+  
   // this init should be replaced something equivalent to attribute constructor
   // on my loader on a shared library.
-  init();
-
+  __z__build__init();
+  
   argv++;
   char* fname = *argv++;
   size_t* target;
@@ -54,10 +67,17 @@ void start(char** argv) {
   if (buf == 0 || size == 0) {
     __os__write(1, "error\n", 6);
   }
-  parse_makefile(buf, buf + size);
-
-  resolve();
+  __z__build__parse_makefile(buf, buf + size);
+  
+  // resolve();
+  __z__build__resolve_target();
+  
   // search_rule(target);
+  // __z__std__init_thread_pool(1);
+  
+  for (;;);
+  
+  // edge ..  
 }
 
 
