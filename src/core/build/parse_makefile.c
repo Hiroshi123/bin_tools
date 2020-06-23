@@ -23,6 +23,10 @@ static parse_data PARSE_DATA = {
 
 static State do_context_none(uint8_t* p) {
 
+  if (*p == 0x24) {
+    PARSE_DATA.str = p;
+    return CONTEXT_READ_NOW;
+  }
   if ((0x41 <= *p && *p <= 0x5a) || (0x61 <= *p && *p <= 0x7a)) {
     __os__write(1, "y\n", 2);
     PARSE_DATA.str = p;
@@ -68,25 +72,32 @@ static State do_context_read_now(uint8_t* p) {
     }
     Confp->rules.num++;
     a_rule = Confp->rules.first_rule + Confp->rules.num - 1;
-    a_rule->target = retrieve(&a_rule->target, p, PARSE_DATA.str, 0);
+    *p = 0;
+    a_rule->target = PARSE_DATA.str;
+    // retrieve(&a_rule->target, p, PARSE_DATA.str, 0);
     PARSE_DATA.str = p + 1;
     return CONTEXT_RULE_DEPS;
   case 0x3d/*=*/:
     a_var = Confp->vars.first_var + Confp->vars.num;
-    a_var->name = retrieve(&a_var->name, p, PARSE_DATA.str, 0);
+    *p = 0;
+    a_var->name = PARSE_DATA.str;
+    // retrieve(&a_var->name, p, PARSE_DATA.str, 0);
     a_var->kind = ASSIGN_RECURSIVE;
     PARSE_DATA.str = p + 1;
     return CONTEXT_VARIABLE;
   case 0x3f/*?*/:
     if (*(p+1) == 0x3d/*=*/) {
       a_var = Confp->vars.first_var + Confp->vars.num;
-      a_var->name = retrieve(&a_var->name, p, PARSE_DATA.str, 0);
+      *p = 0;
+      a_var->name = PARSE_DATA.str;
+      // retrieve(&a_var->name, p, PARSE_DATA.str, 0);
       a_var->kind = ASSIGN_RECURSIVE_ALLOW_NON_DEFINED;
       PARSE_DATA.str = p + 1;
       return CONTEXT_VARIABLE;
     }
     return CONTEXT_READ_NOW;
   default:
+    // PARSE_DATA.str = p;
     return CONTEXT_READ_NOW;
   }
   return 0;
@@ -156,10 +167,10 @@ static State do_context_rule_cmd(uint8_t* p) {
       } else {
 	a_rule->cmd = li;
       }
-      li->p = retrieve(&a_rule->cmd, p, PARSE_DATA.str, 0);
+      *p = 0;
+      li->p = PARSE_DATA.str;
+      //retrieve(&a_rule->cmd, p, PARSE_DATA.str, 0);
       PARSE_DATA.str = 0;
-      // PARSE_DATA.context |= CONTEXT_RULE_SEP;
-      // PARSE_DATA.context &= ~CONTEXT_RULE_CMD;
     }
     return ret;
   default:
@@ -171,7 +182,9 @@ static State do_context_rule_deps(uint8_t* p) {
   if (*p == 0x0a/*LF\n*/) {
     __os__write(1, "d\n", 2);
     rule* a_rule = Confp->rules.first_rule + Confp->rules.num - 1;
-    a_rule->deps = retrieve(&a_rule->deps, p, PARSE_DATA.str, 0);
+    a_rule->deps = PARSE_DATA.str;
+    *p = 0;
+    // retrieve(&a_rule->deps, p, PARSE_DATA.str, 0);
     PARSE_DATA.str = 0;
 
     /* PARSE_DATA.context |= CONTEXT_RULE_SEP;

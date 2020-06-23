@@ -7,7 +7,7 @@ coredir=src/core
 
 #####################################################
 
-make : pre ld_linux.o
+make : pre zld
 
 pre :
 	mkdir -p $(objdir)
@@ -15,10 +15,10 @@ pre :
 
 #####################################################
 
-ld_linux.o : $(objdir)/ld_linux.obj $(sodir)/objectfile.so.0 $(sodir)/logger.so.0 $(sodir)/link.so.0 $(sodir)/os.so.0 $(sodir)/alloc.so.0
+zld : $(objdir)/zld.obj $(sodir)/objectfile.so.0 $(sodir)/logger.so.0 $(sodir)/link.so.0 $(sodir)/os.so.0 $(sodir)/alloc.so.1
 	$(cc) -w $^ -o $@
 
-$(objdir)/ld_linux.obj : src/tools/ld_linux.c
+$(objdir)/zld.obj : src/tools/zld.c
 	$(cc) -w -c $(header) $^ -o $@
 
 #####################################################
@@ -68,8 +68,11 @@ $(objdir)/pack.obj : $(coredir)/pack/pack.c
 
 ##################################################################
 
-$(sodir)/os.so.0 : $(objdir)/os.obj $(objdir)/mem.obj
+$(sodir)/os.so.0 : $(objdir)/x64_syscall.o
 	$(cc) -w -shared $^ -o $@
+
+$(objdir)/x64_syscall.o : $(coredir)/os/linux/x64_syscall.asm
+	nasm -felf64 $^ -o $@
 
 $(objdir)/os.obj : $(coredir)/os/file_io.c
 	$(cc) -w -c $^ -o $@
@@ -85,10 +88,10 @@ $(sodir)/logger.so.0 : $(objdir)/logger.obj $(sodir)/os.so.0
 $(objdir)/logger.obj : $(coredir)/log/logger.c
 	gcc -fPIC -w -c -I./include $^ -o $@
 
-$(sodir)/alloc.so.0 : $(objdir)/alloc.obj $(sodir)/logger.so.0 $(sodir)/os.so.0
+$(sodir)/alloc.so.1 : $(objdir)/alloc.obj $(sodir)/logger.so.0 $(sodir)/os.so.0
 	gcc -w -shared $^ -o $@
 
-$(objdir)/alloc.obj : src/core/memory/alloc.c
+$(objdir)/alloc.obj : src/core/memory/__alloc.c
 	gcc -fPIC -w -c -I./include $^ -o $@
 
 ##################################################################
