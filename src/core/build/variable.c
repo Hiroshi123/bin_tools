@@ -150,11 +150,11 @@ static int get_need_size(char* p, rule* r) {
 	  i-=2;
 	case 0x3f:// $? (every file of which the mtime is prior to targets)
 	  i += strlen(r->deps);
-	  break;	  
+	  break;
 	case 0x40:/*$@*/
 	  break;
 	case 0x5e:// $^ (all deps files)
-	  i += strlen(r->deps) - 2;	  
+	  i += strlen(r->deps) - 2;
 	default:
 	  break;
 	}
@@ -179,7 +179,7 @@ static void* __assign_var(uint8_t* p, uint8_t* q) {
 static void* assign_var(uint8_t* p, uint8_t* q) {
   var* v = Confp->vars.first_var;
   __os__write(1, "v\n", 2);
-  int index = lookup_vars(p+2);  
+  int index = lookup_vars(p+2);
   // retrieve index value
   v += (index - 1);
   uint8_t* s;
@@ -214,9 +214,9 @@ static void fill_vars(char* p, char* q, rule* r) {
 	q = assign_var(p-1, q);
 	for (;*p != ')';p++);
 	continue;
-      case 0x3c: 
+      case 0x3c:
 	for (s = r->deps; (*s != 0x20) && (*q = *s);q++,s++);
-	continue;      
+	continue;
       case 0x5e:
 	for (s = r->deps;*q = *s;q++,s++);
 	continue;
@@ -232,7 +232,7 @@ static void fill_vars(char* p, char* q, rule* r) {
       break;
     }
   }
-  
+
     /* if (*(uint16_t*)p == 0x2824/\*$*\/) { */
     /*   __os__write(1,"f\n", 2); */
     /*   continue; */
@@ -294,7 +294,7 @@ static void* resolve_all(rule* t) {
     fill_vars(p, q, t);
     t->target = q;
   }
-  
+
   p = t->deps;
   if (need_resolve(p)) {
     i = get_need_size(p, t);
@@ -302,7 +302,7 @@ static void* resolve_all(rule* t) {
     fill_vars(p, q, t);
     t->deps = q;
   }
-  
+
   list* li;
   for (li = t->cmd;li;li = li->next) {
     // if there is something which needs to be resolved.
@@ -321,18 +321,18 @@ static void* resolve_all(rule* t) {
 ////////////////////////////////////////////////////////////////////
 
 void* retrieve(uint64_t** dest, uint8_t* p, uint8_t* p1, uint8_t var_check) {
-  
+
   uint8_t* t;
   uint8_t* t1;
   // name check
   if (var_check == 2) {
     t = t1 = __malloc(1 + p - p1);
     for (;p1<p;p1++) {
-      *t1 = *p1;      
+      *t1 = *p1;
     }
     var* v = __lookup_vars(t1);
     if (v) {
-      v->value = 
+     v->value =
       __os__write(1, "j\n", 2);
     }
     return t;
@@ -378,7 +378,7 @@ void __z__build__resolve_target() {
   rule* t = Confp->rules.first_rule;
   uint8_t i = 0;
   for (;i<len;i++,t++) {
-      __os__write(1, "o\n", 2);
+    __os__write(1, t->target, strlen(t->target));
     if (need_resolve(t->target)) {
       __os__write(1, "!\n", 2);
     }
@@ -406,6 +406,6 @@ uint8_t check_assign_var(uint8_t** _p, uint8_t** _q) {
 void init_hash_table() {
 
   Confp->vars.var_hash_table.nbucket = 100;
-  
+
 }
 
