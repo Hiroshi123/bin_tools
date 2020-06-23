@@ -196,7 +196,7 @@ void init_hashtable(char* fname) {
   
   return;
 
-  uint8_t* p = alloc_file(fname);
+  uint8_t* p = __z__mem__alloc_file(fname);
   if (isSqlite(p)) {
     iterate_table(p);
   } else {

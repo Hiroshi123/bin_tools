@@ -7,6 +7,8 @@
 #include "link.h"
 #include "alloc.h"
 
+#define __os__seek __os__lseek
+
 /* extern SectionChain* InitialSection; */
 static void* RawDataOffset = 0;
 static int FileOffset = 0;
@@ -18,6 +20,7 @@ static Elf64_Shdr* SymTableSectionHeader = 0;
 
 extern Config* Confp;
 extern PhdrList InitPhdr;
+
 
 static void write_elf_header() {
   
@@ -367,7 +370,7 @@ static void write_section_header(void* arg1) {
 
 void gen(char* fname) {
 
-  FileDescriptor = open__(fname, O_CREAT | O_WRONLY | O_TRUNC);
+  FileDescriptor = __os__open(fname, O_CREAT | O_WRONLY | O_TRUNC, 0777);
   // __os__seek(FileDescriptor, sizeof(Elf64_Ehdr), 0);
   __os__seek
     (FileDescriptor,

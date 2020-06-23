@@ -4,4 +4,4 @@ void* __malloc(uint32_t s);
 void* __thalloc();
 void __free(uint8_t* p);
 
-void* alloc_file(char* fname);
+void* __z__mem__alloc_file(char* fname);

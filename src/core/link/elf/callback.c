@@ -42,7 +42,6 @@ void _on_elf_symtab_callback_for_link(Elf64_Sym* arg1, void* _oc) {
       return;
     }
     alloc_export_symbol_chain(arg1, p + arg1->st_name, arg1->st_shndx);
-
     Elf64_Shdr* shdr = ((Elf64_Shdr*)(oc->section_head)) + arg1->st_shndx;
     char* sec_name = oc->sh_str_table_p + shdr->sh_name;
     uint16_t index = get_section_index_by_name(sec_name, shdr);
@@ -68,6 +67,7 @@ void _on_section_callback_for_link
     return;
   }
   shdr->sh_offset += p;
+
   // TODO :: all of section prefixed as .rela should be resolved correctly.
   // how about .rela.eh_frame?
   if (shdr->sh_type == SHT_RELA) {

@@ -93,7 +93,7 @@ SectionChain* get_sc_from_obj(int index) {
 
 void* alloc_obj(char* fname) {
 
-  return alloc_file(fname);
+  return __z__mem__alloc_file(fname);
   /* HANDLE hFile = CreateFile */
   /*   ( */
   /*    fname, GENERIC_ALL/\* | GENERIC_EXECUTE*\/, 0, NULL, */

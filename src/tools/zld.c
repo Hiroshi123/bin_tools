@@ -8,7 +8,7 @@
 
 static FILE* MiscLog = 0;
 
-extern void* alloc_file(char*);
+extern void* __z__mem__alloc_file(char*);
 extern void  gen_elf();
 extern void set_virtual_address(void* arg1);
 extern void set_program_header(void* arg1);
@@ -19,7 +19,7 @@ extern void __p1(void* arg1);
 // extern void* alloc_section_container_init(void*, void*, void*, void*);
 static Config config;
 
-void* read_cmdline(int argc, char** argv) {
+static void* read_cmdline(int argc, char** argv) {
   uint8_t file_num = argc;
   if (argc == 1) {
     return 0;
@@ -124,7 +124,7 @@ int main(int argc, char** argv) {
   }
   static_data_init(&config);
   init_hashtable("import_list.sqlite3");
-  set_default_config();  
+  set_default_config();
   SectionContainer* init = alloc_section_container_init(0, 0, 0, 0);
   config.initial_section = init;
   config.current_section = init;
@@ -136,7 +136,10 @@ int main(int argc, char** argv) {
   ObjectChain* ocp;
   // this should be done as concurrent as it could be in the end.
   for (;*p1;p1++) {
-    void* scr = alloc_file((void*)*p1);
+    void* scr = __z__mem__alloc_file((void*)*p1);
+    if (scr == 0) {
+      printf("%s does not exist\n", *p1);
+    }
     ocp = 0;
     run_through_elf_shdr3(scr, &_on_section_callback_for_link, &ocp);
     run_through_elf_symtable3

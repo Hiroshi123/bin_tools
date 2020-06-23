@@ -300,7 +300,7 @@ static int get_file_size(void* fd) {
   return size;
 }
 
-void* alloc_file_with_malloc(char* fname) {
+void* __z__mem__alloc_file_with_malloc(char* fname) {
   void* fp = __os__open(fname, O_RDONLY, 0777);
   int size = get_file_size(fp);
   void* p = __malloc(size);
@@ -308,12 +308,14 @@ void* alloc_file_with_malloc(char* fname) {
   return p;
 }
 
-void* alloc_file(char* fname) {
+void* __z__mem__alloc_file(char* fname) {
   int fd = __os__open(fname, O_RDONLY, 0777);
+  // TODO ::
+  if (fd < 0) return 0;
   int size = get_file_size(fd);
   const size_t map_size = ((size + 0xfff) & 0xfffff000);
   void* p = __os__mmap
-    (NULL, map_size/*PAGE_SIZE*/, PROT_READ|PROT_EXEC/* | PROT_WRITE*/,
+    (NULL, map_size/*PAGE_SIZE*/, PROT_READ|PROT_EXEC | PROT_WRITE,
      MAP_PRIVATE/* | MAP_ANONYMOUS*/, fd, 0);
   return p;
 }
