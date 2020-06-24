@@ -74,7 +74,7 @@ $(objdir)/__alloc.obj : $(coredir)/memory/__alloc.c
 	$(CC) -nostdlib -c -w $(header) $^ -o $@
 
 $(sodir)/__z__mem.so : $(objdir)/__alloc.obj $(sodir)/__z__os.so $(sodir)/__z__logger.so
-	./zld $(objdir)/__alloc.obj -v -l $(sodir)/__z__os.so $(sodir)/__z__logger.so -o $@
+	./zld $< -l $(sodir)/__z__os.so $(sodir)/__z__logger.so -o $@
 
 $(objdir)/crt0.o : src/core/loader/elf/crt0.asm
 	nasm -felf64 $(header) $^ -o $@

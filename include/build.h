@@ -42,7 +42,8 @@ typedef struct {
   uint8_t* deps;
   list* cmd;
   int num_deps;
-  int num_cmd;  
+  int num_cmd;
+  uint8_t resolved;
 } rule;
 
 typedef struct {
@@ -90,3 +91,4 @@ static int get_length_var(uint8_t* p);
 
 void* search_rule(void* p);
 void* retrieve(uint64_t** dest, uint8_t* p, uint8_t* p1, uint8_t var_check);
+char* __z__build__resolve(char*, rule*);

@@ -71,8 +71,9 @@ void start(char** argv) {
   
   // resolve();
   __z__build__resolve_target();
+  // __z__build__get_root_rule();
   
-  // search_rule(target);
+  search_rule(target);
   // __z__std__init_thread_pool(1);
   
   for (;;);

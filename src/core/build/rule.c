@@ -164,13 +164,25 @@ static uint8_t modified(rule* r, uint8_t* p1) {
 
 // check dependencies.
 // this must be resolved by files or rules.
-static uint8_t resolve_deps(rule* r) {
+static uint8_t iterate_deps(rule* r) {
+
   uint8_t* p1 = r->deps;
+  if (r->resolved == 0) {
+    r->deps = __z__build__resolve(r->deps, r);
+
+    list* li;
+    for (li = r->cmd;li;li = li->next) {
+      li->p = __z__build__resolve(li->p, r);
+    }
+    r->resolved = 1;
+  }
+  
   uint8_t* p;
   rule* v;
   uint8_t needs_exec = 0;
-  __os__write(1, "a!\n", 3);
+  
   for (;;) {
+    // p = p1;
     p = _strtok(p1);
     // printf("look for %s\n",p1);
     if (!p) break;
@@ -184,6 +196,7 @@ static uint8_t resolve_deps(rule* r) {
     write_edge(r->target, p1);
     if (is_file(p1)) {
       needs_exec = modified(r, p1);
+      __os__write(1, "f\n", 2);
     } else {
       __os__write(1, p1, strlen(p1));
       __os__write(1, "!!\n", 3);
@@ -210,12 +223,14 @@ static void* convert_path_slash(uint8_t* p) {
   for (;*p!=0;p++) {
     if (*p == '/')
       *p = '\\';
-  }
+  }  
 }
 
-static void do_exec(void* cmd) {
-  
+static void do_exec(int argc, void** _args) {
+  char* cmd = *_args;
   char* p = ((list*)cmd)->p;
+  __os__write(1, "e\n", 2);
+  
   size_t* args = __malloc(sizeof(void*) * 10);
   void* q = 0;
   int i=0;
@@ -223,8 +238,8 @@ static void do_exec(void* cmd) {
     q = _strtok(p);
     if (q == 1) {
       args[i] = p;
-      /* __os__write(1, p, strlen(p)); */
-      /* __os__write(1, "\n", 1);   */
+      // __os__write(1, p, strlen(p));
+      // __os__write(1, "\n", 1);
       break;
     }
     if (q == 0) {
@@ -362,30 +377,45 @@ static void unbind_rule() {
 
 ////////////////////////////////////////////////////////
 
+void __z__build__get_root_rule() {
+  
+}
+
+static void ff1(int argc, void** args) {
+  char* a = *args;
+  __os__write(1, a, strlen(a));
+  __os__write(1, "ok\n", 3);
+}
+
+// __z__std__put_task
 
 // args1 : Specify target string.
 void* search_rule(void* p) {
 
   __os__write(1, "search\n", 7);
-  uint64_t len = Confp->rules.num;// *RULES_P;
+  uint64_t len = Confp->rules.num;
   uint8_t* cmd;
   uint8_t* suffix;
   uint8_t i=0;
   uint8_t* c = 0;
-  rule* t = Confp->rules.first_rule;// RULES_P + 1;
+  rule* t = Confp->rules.first_rule;
   // If no default target is provided, treat it as to pick up the first one.
   if (p == 0) {
-    if (resolve_deps(t)) {
-      do_exec(t->cmd);
+    if (iterate_deps(t)) {
+      void** args = __malloc(8);
+      *args = t->cmd;
+      __z__std__put_task(&do_exec, 1, args);
+      __os__write(1, "kk\n", 3);
+      // do_exec(t->cmd);
     }
     return t;
   }
   for (;i<len;i++,t++) {
     // resolve_vars(t);
     if (!strcmp(t->target, p)) {
-      if (resolve_deps(t)) {
+      if (iterate_deps(t)) {
 #ifndef DRYRUN
-	do_exec(t->cmd);
+	// do_exec(t->cmd);
 #endif
 	write_node(t->target, t->cmd->p);
 	return t;

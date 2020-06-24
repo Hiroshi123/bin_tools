@@ -1,9 +1,10 @@
 
 
 typedef struct {
-  void   (*work)(void* arg);
+  void   (*work)(int argc, void** args);
   // void* work;
-  void* arg;
+  int argc;
+  void** args;
   void* prev;
 } task;
 
@@ -23,4 +24,5 @@ typedef struct thread_pool {
 } thread_pool;
 
 void __z__std__init_thread_pool(int num);
+void __z__std__put_task(void* work, int argc, void** args);
 
