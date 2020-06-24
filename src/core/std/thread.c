@@ -15,12 +15,14 @@
 static thread_pool* THREAD_POOL_P = 0;
 static int keep_alive = 0;
 
-static task* enqueue(void* work) {
+static task* enqueue(void* work, int argc, void** args) {
 
   ////////////
   
   task* t = __malloc(sizeof(task));
   t->work = work;
+  t->argc = argc;
+  t->args = args;
   if (THREAD_POOL_P == 0) {
     __os__write(1, "error\n", 6);
     return 0;
@@ -56,10 +58,9 @@ static void do_idle() {
   while (keep_alive) {
     task* t = dequeue();
     if (t) {
-      // asm();
-      t->work(0);
+      t->work(t->argc, t->args);
     }
-  }  
+  }
   THREAD_POOL_P->num_threads_alive--;
 }
 
@@ -92,9 +93,9 @@ void __z__std__init_thread_pool(int num) {
 }
 
 // task should be provided as function pointer.
-void __z__std__put_task(void* work) {
+void __z__std__put_task(void* work, int argc, void** args) {
   
-  enqueue(work);
+  enqueue(work, argc, args);
   // queue.
 }
 
