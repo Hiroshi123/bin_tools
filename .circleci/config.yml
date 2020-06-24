@@ -7,8 +7,7 @@ jobs:
       - image: centos:7
     steps:
       - checkout
-      - run:
-        command: echo "building"
+      - run: echo "building"
 
 # Orchestrate or schedule a set of jobs
 #workflows:
