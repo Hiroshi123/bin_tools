@@ -5,9 +5,9 @@ jobs:
   ex1:
     machine: true
       steps:
-      - checkout
-      - run:
-        command: echo "building"
+        - checkout
+        - run:
+          command: echo "building"
 
 # Orchestrate or schedule a set of jobs
 #workflows:
