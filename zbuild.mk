@@ -55,7 +55,7 @@ $(objdir)/thread.o : $(coredir)/std/thread.c
 
 # create os
 
-$(sodir)/__z__os.so : obj/elf/x64_syscall.o
+$(sodir)/__z__os.so : $(objdir)/x64_syscall.o
 	./zld $^ -o $@
 
 $(objdir)/x64_syscall.o : $(coredir)/os/linux/x64_syscall.asm
