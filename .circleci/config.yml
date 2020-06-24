@@ -4,6 +4,8 @@ version: 2.1
 jobs:
   ex1:
     machine: true
+      steps:
+      - checkout
       - run:
         command: echo "building"
 
