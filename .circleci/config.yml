@@ -2,7 +2,7 @@
 version: 2.1
 
 jobs:
-  ex1:
+  build:
     docker:
       - image: centos:7
     steps:
