@@ -7,7 +7,7 @@ jobs:
       - image: centos:7
     steps:
       - checkout
-      - run: echo "building"
+      - run: make -f zld.mk
 
 # Orchestrate or schedule a set of jobs
 #workflows:
