@@ -104,11 +104,9 @@ static State do_context_read_now(uint8_t* p) {
 }
 
 static State do_context_sep(uint8_t* p) {
-  if (*p == 0x09/*TAB*/ && *(p-1) == 0x0a) {
+  if (*p == 0x09/*TAB*/ && *(p-1) == 0x0/*0x0a*/) {
     __os__write(1, "s\n", 2);
     PARSE_DATA.str = p + 1;
-    /* PARSE_DATA.context |= CONTEXT_RULE_CMD; */
-    /* PARSE_DATA.context &= ~CONTEXT_RULE_SEP; */
     return CONTEXT_RULE_CMD;
   }
   return CONTEXT_RULE_SEP;
@@ -169,7 +167,7 @@ static State do_context_rule_cmd(uint8_t* p) {
       }
       *p = 0;
       li->p = PARSE_DATA.str;
-      //retrieve(&a_rule->cmd, p, PARSE_DATA.str, 0);
+      // retrieve(&a_rule->cmd, p, PARSE_DATA.str, 0);
       PARSE_DATA.str = 0;
     }
     return ret;
@@ -182,7 +180,9 @@ static State do_context_rule_deps(uint8_t* p) {
   if (*p == 0x0a/*LF\n*/) {
     __os__write(1, "d\n", 2);
     rule* a_rule = Confp->rules.first_rule + Confp->rules.num - 1;
-    a_rule->deps = PARSE_DATA.str;
+    char* q = PARSE_DATA.str;
+    for (;*q == 0x20;q++)
+    a_rule->deps = q;
     *p = 0;
     // retrieve(&a_rule->deps, p, PARSE_DATA.str, 0);
     PARSE_DATA.str = 0;
@@ -234,8 +234,6 @@ void* __z__build__parse_makefile(uint8_t* p, uint8_t* e) {
       break;
     }
   }
-
-  __z__std__put_task(&tmp1);
-
+  
 }
 

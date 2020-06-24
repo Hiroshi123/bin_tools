@@ -88,6 +88,7 @@ void* resolve_vars(char* p) {
   int copy_now = 0;;
   char* p1 = p;
   char* q = 0;
+  
  b1:
   for (;*p;p++,i++) {
     if (p == 0x24) {
@@ -232,34 +233,12 @@ static void fill_vars(char* p, char* q, rule* r) {
       break;
     }
   }
-
-    /* if (*(uint16_t*)p == 0x2824/\*$*\/) { */
-    /*   __os__write(1,"f\n", 2); */
-    /*   continue; */
-    /* } */
-    // first deps
-  /*   if (*(uint16_t*)p == 0x3c24/\*$<*\/) { */
-  /*     p+=2; */
-  /*     for (s = r->deps; (*s != 0x20) && (*q = *s);q++,s++); */
-  /*     // for (s = r->deps; *q = *s;q++,s++); */
-  /*   } */
-  /*   // $^ (all deps files) */
-  /*   if (*(uint16_t*)p == 0x5e24/\*$^*\/) { */
-  /*     p+=2; */
-  /*     for (s = r->deps;*q = *s;q++,s++); */
-  /*   } */
-  /*   // target */
-  /*   if (*(uint16_t*)p == 0x4024/\*$@*\/) { */
-  /*     p+=2; */
-  /*     for (s = r->target; *q = *s;q++,s++); */
-  /*   } */
-  /*   *q = *p; */
-  /* } */
 }
 
 static uint8_t need_resolve(char* p) {
 
-  for (;*p;p++) {
+  uint8_t i = 0;
+  for (;*p;p++,i++) {
     switch (*p) {
     case 0x24:
       {
@@ -269,7 +248,7 @@ static uint8_t need_resolve(char* p) {
 	case 0x3c:
 	case 0x40:
 	case 0x5e:
-	  return 1;
+	  return i;
 	default:
 	  break;
 	}
@@ -280,7 +259,40 @@ static uint8_t need_resolve(char* p) {
       break;
     }
   }
-  return 0;
+  return -1;
+}
+
+static char* __need_resolve(char* p) {
+
+  uint8_t i = 0;
+  char* q = 0;
+  char* p1 = p;
+  for (;*p;p++,i++) {
+    switch (*p) {
+    case 0x24:
+      {
+	p++;
+	switch (*p) {
+	case 0x28: {
+	  for (q = p;*p != ')' && *p != 0 ;p++);
+	  *p = 0;
+	  return q;
+	}
+	case 0x3c:
+	case 0x40:
+	case 0x5e:
+	  return p;
+	default:
+	  break;
+	}
+      }
+    case 0x0a:
+      return p1;
+    default:
+      break;
+    }
+  }
+  return p1;
 }
 
 static void* resolve_all(rule* t) {
@@ -367,9 +379,78 @@ void resolve() {
   rule* t = Confp->rules.first_rule;
   uint8_t i = 0;
   for (;i<len;i++,t++) {
-    __os__write(1, "!\n", 2);
+    __os__write(1, "!\n", 2);    
     resolve_all(t);
   }
+}
+
+char* __z__build__resolve(char* s, rule* r) {
+
+  char* m = 0;
+  char* m1 = 0;
+  char* s1 = s;
+  int size = 0;
+  int num = 0;
+  char* ss;
+  char* s2;
+  uint8_t do_copy = 0;
+  int i = 0;
+  
+ b1:
+
+  for (;;) {
+    s2 = __need_resolve(s);
+    i = s2 - s;
+    if (i == 0) break;
+    switch (*s2) {
+    case '(':
+      ss = __z__std__hash_find(s2 + 1);
+      break;
+    case '<':
+      ss = r->deps;
+      /* __os__write(1, r->deps, strlen(r->deps)); */
+      /* __os__write(1, "hhhh\n", 5); */
+      /* for (;;); */
+      // do something
+      break;
+    case '^':
+      break;
+    default:
+      break;
+    }
+    if (ss) {
+      if (do_copy) {
+	// put str before $()
+	for (;;s++,m++,i--) {
+	  if (i == 2) break;
+	  if (*s) *m=*s;
+	  else break;
+	}
+	s++;
+	// put str inside $()
+	for (;*m=*ss;ss++,m++);
+	// break;
+	// continue;
+      } else {
+	size += i + strlen(ss);
+      }
+    } else {
+      __os__write(1, "error\n", 6);
+    }
+    s += i + 1;
+  }
+  if (do_copy) {
+    for (;*m = *s;s++,m++);
+  }
+  if (size) {
+    for (;*s;size++,s++);
+    m = m1 = __malloc(size);
+    do_copy = 1;
+    size = 0;
+    s = s1;
+    goto b1;
+  }
+  return m1 ? m1 : s1;
 }
 
 void __z__build__resolve_target() {
@@ -379,9 +460,7 @@ void __z__build__resolve_target() {
   uint8_t i = 0;
   for (;i<len;i++,t++) {
     __os__write(1, t->target, strlen(t->target));
-    if (need_resolve(t->target)) {
-      __os__write(1, "!\n", 2);
-    }
+    t->target = __z__build__resolve(t->target, 0);
   }
 }
 
