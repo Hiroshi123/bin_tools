@@ -8,7 +8,7 @@ jobs:
     #  - image: ubuntu:7
     steps:
       - checkout
-      - run: apt-get update && apt-get -y install nasm
+      - run: sudp apt-get -y install nasm
       - run: make -f zld.mk
 
 # Orchestrate or schedule a set of jobs
