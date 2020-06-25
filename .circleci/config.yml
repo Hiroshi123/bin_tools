@@ -13,11 +13,11 @@ jobs:
       - run: make -f zbuild.mk
       - run:
           command: |
-            mkdir -p /tmp/core_dumps
-            cp core.* /tmp/core_dumps
+            mkdir -p /tmp/misc
+            cp misc.log /tmp/misc/
           when: on_fail
       - store_artifacts:
-          path: /tmp/core_dumps
+          path: /tmp/misc
 
 # Orchestrate or schedule a set of jobs
 #workflows:
