@@ -5,10 +5,10 @@ jobs:
   build:
     # machine: true
     docker:
-      - image: ubuntu18.04
+      - image: ubuntu-1804
     steps:
       - checkout
-      - run: sudo apt-get -y install nasm
+      - run: sudo apt-get -y install build-essentail nasm
       - run: make -f zld.mk
       - run: make -f zbuild.mk
 
