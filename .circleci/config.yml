@@ -3,9 +3,9 @@ version: 2.1
 
 jobs:
   build:
-    machine: true
-    # docker:
-    #  - image: ubuntu:7
+    # machine: true
+    docker:
+      - image: ubuntu18.04
     steps:
       - checkout
       - run: sudo apt-get -y install nasm
