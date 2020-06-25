@@ -57,7 +57,7 @@ $(objdir)/thread.o : $(coredir)/std/thread.c
 
 $(sodir)/__z__os.so : $(objdir)/x64_syscall.o
 	file $^
-	./zld $^ -o $@
+	./zld $^ -v -o $@
 
 $(objdir)/x64_syscall.o : $(coredir)/os/linux/x64_syscall.asm
 	nasm -felf64 $^ -o $@
