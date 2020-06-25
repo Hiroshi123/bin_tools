@@ -8,6 +8,11 @@ jobs:
     #  - image: ubuntu:7
     steps:
       - checkout
+      - run:
+        name: Install deploy dependencies
+        command: |
+          apt-get update
+          apt-get -y install nasm
       - run: make -f zld.mk
 
 # Orchestrate or schedule a set of jobs
