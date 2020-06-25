@@ -59,7 +59,7 @@ $(sodir)/__z__os.so : $(objdir)/x64_syscall.o
 	./zld $^ -o $@
 
 $(objdir)/x64_syscall.o : $(coredir)/os/linux/x64_syscall.asm
-	nasm -felf64 $^ -o $@
+	nasm -felf64 $^ -v -o $@
 
 # create logger
 
