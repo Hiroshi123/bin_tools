@@ -309,7 +309,7 @@ void* __z__mem__alloc_file_with_malloc(char* fname) {
 }
 
 void* __z__mem__alloc_file(char* fname) {
-  int fd = __os__open(fname, O_RDONLY, 0777);
+  int fd = __os__open(fname, O_RDONLY, 0666);
   // TODO ::
   if (fd < 0) return 0;
   int size = get_file_size(fd);
