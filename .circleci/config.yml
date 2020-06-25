@@ -5,7 +5,7 @@ jobs:
   build:
     # machine: true
     docker:
-      - image: circleci/classic:201708-01
+      - image: buildpack-deps:trusty
     steps:
       - checkout
       - run: sudo apt-get -y install build-essentail nasm
