@@ -17,7 +17,7 @@ jobs:
             cp core.* /tmp/core_dumps
           when: on_fail
       - store_artifacts:
-        path: /tmp/core_dumps
+          path: /tmp/core_dumps
 
 # Orchestrate or schedule a set of jobs
 #workflows:
