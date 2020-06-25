@@ -54,6 +54,7 @@ void _on_section_callback_for_link
  uint8_t* p, uint8_t* strtable, Elf64_Shdr* shdr, /*sh_callback_arg*/ size_t* ret) {
   char* sh_name = (uint8_t*)strtable + shdr->sh_name;
   ObjectChain* oc = *ret;
+  printf("b1\n");
   if (oc == 0) {
     // if callback args does not have pointer to callback
     // ( meaning it is first time for this iteration.),
