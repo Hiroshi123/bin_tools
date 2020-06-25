@@ -1,0 +1,8 @@
+language: c
+
+compiler:
+  - gcc
+
+script:
+  - make -f zld.mk 
+
