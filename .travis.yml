@@ -3,6 +3,10 @@ language: c
 compiler:
   - gcc
 
+before_install:
+  - sudo apt-get update
+  - sudo apt-get -y install nasm
+
 script:
   - make -f zld.mk 
 
