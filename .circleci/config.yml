@@ -14,7 +14,7 @@ jobs:
       - run:
           command: |
             mkdir -p /tmp/misc
-            cp misc.log /tmp/misc/
+            cp memory.log /tmp/misc/
           when: on_fail
       - store_artifacts:
           path: /tmp/misc
