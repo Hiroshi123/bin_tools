@@ -1,9 +1,9 @@
 
 	default rel
 	section .text
-	global run_through_elf_phdr3
-	global run_through_elf_shdr3
-	global run_through_elf_symtable3
+	global run_through_elf_phdr3:function
+	global run_through_elf_shdr3:function
+	global run_through_elf_symtable3:function
 
 run_through_elf_phdr3:
 
