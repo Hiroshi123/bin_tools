@@ -15,8 +15,6 @@ extern void set_program_header(void* arg1);
 extern void add_export_symbol(void* _oc, void* arg1);
 extern void do_reloc(void* _oc, void* arg1);
 extern void __p1(void* arg1);
-extern void run_through_elf_shdr3(void*, void*, void*);
-extern void run_through_elf_symtable3(void*, void*, void*, void*);
 
 // extern void* alloc_section_container_init(void*, void*, void*, void*);
 static Config config;
