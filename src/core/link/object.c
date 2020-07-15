@@ -9,9 +9,6 @@
 #endif
 #include "link.h"
 
-ObjectChain* InitialObject = 0;
-ObjectChain* CurrentObject = &InitialObject;
-
 extern Config* Confp;
 
 ObjectChain* alloc_obj_chain_init(void* sym_begin, void* str_begin, uint32_t sym_num) {
@@ -54,24 +51,24 @@ void iterate_object_chain(void* callback_f, void* arg1) {
 
 void alloc_obj_chain(void* sym_begin, void* str_begin, uint32_t sym_num) {
   ObjectChain* sc = __malloc(sizeof(ObjectChain));
-  if (!InitialObject) {
-    InitialObject = sc;
+  if (!Confp->initial_object) {
+    Confp->initial_object = sc;
   } else {
-    CurrentObject->next = sc;
+    Confp->current_object->next = sc;
   }
-  CurrentObject = sc;
-  CurrentObject->symbol_chain_head = 0;
-  CurrentObject->symbol_chain_tail = 0;
-  CurrentObject->symbol_table_p = sym_begin;
-  CurrentObject->str_table_p = str_begin;
-  CurrentObject->symbol_num = sym_num;
-  CurrentObject->section_chain_head = 0;
-  CurrentObject->section_chain_tail = 0;
-  CurrentObject->next = 0;
+  Confp->current_object = sc;
+  Confp->current_object->symbol_chain_head = 0;
+  Confp->current_object->symbol_chain_tail = 0;
+  Confp->current_object->symbol_table_p = sym_begin;
+  Confp->current_object->str_table_p = str_begin;
+  Confp->current_object->symbol_num = sym_num;
+  Confp->current_object->section_chain_head = 0;
+  Confp->current_object->section_chain_tail = 0;
+  Confp->current_object->next = 0;
 }
 
 void update_symbol_table_info() {
-  ObjectChain* oc = InitialObject;
+  ObjectChain* oc = Confp->initial_object;
   for (;oc;oc=oc->next) {
     printf("symtable p:%p\n", oc->symbol_table_p);
     printf("sym num :%d\n", oc->symbol_num);    
@@ -81,7 +78,7 @@ void update_symbol_table_info() {
 
 
 SectionChain* get_sc_from_obj(int index) {
-  SectionChain* sc = CurrentObject->section_chain_head;
+  SectionChain* sc = Confp->current_object->section_chain_head;
   int i = 1;
   for (;sc;sc=sc->next,i++) {
     if (i == index) {

@@ -109,6 +109,7 @@ struct _ObjectChain {
   void* reloc_section_head;
   void* reloc_section_tail;
   void* section_head;
+  char* map_base;
 };
 
 typedef struct __attribute__((__packed__)) _CoffReloc {
@@ -118,13 +119,16 @@ typedef struct __attribute__((__packed__)) _CoffReloc {
 } CoffReloc;
 
 typedef struct __attribute__((__packed__)) _CallbackArgIn {
-  union {
-    size_t* virtual_address;
-    size_t* section_name;
-  };
+  // union {
+  size_t* src_vaddr;
+  char* dst_vaddr;
+  size_t* filled_addr;
+  size_t* src_section_name;
   char* name;
   size_t* type;
+  int shndx;
   uint32_t storage_class;
+  void* src_oc;
 } CallbackArgIn;
 
 
@@ -170,15 +174,28 @@ typedef struct {
   int bloom_shift;
 } hash_table_parameter;
 
+typedef struct {
+  char* ied_p;
+  uint16_t* address_of_name_ordinals;
+  uint32_t* address_of_functions;
+  uint32_t* address_of_names;
+  char* str_p;
+  char* vaddr_p;
+} pe_export_data;
+
 // Input configuration setting comes here.
 typedef struct {
+  uint8_t file_format;
   int base_address;
   int out_size;
+  int header_size;
+  uint8_t loglevel;
   uint8_t verbose;
   uint8_t pack;
   uint8_t nodynamic;
   uint8_t nopie;
-  uint8_t dynlib;
+  char** dynlib;
+  // uint8_t dynlib;
   char* outfile_name;
   uint8_t outfile_type;
   int dynamic_entry_num;
@@ -193,7 +210,7 @@ typedef struct {
   SectionContainer* initial_section;
   SectionContainer* current_section;
   ObjectChain* initial_object;
-  ObjectChain* current_object;  
+  ObjectChain* current_object;
   struct SymbolHashTable ExportHashTable;
   struct SymbolHashTable DLLHashTable;
   struct SymbolHashTable DynamicImportHashTable;  
@@ -203,11 +220,18 @@ typedef struct {
   uint8_t use_fini_array;  
   uint8_t use_gnu_hash;
   uint8_t use_dt_hash;
+  void* hash_table_p;
   hash_table_parameter hash_table_param;
   int bss_size;
   void* dynsym_head;
   void* dynstr_head;
   void* gnu_hash_head;
+  // windows only
+  int export_directory_len;
+  int export_func_count;  
+  pe_export_data export_data;
+  int plt_offset;
+  int import_directory_len;
 } Config;
 
 SectionContainer* alloc_section_container_init(uint32_t va, void* name, void* candidate_list, ListContainer* Sc);
@@ -221,7 +245,7 @@ ObjectChain* alloc_obj_chain_init(void* sym_begin, void* str_begin, uint32_t sym
 ObjectChain* _alloc_obj_chain(void* sym_begin, void* str_begin, uint32_t sym_num);
 void update_object_chain(ObjectChain* oc, SectionChain* schain);
 // section.c
-void* alloc_section_chain(void* s, void* offset, SectionContainer* scon);
+void* alloc_section_chain(void* s, void* offset, SectionContainer* scon, void* obj);
 // SectionChain* get_section_chain_by_index(uint8_t index1, uint8_t index2);
 SectionChain* get_section_chain_by_index(uint16_t index1);
 uint32_t elf_hash(const uint8_t* name);
@@ -231,4 +255,13 @@ uint32_t elf_hash(const uint8_t* name);
 #define M2(A,B,H,F,X) \
   A = (F(X) % H.nbucket);\
   B = H.bucket + A
+
+void __z__link__coff_section_callback(void* arg1, void* str_p, size_t* _oc);
+void __z__link__coff_symtab_callback(void* arg1, void* str_p, size_t* _oc);
+
+void* lookup_dynamic_symbol(char* name, size_t* address, uint32_t* ever);
+
+// void* add_section(char* name, uint32_t size);
+void* add_coff_section(char* name, uint32_t vaddr, uint32_t size, void* data);
+
 

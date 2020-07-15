@@ -204,7 +204,7 @@ void* add_dynamic_sc(int index, char* _name, SectionContainer* _sc) {
     sc = _sc;
   }
   Elf64_Shdr* shdr = alloc_elf_section(SHT_DYNAMIC, SHF_ALLOC | SHF_WRITE);
-  alloc_section_chain(shdr, 0, sc);
+  alloc_section_chain(shdr, 0, sc, 0);
   void* d = __malloc(D[index].alloc_size);
   D[index].data_p = d;
   shdr->sh_offset = d;
@@ -212,36 +212,20 @@ void* add_dynamic_sc(int index, char* _name, SectionContainer* _sc) {
   return d;
 }
 
-static void check_dt_hash_collision
-(uint32_t* bucket, uint32_t* chain, uint32_t mod, uint32_t sym_index) {
-
-  uint32_t* p = 0;
-  if (*(bucket + mod)) {
-    // printf("collision:%p,%p\n", *(bucket+mod), sym_index);
-    // printf("chain:%p\n", chain + *(bucket+mod));
-    for (p = chain + *(bucket + mod) ; *p ; p = chain + *p);
-    *p = sym_index;
-  } else {
-    // no collision
-    *(bucket + mod) = sym_index;
-  }
-}
-
-static void add_dt_hash_entry(char* name, int sym_index) {
-  uint32_t hash = sysv_hash(name);
-  int mod = hash % NBUCKET;
-  DtHashTable* hash_table_p = D[DT_HASH_INDEX].data_p;
-  hash_table_p->nchain ++;
-  uint32_t* bucket = hash_table_p + 1;
-  uint32_t* chain = bucket + hash_table_p->nbucket;
-  check_dt_hash_collision(bucket, chain, mod, sym_index);
-  D[DT_HASH_INDEX].size += 4;
-  // TODO :: If size is not enough, it should allocate new area reffered from new section chain.
-  // But chain is referred from bucket and will be collappsed.
-  /* if (D[DT_HASH_INDEX].size == D[DT_HASH_INDEX].alloc_size) { */
-  /*   add_dynamic_sc(DT_HASH_INDEX, 0, D[DT_HASH_INDEX].sc_p); */
-  /* } */
-}
+/* static void add_dt_hash_entry(DtHashTable* hash_table_p, char* name, int sym_index) { */
+/*   uint32_t hash = sysv_hash(name); */
+/*   int mod = hash % NBUCKET; */
+/*   // DtHashTable* hash_table_p = D[DT_HASH_INDEX].data_p; */
+/*   hash_table_p->nchain ++; */
+/*   uint32_t* bucket = hash_table_p + 1; */
+/*   uint32_t* chain = bucket + hash_table_p->nbucket; */
+/*   check_dt_hash_collision(bucket, chain, mod, sym_index); */
+/*   // TODO :: If size is not enough, it should allocate new area reffered from new section chain. */
+/*   // But chain is referred from bucket and will be collappsed. */
+/*   /\* if (D[DT_HASH_INDEX].size == D[DT_HASH_INDEX].alloc_size) { *\/ */
+/*   /\*   add_dynamic_sc(DT_HASH_INDEX, 0, D[DT_HASH_INDEX].sc_p); *\/ */
+/*   /\* } *\/ */
+/* } */
 
 static void check_gnu_hash_collision
 (
@@ -421,20 +405,7 @@ uint32_t add_dynamic_entry2(size_t offset, char* str) {
   char max_name[100] = {};
   sprintf(max_name, "[link/elf/dynamic.c]\t add dynamic GLOB_DAT symbol:%s\n", str);
   logger_emit("misc.log", max_name);
-
   add_dynsym_entry(add_dynstr_entry(str), 0, 0);
-
-  /* void* _r = lookup_symbol(str, 1); */
-  /* if (_r == 0) { */
-  /*   // 1. Dynamic string entry */
-  /*   // 2. Dynsym entry */
-  /*   add_dynsym_entry(add_dynstr_entry(str), 0, 0); */
-  /*   // 3. .rela.dyn or .rela.plt entry */
-  /*   r = D[DYNSYM_INDEX].num - 1; */
-  /* } else { */
-  /*   printf("might get wrong as symbol duprecation:%s\n", str); */
-  /*   (uint32_t)lookup_symbol(str, 1); */
-  /* } */
   Elf64_Rela* rela = add_rela_plt_entry(offset, D[DYNSYM_INDEX].num - 1, R_X86_64_GLOB_DAT, 0);
   // alloc_dynamic_symbol_chain(rela, str, 0);
   return rela;
@@ -446,7 +417,7 @@ void add_pltgot_sc(int index, char* name) {
   plt_got_p = sc;
   // SHT_DYNSYM
   Elf64_Shdr* shdr = alloc_elf_section(SHT_DYNAMIC, SHF_ALLOC | SHF_WRITE);
-  alloc_section_chain(shdr, 0, sc);
+  alloc_section_chain(shdr, 0, sc, 0);
   int size = 0x10 * DEFAULT_PLTGOT_NUM;
   void* d = __malloc(size);
   D[index].data_p = d;
@@ -506,7 +477,8 @@ void add_export_symbol(void* _oc, void* arg1) {
       ((Elf64_Sym*)(sym->p))->st_value - Confp->base_address;
     add_dynsym_entry(add_dynstr_entry(str), ((Elf64_Sym*)(sym->p))->st_shndx, value);
     if (Confp->use_dt_hash) {
-      add_dt_hash_entry(str, D[DYNSYM_INDEX].num-1);
+      add_dt_hash_entry(D[DT_HASH_INDEX].data_p, str, D[DYNSYM_INDEX].num-1);
+      D[DT_HASH_INDEX].size += 4;
     } else {
       add_gnu_hash_entry(str, D[DYNSYM_INDEX].num-1);
     }

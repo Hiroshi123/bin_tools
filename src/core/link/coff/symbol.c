@@ -1,20 +1,17 @@
 
-#include <windows.h>
+/* #include <windows.h> */
 #include <stdio.h>
 #include <stdint.h>
 #include "alloc.h"
 
-#include "coff.h"
+#include "pe.h"
 #include "link.h"
 
-extern ObjectChain* InitialObject;
-extern ObjectChain* CurrentObject;
-extern struct SymbolHashTable HashTable;
-extern struct SymbolHashTable DLLHashTable;
-extern uint32_t PltOffset;
+extern Config* Confp;
 
-void* lookup_symbol(char* name, size_t* address) {
-  size_t* table_index = (HashTable.bucket + (elf_hash(name) % HashTable.nbucket));
+void* __coff__lookup_symbol(char* name, size_t* address) {
+  size_t* table_index =
+    (Confp->ExportHashTable.bucket + (elf_hash(name) % Confp->ExportHashTable.nbucket));
   // if you do not find any entry on this table.
   if (*table_index == 0) {
     return address ? 0 : table_index;
@@ -32,7 +29,7 @@ void* lookup_symbol(char* name, size_t* address) {
   for (;pre_chain;pre_chain = pre_chain->next) {
     is = pre_chain->p;
     // find actual entry
-    for (oc=InitialObject;oc;oc=oc->next) {
+    for (oc=Confp->initial_object;oc;oc=oc->next) {
       begin = oc->symbol_table_p;
       end = begin + oc->symbol_num;
       if (begin<is && is<end) {
@@ -48,13 +45,13 @@ void* lookup_symbol(char* name, size_t* address) {
     pre = pre_chain;
   }
   // the another way is return a last-put entry instead 0.
-  printf("pre_next:%p\n", &pre->next);
+  // printf("pre_next:%p\n", &pre->next);
   return address ? 0 : &pre->next;
 }
 
 void* lookup_dynamic_symbol(char* name, size_t* address, uint32_t* ever) {
-  size_t* table_index = (DLLHashTable.bucket + (elf_hash(name) % DLLHashTable.nbucket));
-  printf("!%p,%p\n", table_index, *table_index);
+  size_t* table_index = (Confp->DLLHashTable.bucket + (elf_hash(name) % Confp->DLLHashTable.nbucket));
+  // printf("!%p,%p\n", table_index, *table_index);
   if (*table_index == 0) {
     return address ? 0 : table_index;
   }
@@ -64,13 +61,13 @@ void* lookup_dynamic_symbol(char* name, size_t* address, uint32_t* ever) {
   pre_chain = *table_index;
   for (;pre_chain;pre_chain = pre_chain->next) {
     _name = pre_chain->name;
-    printf("%s\n",_name);
+    // printf("%s\n",_name);
     if (!strcmp(name, _name)) {
-      printf("found,%s,%s\n", _name, pre_chain->this);
+      // printf("found,%s,%s\n", _name, pre_chain->this);
       if (address) {
 	if (pre_chain->ever == 0) {
 	  // store PltOffset when a new entry is added.
-	  pre_chain->ever = PltOffset;
+	  pre_chain->ever = Confp->plt_offset;
 	} else {
 	  // load PltOffset when a new entry is added.
 	  *ever = pre_chain->ever;
@@ -82,16 +79,15 @@ void* lookup_dynamic_symbol(char* name, size_t* address, uint32_t* ever) {
     }
     pre = pre_chain;
   }
-  printf("ccc,%p\n", pre);
   return address ? 0 : pre;
 }
 
-void alloc_symbol_chain(char* name, void* is) {
+void __coff__alloc_symbol_chain(char* name, void* is) {
   SymbolChain* chain = __malloc(sizeof(SymbolChain));
   SymbolChain* pre_chain;
   chain->next = 0;
   chain->p = is;
-  size_t* ret = lookup_symbol(name, 0);
+  size_t* ret = __coff__lookup_symbol(name, 0);
   if (ret) *ret = chain;
   else {
     fprintf(stderr, "should raise an error as symbol is overrlapping.%s\n", name);
@@ -100,11 +96,11 @@ void alloc_symbol_chain(char* name, void* is) {
   chain = __malloc(sizeof(SymbolChain));
   chain->next = 0;
   chain->p = is;
-  if (!CurrentObject->symbol_chain_head)
-    CurrentObject->symbol_chain_head = chain;
+  if (!Confp->current_object->symbol_chain_head)
+    Confp->current_object->symbol_chain_head = chain;
   else
-    CurrentObject->symbol_chain_tail->next = chain;
-  CurrentObject->symbol_chain_tail = chain;
+    Confp->current_object->symbol_chain_tail->next = chain;
+  Confp->current_object->symbol_chain_tail = chain;
   /*
   if (*table_index == 0) {
     *table_index = chain->p;

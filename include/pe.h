@@ -4,11 +4,24 @@
 
 #define IMAGE_NUMBEROF_DIRECTORY_ENTRIES 16
 
+#define IMAGE_REL_AMD64_ADDR64 1
+#define IMAGE_REL_AMD64_ADDR32 2
+#define IMAGE_REL_AMD64_ADDR32NB 3
+#define IMAGE_REL_AMD64_REL32 4
+#define IMAGE_REL_AMD64_SSPAN32 0x10
+
+// own output type
+#define PE_NONE		0
+#define PE_REL		1
+#define PE_EXEC		2
+#define PE_DLL		3
+
 typedef uint8_t BYTE;
 typedef uint16_t WORD;
 typedef uint32_t DWORD;
 typedef uint64_t QWORD;
 typedef uint64_t ULONGLONG;
+typedef void* HANDLE;
 
 typedef short SHORT;
 

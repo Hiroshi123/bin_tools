@@ -31,7 +31,6 @@ void alloc_export_symbol_chain(void* is, char* name, int shndx) {
   // DUPRECARED :: symbol table resolution had been replaced by gnu hash which is also used for runtime resolution..
   // size_t* table_index = M1(Confp->ExportHashTable, elf_hash, name);
   // *table_index = chain;
-
   if (!Confp->current_object->symbol_chain_head) {
     Confp->current_object->symbol_chain_head = chain;
   } else {
@@ -42,7 +41,7 @@ void alloc_export_symbol_chain(void* is, char* name, int shndx) {
 }
 
 void* lookup_symbol(char* name, int ht) {
-
+  
   uint32_t index = 0;
   size_t* table_index = 0;
   switch (ht) {
@@ -111,10 +110,7 @@ void iterate_symbol_chain() {
   /* for (;schain;schain = schain->next,i++) { */
   /*   printf("pp::%p\n", schain->p); */
   /* } */
-
+  
 }
 
-void alloc_dynamic_symbol(void* a, void* b) {
-
-}
 
