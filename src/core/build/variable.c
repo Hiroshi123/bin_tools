@@ -98,7 +98,7 @@ void* resolve_vars(char* p) {
 	need_resolve = 1;
 	for (t=p;*p != ')';p++);
 	*p = 0;
-	v = __z__std__hash_find(p);
+	v = __z__std__hash_find(&Confp->vars.var_hash_table, p);
 	if (v == 0) {
 	  __os__write(1, "error\n", 6);
 	  return 0;
@@ -404,7 +404,7 @@ char* __z__build__resolve(char* s, rule* r) {
     if (i == 0) break;
     switch (*s2) {
     case '(':
-      ss = __z__std__hash_find(s2 + 1);
+      ss = __z__std__hash_find(&Confp->vars.var_hash_table, s2 + 1);
       break;
     case '<':
       ss = r->deps;
@@ -482,9 +482,4 @@ uint8_t check_assign_var(uint8_t** _p, uint8_t** _q) {
   return 1;
 }
 
-void init_hash_table() {
-
-  Confp->vars.var_hash_table.nbucket = 100;
-
-}
 

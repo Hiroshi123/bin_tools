@@ -1,5 +1,4 @@
 
-
 #include <stdio.h>
 #include <stdint.h>
 #include <errno.h>
@@ -12,21 +11,25 @@
 #include "build.h"
 #include "string.h"
 
-#define write_to_dot_file(X) __os__write(Confp->dot_file_handle, X, strlen(X));
+#define write_to_dot_file(X) __os__write(Confp->dot_file_handle, X, __z__std__strlen(X));
 
 extern build_conf* Confp;
 
 static _bind* BUF_P;
 static size_t* CMD_P;
 
-static uint8_t is_file(void* p) {
+static uint32_t is_file(void* p) {
 
-  int ret = __os__open(p, O_RDONLY, 0777);
-  if (ret == -ENOENT) {
+  // int ret = __os__open("bc.txt", O_RDONLY|O_CREAT, 0777);
+  int ret = __os__open("b.txt", O_RDONLY, 0777);
+  if (ret < 0) {
+    for (;;);
     return 0;
   }
-  // __os__close(p);
-  return ret;
+  logger_emit_p(ret);
+  __os__close(ret);
+  for (;;);
+  return 1;
 }
 
 static void write_node(void* p1, void* p2) {
@@ -117,7 +120,7 @@ static void* resolve_var_suffix(uint8_t* j) {
   if (!j) return p;
   uint8_t* k = BUF_P->bind_full_str;
   for (;*j!=0x20 && *j!=0x0;k++,j++) {
-    check_assign_var(&j, &k);
+    // check_assign_var(&j, &k);
     if (*j == 0x2a/* * */) {
       do_wildcard(s, &j, &k);
     }
@@ -143,6 +146,7 @@ static uint32_t get_mtime(char* fname) {
 static uint8_t modified(rule* r, uint8_t* p1) {
 
   __os__write(1, "abcd\n", 5);
+  for (;;);
   __os__write(1, r->target, strlen(r->target));
   __os__write(1, "\n", 1);
   __os__write(1, p1, strlen(p1));
@@ -176,30 +180,30 @@ static uint8_t iterate_deps(rule* r) {
     }
     r->resolved = 1;
   }
-  
+
   uint8_t* p;
   rule* v;
   uint8_t needs_exec = 0;
-  
+
   for (;;) {
     // p = p1;
     p = _strtok(p1);
-    // printf("look for %s\n",p1);
     if (!p) break;
-    if (has_suffix(p1, 0)) {
-      __os__write(1, "a\n", 2);
-      p1 = resolve_var_suffix(p1);
-    } else {
-      __os__write(1, p1, strlen(p1));
-      __os__write(1, "b\n", 2);
-    }
-    write_edge(r->target, p1);
+    logger_emit("misc.log", p1);
+    // for (;;);
+    // write_edge(r->target, p1);
     if (is_file(p1)) {
+      // __os__write(1, "f\n", 2);
+      for (;;);
+
       needs_exec = modified(r, p1);
-      __os__write(1, "f\n", 2);
+      logger_emit("misc.log", "good\n");
     } else {
       __os__write(1, p1, strlen(p1));
       __os__write(1, "!!\n", 3);
+      logger_emit("misc.log", "bad\n");
+      for (;;);
+
       // if it is
       v = search_rule(p1);
       if (v) {
@@ -223,14 +227,14 @@ static void* convert_path_slash(uint8_t* p) {
   for (;*p!=0;p++) {
     if (*p == '/')
       *p = '\\';
-  }  
+  }
 }
 
 static void do_exec(int argc, void** _args) {
   char* cmd = *_args;
   char* p = ((list*)cmd)->p;
   __os__write(1, "e\n", 2);
-  
+
   size_t* args = __malloc(sizeof(void*) * 10);
   void* q = 0;
   int i=0;
@@ -341,7 +345,7 @@ static void* bind_cmd(rule* r) {
       begin = 0;
     }
     // variable
-    check_assign_var(&p, &q);
+    // check_assign_var(&p, &q);
     // 1st deps($<)
     if (*(uint16_t*)p == 0x3c24) {
       p+=2;
@@ -377,8 +381,13 @@ static void unbind_rule() {
 
 ////////////////////////////////////////////////////////
 
-void __z__build__get_root_rule() {
-  
+void __z__build__traverse(void* p) {
+
+  if (p == 0) {
+    p = Confp->rules.first_rule->target;
+  }
+  rule* r = search_rule(p);
+  iterate_deps(r);
 }
 
 static void ff1(int argc, void** args) {
@@ -390,9 +399,52 @@ static void ff1(int argc, void** args) {
 // __z__std__put_task
 
 // args1 : Specify target string.
+// there are 3 way to find string.
+
+// 1. perfect-match on symbol table
+// 2. implicit match using %
+// 3. suffix rule
+
 void* search_rule(void* p) {
 
-  __os__write(1, "search\n", 7);
+  rule* r = __z__std__hash_find(&Confp->rules.rule_target_hash_table, p);
+  if (r) {
+    logger_emit("misc.log", "perfect match:");
+    logger_emit("misc.log", r->target);
+    return r;
+  }
+  r = __z__std__hash_partial_find
+    (&Confp->rules.rule_target_hash_table,
+     p,
+     Confp->rules.implicit_pre_suffix_len_p
+     );
+  if (r) {
+    logger_emit("misc.log", "implicit match:");
+    logger_emit("misc.log", r->target);
+    logger_emit("misc.log", "\n");
+    return r;
+  }
+
+  if (r == 0) {
+    __os__write(1, "error\n", 6);
+  } else {
+    __os__write(1, r->deps, strlen(r->deps));
+    __os__write(1, "pass!\n", 6);
+    logger_emit("misc.log", r->deps);
+    for (;;);
+  }
+  // r = __z__std__hash_find(&Confp->rules.rule_target_hash_table, p);
+  return 0;
+
+  // __os__write(1, p, strlen(p));
+  // __os__write(1, r->deps, strlen(r->deps));
+  if (r) {
+    __os__write(1, "\n", 2);
+    __os__write(1, r->deps, strlen(r->deps));
+    __os__write(1, "\n", 2);
+    __os__write(1, "searc!\n", 7);
+  }
+
   uint64_t len = Confp->rules.num;
   uint8_t* cmd;
   uint8_t* suffix;
