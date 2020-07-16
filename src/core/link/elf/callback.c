@@ -88,7 +88,7 @@ void _on_section_callback_for_link
     oc->symbol_num = shdr->sh_size / sizeof(Elf64_Sym);
     oc->symbol_table_p = shdr->sh_offset;
     oc->str_table_p = p + (((Elf64_Shdr*)oc->section_head) + shdr->sh_link)->sh_offset;
-
+    
     // string table is also fed here.
     /* ret->str_offset = p + (((Elf64_Shdr*)ret->section_head) + shdr->sh_link)->sh_offset; */
     /* ret->symbol_offset = shdr->sh_offset; */
@@ -124,7 +124,7 @@ void _on_section_callback_for_link
   if (sc == 0) {
     sc = alloc_section_container(0, sh_name, 0, 0);
   }
-  void* schain = alloc_section_chain(shdr, 0, sc);
-  update_object_chain(oc, schain);
+  void* schain = alloc_section_chain(shdr, 0, sc, 0);
+  // update_object_chain(oc, schain);
 }
 

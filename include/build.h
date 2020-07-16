@@ -30,13 +30,6 @@ typedef struct {
   uint8_t kind;
 } var;
 
-typedef struct _list list;
-
-struct _list {
-  void* p;
-  list* next;
-};
-
 typedef struct {
   uint8_t* target;
   uint8_t* deps;
@@ -60,6 +53,8 @@ typedef struct {
 typedef struct {
   uint64_t num;
   rule* first_rule;
+  hash_table rule_target_hash_table;
+  list* implicit_pre_suffix_len_p;
 } rules;
 
 typedef struct {
@@ -79,7 +74,7 @@ enum var_kind {
 typedef struct {
   vars vars;
   rules rules;
-  void* dot_file_handle;
+  void* dot_file_handle;  
 } build_conf;
 
 static void* bind_cmd(rule* r);

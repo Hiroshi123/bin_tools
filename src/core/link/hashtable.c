@@ -8,11 +8,9 @@
 #include <stdint.h>
 
 #include "alloc.h"
+#include "objformat.h"
 #include "elf.h"
 #include "link.h"
-
-/* struct SymbolHashTable HashTable = {}; */
-/* struct SymbolHashTable DLLHashTable = {}; */
 
 extern Config* Confp;
 
@@ -82,7 +80,45 @@ static int gnu_lookup(uint32_t h1, uint32_t *hashtab, const char *s) {
   return 0;
 }
 
-static int gnu_lookup_filtered(uint32_t h1, uint32_t *hashtab, const char *s, uint32_t fofs, size_t fmask)
+int sysv_lookup_for_coff
+(const char *s) {//, void* base, uint32_t* address_of_function) {
+
+  uint32_t* syms = Confp->export_data.address_of_names;
+  uint32_t* fp = Confp->export_data.address_of_functions;
+  size_t export_vaddr_p = Confp->export_data.vaddr_p;
+  char* ied_p = Confp->export_data.ied_p;
+  // IMAGE_EXPORT_DIRECTORY* ied = Confp->export_data_p;
+  // ied->
+  size_t i;
+  uint32_t h = sysv_hash(s);
+  // uint32_t* syms = address_of_function;
+  uint32_t* hashtab = Confp->hash_table_p;
+  // char *strings = base;
+  for (i=hashtab[2+h%hashtab[0]]; i; i=hashtab[2+hashtab[0]+i]) {
+    if (//(!dso->versym || dso->versym[i] >= 0) &&
+	(!strcmp(s, ied_p+syms[i] - export_vaddr_p)))
+      return fp[i];
+  }
+  return 0;
+}
+
+int sysv_lookup(const char *s, uint32_t h/*struct dso *dso*/)
+{
+  size_t i;
+  Elf64_Sym* syms = Confp->dynsym_head;// dso->syms;
+  // Elf_Symndx
+  uint32_t* hashtab = Confp->hash_table_p;// dso->hashtab;
+  char *strings = Confp->dynstr_head;//dso->strings;
+  for (i=hashtab[2+h%hashtab[0]]; i; i=hashtab[2+hashtab[0]+i]) {
+    if (//(!dso->versym || dso->versym[i] >= 0) &&
+	(!strcmp(s, strings+syms[i].st_name)))
+      return i;
+  }
+  return 0;
+}
+
+static int gnu_lookup_filtered
+(uint32_t h1, uint32_t *hashtab, const char *s, uint32_t fofs, size_t fmask)
 {
   const size_t *bloomwords = (const void *)(hashtab+4);
   size_t f = bloomwords[fofs & (hashtab[2]-1)];
@@ -174,13 +210,60 @@ void iterate_table(uint8_t* p) {
   }
 }
 
+void check_dt_hash_collision
+(uint32_t* bucket, uint32_t* chain, uint32_t mod, uint32_t sym_index) {
+
+  uint32_t* p = 0;
+  if (*(bucket + mod)) {
+    // printf("collision:%p,%p\n", *(bucket+mod), sym_index);
+    // printf("chain:%p\n", chain + *(bucket+mod));
+    for (p = chain + *(bucket + mod) ; *p ; p = chain + *p);
+    *p = sym_index;
+  } else {
+    // no collision
+    *(bucket + mod) = sym_index;
+  }
+}
+
+void add_dt_hash_entry(DtHashTable* hash_table_p, char* name, int sym_index) {
+  uint32_t hash = sysv_hash(name);
+  int mod = hash % hash_table_p->nbucket;
+  // DtHashTable* hash_table_p = D[DT_HASH_INDEX].data_p;
+  hash_table_p->nchain ++;
+  uint32_t* bucket = hash_table_p + 1;
+  uint32_t* chain = bucket + hash_table_p->nbucket;
+  check_dt_hash_collision(bucket, chain, mod, sym_index);
+  // TODO :: If size is not enough, it should allocate new area reffered from new section chain.
+  // But chain is referred from bucket and will be collappsed.
+  /* if (D[DT_HASH_INDEX].size == D[DT_HASH_INDEX].alloc_size) { */
+  /*   add_dynamic_sc(DT_HASH_INDEX, 0, D[DT_HASH_INDEX].sc_p); */
+  /* } */
+}
+
 void init_hashtable(char* fname) {
 
+  if (Confp->use_dt_hash) {
+    DtHashTable* dt = __malloc(1000);
+    Confp->hash_table_p = dt;
+    dt->nbucket = 100;
+    dt->nchain = 0;    
+  }
+  
   Confp->ExportHashTable.nbucket = 100;
   Confp->ExportHashTable.nchain = 0;
   int hashSize = Confp->ExportHashTable.nbucket*sizeof(void*);
   Confp->ExportHashTable.bucket = __malloc(hashSize);
   memset(Confp->ExportHashTable.bucket, 0, hashSize);
+  
+  Confp->DynamicImportHashTable.nbucket = 10;
+  Confp->DynamicImportHashTable.nchain = 0;
+  hashSize = Confp->DynamicImportHashTable.nbucket*sizeof(void*);
+  Confp->DynamicImportHashTable.bucket = __malloc(hashSize);
+  // memset(Confp->DynamicImportHashTable.bucket, 0, hashSize);
+
+  if (Confp->file_format == ELF32 || Confp->file_format == ELF64) {
+    return;
+  }
   
   Confp->DLLHashTable.nbucket = 10;
   Confp->DLLHashTable.nchain = 0;
@@ -188,16 +271,8 @@ void init_hashtable(char* fname) {
   Confp->DLLHashTable.bucket = __malloc(hashSize);
   memset(Confp->DLLHashTable.bucket, 0, hashSize);
   
-  Confp->DynamicImportHashTable.nbucket = 10;
-  Confp->DynamicImportHashTable.nchain = 0;
-  hashSize = Confp->DynamicImportHashTable.nbucket*sizeof(void*);
-  Confp->DynamicImportHashTable.bucket = __malloc(hashSize);
-  // memset(Confp->DynamicImportHashTable.bucket, 0, hashSize);
-  
-  return;
-
   uint8_t* p = __z__mem__alloc_file(fname);
-  if (isSqlite(p)) {
+  if (0/*isSqlite(p)*/) {
     iterate_table(p);
   } else {
     alloc_dynamic_symbol("f1","ex65");

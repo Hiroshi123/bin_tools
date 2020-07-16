@@ -368,7 +368,7 @@ static void write_section_header(void* arg1) {
   __os__write(FileDescriptor, shdr, sizeof(Elf64_Shdr));
 }
 
-void gen(char* fname) {
+void __z__link__gen_elf(char* fname) {
 
   FileDescriptor = __os__open(fname, O_CREAT | O_WRONLY | O_TRUNC, 0777);
   // __os__seek(FileDescriptor, sizeof(Elf64_Ehdr), 0);

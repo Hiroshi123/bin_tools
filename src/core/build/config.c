@@ -17,6 +17,17 @@ static build_conf Conf;
 
 void __z__build__init() {
 
+  int ret = __os__open("b.txt", O_RDONLY, 0777);
+  if (ret < 0) {
+  logger_emit_p(ret);
+    for (;;);
+    return 0;
+  }
+  logger_emit_p(ret);
+  __os__close(ret);
+  for (;;);
+  return;
+  
   Conf.vars.first_var = __malloc(50 * sizeof(void*));
   Conf.rules.first_rule = __malloc(50 * sizeof(void*));
   
@@ -26,9 +37,18 @@ void __z__build__init() {
   Conf.vars.var_hash_table.nbucket = 100;
   int hash_size = Conf.vars.var_hash_table.nbucket * sizeof(void*);
   Conf.vars.var_hash_table.bucket = __malloc(hash_size);
+  Conf.vars.var_hash_table.hash_f = &__z__std__sysv_hash;
   
-  __z__std__init_hash_table(&Conf.vars.var_hash_table);
-  __z__std__init_thread_pool(1);
+  Conf.rules.rule_target_hash_table.nbucket = 100;
+  hash_size = Conf.rules.rule_target_hash_table.nbucket * sizeof(void*);
+  Conf.rules.rule_target_hash_table.bucket = __malloc(hash_size);
+  Conf.rules.rule_target_hash_table.hash_f = &__z__std__with_escape_hash;
+  Conf.rules.implicit_pre_suffix_len_p = 0;
+  // __z__sysv_hash;
+  // __z__std__init_hash_table(&Conf.vars.var_hash_table);
+
+  // __z__std__init_thread_pool(1);
+
   
 }
 

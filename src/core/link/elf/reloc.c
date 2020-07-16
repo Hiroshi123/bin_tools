@@ -34,7 +34,7 @@ void count_program_header() {
     Confp->program_header_num * sizeof(Elf64_Phdr) + sizeof(Elf64_Ehdr);
 }
 
-void set_virtual_address(void* arg1) {
+void __z__link__elf_set_virtual_address(void* arg1) {
 
   SectionContainer* sc = arg1;
   SectionChain* schain = sc->init;
@@ -79,6 +79,8 @@ static void fill_address(void* addr, uint8_t type, uint32_t src_addr, uint32_t d
     add_rela_plt_entry(src_addr, 0, R_X86_64_RELATIVE, dst_addr);
     // *((uint64_t*)addr) = dst_addr;// shdr->sh_addr + rela->r_addend;
     break;
+  case R_X86_64_REX_GOTPCRELX:// function pointer    
+    printf("[R_X86_64_REX_GOTPCRELX]\n");
   case R_X86_64_PC32/*2*/:
   case R_X86_64_PLT32:
     /* printf("PC32:%p\n" , dst_addr - (src_addr/\* + 4*\/)); */
@@ -137,12 +139,21 @@ static void resolve(ObjectChain* oc, Elf64_Rela* rela, Elf64_Shdr* sub_shdr/*, v
 	  name);
       logger_emit("misc.log", max_name);
       dynamic_resolve_num += 1;
+      // in this case, this must be data.
+      // you do not need to add got.plt playload but dynsym + dynstr + rela.plt(REL_GOT)      
       if (rel_type == R_X86_64_64) {
-	// in this case, you do not need to add got.plt playload but dynsym + dynstr + rela.plt(REL_GOT)
 	uint32_t r = add_dynamic_entry2(src_addr, name);
 	// printf("sym + dynamic,%p\n", r);
-      } else {
-	/* printf("resolve dynamically:%s,%p,%p,%p\n", oc->str_table_p + sym->st_name, addr, src_addr, 0 - rela->r_addend); */
+      } else if (rel_type == R_X86_64_REX_GOTPCRELX) {
+	dst_addr = add_dynamic_entry(name);
+	// TODO :: curreint implementation is ADHOC.
+	// function address is substited with R_X86_64_REX_GOTPCRELX.
+	// In this case, you do not need to feed only GOT not with PLT because
+	// you do not need to call it directly.
+	// +8 means ignoring plt which are put just before got.
+	fill_address(addr, rel_type, src_addr + addend, dst_addr + 8);
+      }
+      else {
 	dst_addr = add_dynamic_entry(name);
 	fill_address(addr, rel_type, src_addr + addend, dst_addr);
       }
@@ -193,7 +204,7 @@ static void resolve(ObjectChain* oc, Elf64_Rela* rela, Elf64_Shdr* sub_shdr/*, v
   }
 }
 
-void do_reloc(void* _oc, void* arg1) {
+void __z__link__elf_do_reloc(void* _oc, void* arg1) {
 
   ObjectChain* oc = _oc;
   Elf64_Rela* rela;

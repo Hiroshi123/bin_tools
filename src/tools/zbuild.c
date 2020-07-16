@@ -37,15 +37,17 @@ static void th2() {
   __os__write(1, "b!!\n", 4);
 }
 
+#define USUAGE "usage\n"\
+  "minimum GNU make\n"				\
+  "-f : specify a build file\n"			\
+  "1st : specify a target name\n\n"
+
 void start(char** argv) {
-  
+
   int argc = *argv++;
   if (argc == 1) {
-    char* str = "usage\n"\
-      "minimum GNU make\n"\
-      "-f : specify a build file\n"\
-      "1st : specify a target name\n\n";
-    __os__write(1, str, strlen(str));
+    char* str = USUAGE;
+    __os__write(1, str, sizeof(USUAGE));
     return;
   }
   
@@ -67,14 +69,18 @@ void start(char** argv) {
   if (buf == 0 || size == 0) {
     __os__write(1, "error\n", 6);
   }
+  
   __z__build__parse_makefile(buf, buf + size);
+
   
   // resolve();
-  __z__build__resolve_target();
-  // __z__build__get_root_rule();
+  // __z__build__resolve_target();
+
+  __z__build__traverse(target);
   
-  search_rule(target);
+  // search_rule(target);
   // __z__std__init_thread_pool(1);
+  
   
   for (;;);
   
