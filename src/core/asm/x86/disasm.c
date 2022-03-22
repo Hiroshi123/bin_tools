@@ -6,6 +6,7 @@
 #include "logger.h"
 #include "x86_emu.h"
 #include "string.h"
+#include "alloc.h"
 
 static char* __RM_BUF[0x30] = {};
 static char* __REG_BUF[0x30] = {};
@@ -171,6 +172,7 @@ static char* get_register_name(uint64_t* p, uint8_t flag) {
     set_name3(q+1, flag);
     return q;
   default:
+    logger_emit_p(r);
     logger_emit("misc.log", "!\n");
     for (;;);
     return 0;
@@ -180,7 +182,10 @@ static char* get_register_name(uint64_t* p, uint8_t flag) {
 static void check_sign(uint64_t imm_val, char** buf, int digit) {
 
   uint64_t pow = 1 << digit;
-  if (imm_val >= (pow >> 1)) {
+  /* logger_emit_p(pow); */
+  /* logger_emit_p(1 << 31); */
+  /* logger_emit_p(imm_val >= (pow >> 1)); */
+  if (imm_val >= (1 << (digit - 1))) {
     buf[0] = "-";
     uint64_t neg = pow - imm_val;// - 1;
     buf[1] = itoh(neg, digit);
@@ -247,8 +252,13 @@ static void t1(Context* con, uint8_t apply_mod, char* out) {
       // rip + displacement32
       buf[0] = "[";
       if (con->rip_rel) {
-	buf[1] = "rip";
-	check_sign(con->displacement, &buf[2], 8);
+	int arch = _get_arch();
+	if (arch == 2) {
+	  buf[1] = "rip";	  
+	  check_sign(con->displacement, &buf[2], 32);
+	} else {
+	  check_sign(con->displacement, &buf[1], 32);
+	}
       } else {
 	buf[1] = get_register_name(con->rm, con->aflag);
       }
@@ -317,43 +327,48 @@ static void fill_name(Context* con, char** b2) {
 
   get_rm_name(con, &__RM_BUF[0]);
   get_reg_name(con, &__REG_BUF[0]);
-  b2[1] = &__RM_BUF[0];
-  b2[2] = &__REG_BUF[0];
+  int idx1 = 1;
+  int idx2 = 2;
+  if (con->is_rm_src) {
+    idx1 = 2;idx2 = 1;
+  }
+  b2[idx1] = &__RM_BUF[0];
+  b2[idx2] = &__REG_BUF[0];
 }
 
 static char* get_jmp_name(int index) {
-  switch (index) {
-  case 0x70:
+  switch (index & 0xf) {
+  case 0x0:
     return "jo";
-  case 0x71:
+  case 0x1:
     return "jno";
-  case 0x72:
+  case 0x2:
     return "jnae";
-  case 0x73:
+  case 0x3:
     return "jnc";
-  case 0x74:
+  case 0x4:
     return "je";
-  case 0x75:
+  case 0x5:
     return "jne";
-  case 0x76:
+  case 0x6:
     return "jna";
-  case 0x77:
+  case 0x7:
     return "ja";
-  case 0x78:
+  case 0x8:
     return "js";
-  case 0x79:
+  case 0x9:
     return "jns";
-  case 0x7a:
+  case 0xa:
     return "jpe";
-  case 0x7b:
+  case 0xb:
     return "jpo";
-  case 0x7c:
+  case 0xc:
     return "jnge";
-  case 0x7d:
+  case 0xd:
     return "jge";
-  case 0x7e:
+  case 0xe:
     return "jng";
-  case 0x7f:
+  case 0xf:
     return "jnle";
   default:
     __os__write(1, "not yet\n", 7);
@@ -502,23 +517,406 @@ static void write_addr() {
   uint64_t* p = itoh(addr, 32);
   __os__write(1, p, strlen(p));
   __os__write(1, "\t", 1);
+  logger_emit("instruction.log", p);
+  logger_emit("instruction.log", "\t");
+  // write_addr();
   p = &__DIGIT[0] + 2;
   *p = 0;
 }
+
+static char* get_xmm_op_name(uint64_t* reg, uint8_t t) {
+
+  uint64_t* d = _get_xmm_base();
+  int diff = (reg - d)/2;
+  logger_emit_p(diff);
+  static char xmm[5] = "xmm";
+  if (t) {
+    // no string merge required
+    static char xmm2[5] = "xmm";    
+    xmm2[3] = diff + 0x30;
+    return &xmm2;
+  } else {
+    xmm[3] = diff + 0x30;
+  }
+  return &xmm;
+}
+
+static int check_fp(Context* con) {
+
+  if (con->data_prefix) {
+    return 1;
+  }
+  if (con->repz) {
+    return 2;
+  }
+  if (con->repnz) {
+    return 3;    
+  }
+  return 0;
+}
+
+static char* get_0xf90_name(uint8_t x) {
+  static char r[6] = "set";
+  r[4] = 0;r[5] = 0;r[6] = 0;
+  char* r4 = (char*)&r[0]+3;
+  switch (x) {
+  case 0x90:
+    *r4 = 'o';
+    break;
+  case 0x91:
+    *r4 = 'n';
+    *(r4+1) = 'o';
+  case 0x92:
+    *r4 = 'b';
+    break;
+  case 0x93:
+    *r4 = 'n';
+    *(r4+1) = 'b';
+    break;
+  case 0x94:
+    *r4 = 'e';
+    break;
+  case 0x95:
+    *r4 = 'n';
+    *(r4+1) = 'e';
+    break;
+  default:
+    break;
+  }
+  return &r[0];
+}
+
+static char* fpu_tmp(size_t* x) {
+  Reg* reg = _get_reg_head();
+  size_t diff = x - (size_t*)reg;
+  logger_emit_p(reg);
+  logger_emit_p(x);
+  switch (diff) {
+  case 0:
+    return "fxsave";
+  case 1:
+    return "fxrstor";
+  case 2:
+    return "ldmxcsr";
+  case 3:
+    return "stmxcsr";
+  }
+  for (;;);
+}
+
+static char* get_fpu_d8ace_op_name(Context* con) {
+
+  Reg* reg = _get_reg_head();
+  size_t diff = (size_t*)con->reg - (size_t*)reg;
+  switch (diff) {
+  case 0:
+    return "fadd";
+  case 1:
+    return "fmul";
+  case 2:
+    return "fcom";
+  case 3:
+    return "fcomp";
+  case 4:
+    return "fsub";
+  case 5:
+    return "fsubr";
+  case 6:
+    return "fdiv";
+  case 7:
+    return "fdivr";
+  default:
+    for (;;);
+    return "";
+  }
+}
+
+static char* get_fpu_d9_op_name(Context* con) {
+  // basically should be determined by reg.
+  // additionally, mod
+  Reg* reg = _get_reg_head();
+  size_t diff = (size_t*)con->reg - (size_t*)reg;
+  switch (diff) {
+  case 0:
+    return "fld";
+  case 1:
+    return "fxch";
+  case 2: {
+    // fnop
+    return "fst";
+  }
+  case 3:
+    return "fstp";
+  case 4:
+    // mod = e0 => fchs
+    return "fldenv";
+  case 5:
+    return "fldcw";
+  case 6:
+  case 7:
+    return "aa";
+  }
+  for (;;);
+}
+
+// sensitive operation
+// verr/verw
+// 
 
 static void fetch_extend(Context* con) {
 
   char* buf[20] = {};
   char* b;
   char** b2[4] = {};
+  int idx1 = 1;
+  int idx2 = 2;
   switch (con->opcode) {
   case 0x00:
+    // sldt (local discriptor table)
+    // str (store task register)
+    // lldt 
+    // ltr 
+    // verr verify a segment for reading
+    // verw verify a segment for writing
+    for (;;);
     break;
+  case 0x05:
+    b2[0] = "syscall";
+    break;
+  
+  case 0x10:
+  case 0x11:
+    switch (check_fp(con)) {
+    case 0:
+      b2[0] = "movups";
+      break;
+    case 1:
+      b2[0] = "movupd";
+      break;
+    case 2:
+      b2[0] = "movsd";
+      break;
+    case 3:
+      b2[0] = "movss";
+      break;
+    }
+    if (con->opcode == 0x11) {
+      idx1 = 2;idx2 = 1;
+    }
+    b2[idx1] = get_xmm_op_name(con->reg, 0);
+    get_rm_name(con, &__RM_BUF[0]);
+    b2[idx2] = &__RM_BUF[0];
+    break;
+  case 0x14:
+    // low packed 
+  case 0x15:
+    // high packed
+    // if 66(data-prefix) is given treat reg as m128
+    b2[0] = "unpck";
+    b2[1] = get_xmm_op_name(con->reg, 0);
+    b2[2] = get_xmm_op_name(con->rm, 1);    
+    break;
+    
   case 0x1f:
     b2[0] = "nop";
-    break;    
+    break;
+  case 0x28:
+  case 0x29:
+    if (con->data_prefix) {
+      b2[0] = "movapd";
+    } else {
+      b2[0] = "movaps";
+    }
+    if (con->opcode == 0x11) {
+      idx1 = 2;idx2 = 1;
+    }
+    b2[idx1] = get_xmm_op_name(con->reg, 0);
+    get_rm_name(con, &__RM_BUF[0]);
+    b2[idx2] = &__RM_BUF[0];
+    break;
+  case 0x2e:
+    b2[0] = "ucomis";
+    goto xmm2;
+  case 0x2f:
+    b2[0] = "comis";
+    goto xmm2;
+    // 
+  case 0x40:
+    b2[0] = "cmov";
+    goto cmov01;
+  case 0x41:
+    b2[0] = "cmov";
+    goto cmov01;
+  case 0x42:
+    b2[0] = "cmov";
+    goto cmov01;
+  case 0x43:
+    b2[0] = "cmov";
+    goto cmov01;
+  case 0x44:
+    b2[0] = "cmov";
+    goto cmov01;
+  case 0x45:
+    b2[0] = "cmov";
+    goto cmov01;
+  case 0x46:
+    b2[0] = "cmov";
+    goto cmov01;
+  case 0x47:
+    b2[0] = "cmov";
+    goto cmov01;
+  case 0x48:
+    b2[0] = "cmovs";
+    goto cmov01;
+  case 0x49:
+    b2[0] = "cmov";
+    goto cmov01;
+  case 0x4a:
+    b2[0] = "cmov";
+    goto cmov01;
+  case 0x4b:
+    b2[0] = "cmov";
+    goto cmov01;
+  case 0x4c:
+    b2[0] = "cmov";
+    goto cmov01;
+  case 0x4d:
+    b2[0] = "cmov";
+    goto cmov01;
+  case 0x4e:
+    b2[0] = "cmov";
+    goto cmov01;
+  case 0x4f:
+    b2[0] = "cmov";
+    goto cmov01;
+  cmov01:
+    fill_name(con, &b2);
+    break;
+  case 0x50:
+    b2[0] = "movmskp";
+    goto xmm2;
+  case 0x51:
+    b2[0] = "sqrt";
+    goto xmm2;
+  case 0x52:
+    b2[0] = "rsqrt";
+    goto xmm2;
+  case 0x53:
+    b2[0] = "rcp";
+    goto xmm2;
+  case 0x54:
+    b2[0] = "rcp";
+    goto xmm2;
+  case 0x55:
+    b2[0] = "andnp";
+    goto xmm2;
+  case 0x56:
+    b2[0] = "orp";
+    goto xmm2;
+  case 0x57:
+    b2[0] = "xorp";
+    goto xmm2;
+  case 0x58:
+    b2[0] = "add";
+    goto xmm2;
+  case 0x59:
+    b2[0] = "mul";
+    goto xmm2;
+  case 0x5a:
+  case 0x5b:
+    b2[0] = "cvtps2pd";
+    goto xmm2;
+  case 0x5c:
+    b2[0] = "sub";
+    goto xmm2;
+  case 0x5d:
+    b2[0] = "min";
+    goto xmm2;
+  case 0x5e:
+    b2[0] = "div";
+    goto xmm2;
+  case 0x5f:
+    b2[0] = "max";
+    goto xmm2;
+
+  xmm2:
+    b2[1] = get_xmm_op_name(con->reg, 0);
+    b2[2] = get_xmm_op_name(con->rm, 1);
+    break;
+
+  case 0x80:
+  case 0x81:
+  case 0x82:
+  case 0x83:
+  case 0x84:
+  case 0x85:
+  case 0x86:
+  case 0x87:
+  case 0x88:
+  case 0x89:
+  case 0x8a:
+  case 0x8b:
+  case 0x8c:
+  case 0x8d:
+  case 0x8e:
+  case 0x8f:
+    b2[0] = get_jmp_name(con->opcode);
+    b2[1] = itoh(con->imm_val, 32);
+    // prepare_control_data(reg->pre_rip, reg->pre_rip + con->imm_val, 0, 0);
+    break;
+  case 0x90:
+  case 0x91:
+  case 0x92:
+  case 0x93:
+  case 0x94:
+  case 0x95:
+  case 0x96:
+  case 0x97:
+  case 0x98:
+  case 0x99:
+  case 0x9a:
+  case 0x9b:
+  case 0x9c:
+  case 0x9d:
+  case 0x9e:
+  case 0x9f:
+    b2[0] = get_0xf90_name(con->opcode);
+    get_rm_name(con, &__RM_BUF[0]);
+    b2[1] = &__RM_BUF[0];
+    break;
+  case 0xa2:
+    b2[0] = "cpuid";
+    break;
+  case 0xae:
+    b2[0] = fpu_tmp(con->reg);
+    get_rm_name(con, &__RM_BUF[0]);
+    b2[1] = &__RM_BUF[0];    
+    break;
+  case 0xb0:
+  case 0xb1:
+    if (con->lock) {
+      b2[0] = "lock";
+      b2[1] = "cmpxchg";
+    } else {
+      b2[0] = "cmpxchg";
+    }
+    fill_name(con, &b2);
+    break;
+  case 0xb6:
+    b2[0] = "movzbl";
+    fill_name(con, &b2);    
+    break;
+  case 0xb7:
+    b2[0] = "movzwl";
+    fill_name(con, &b2);
+    break;
+  case 0xbe:
+    b2[0] = "movsbl";
+    fill_name(con, &b2);
+    break;
   default:
-    break;    
+    for (;;);
+    break;
   }
   if (b2[0]) {
     b = _snprintf(buf, &b2);
@@ -528,13 +926,101 @@ static void fetch_extend(Context* con) {
   write_addr();
 }
 
+static uint16_t mtohex(char* x) {
+
+  uint16_t r;
+  uint8_t first = 1;
+  uint8_t h1 = (0xf0 & *x) >> 4; 
+ b1:
+  if (0 <= h1 && h1 <= 9) {
+    h1 += 0x30;
+  } else if (10 <= h1 && h1 <= 15) {
+    h1 += 0x61 - 10;
+  } else {
+    for (;;);
+  }
+  if (first) {
+    r = h1;
+    first = 0;
+    h1 = 0x0f & *x;
+    goto b1;
+  } else {
+    r |= h1 << 8;
+  }
+  return r;
+  // return &r[0];
+}
+
+typedef struct {
+  void* addr1;
+  void* addr2;
+  uint64_t flag;
+  void* next;
+  // caller / callee / call / jmp;  
+} control_data;
+
+static control_data first_control_data = {};
+
+static void insert_control_data(control_data* p) {
+  
+  // control_data;
+  control_data* c = &first_control_data;
+  for (;c->next;c=c->next) {
+    if (c->next == 0) {
+      if (p->addr1 < c->addr1) {	
+	p->next = c;
+      }
+    }
+  }
+  c->next = p;
+}
+
+static control_data* alloc_control_data(void* addr1, void* addr2, int caller_callee, int call_jmp) {
+  control_data* c = __malloc(sizeof(control_data));
+  c->addr1 = addr1;
+  c->addr2 = addr2;
+  c->flag = 0;
+  return c;
+}
+
+static void prepare_control_data(void* addr1, void* addr2, int caller_callee, int call_jmp) {
+
+  control_data* c = alloc_control_data(addr1, addr2, 0, 0);
+  insert_control_data(c);
+  c = alloc_control_data(addr2, addr1, 0, 0);
+  insert_control_data(c);
+}
+
 void __z__x86__dis() {
 
   Context* con = _get_context();
   Reg* reg = _get_reg_head();
-
-  logger_emit_p(&con->opcode);
-  logger_emit("misc.log", "----------\n");  
+  logger_emit("misc.log", "----------\n");
+  char* p = reg->pre_rip;
+  uint16_t v = 0;
+  for (;p<reg->rip;p++) {
+    logger_emit_p(*p);
+    v = mtohex(p);
+    __os__write(1, &v, 2);
+    // logger_emit_i();
+    int i = __z__logger__get_handle("instruction.log");
+    __os__write(i, &v, 2);
+    // logger_emit("instruction.log", &v);
+  }
+  uint8_t diff = (char*)reg->rip - (char*)reg->pre_rip;
+  __os__write(1, "\t", 1);
+  logger_emit("instruction.log", "\t");
+  if (diff < 0x8) {
+    __os__write(1, "\t", 1);
+    // logger_emit("instruction.log", "\t");
+  }
+  if (diff < 0x4) {
+    __os__write(1, "\t", 1);
+    // logger_emit("instruction.log", "\t");
+  }
+  
+  /* logger_emit_p(reg->pre_rip); */
+  /* logger_emit_p(reg->rip); */
   logger_emit("misc.log", "----------\n");
   
   if (_is_extend_op()) {
@@ -543,65 +1029,105 @@ void __z__x86__dis() {
     fetch_extend(con);
     return 0;
   }
-  
   char* buf[20] = {};
   char* b;
   char** b2[4] = {};
   int len = 0;
+  int arch = _get_arch();
+  int size = 0x10;
   switch (con->opcode) {
   case 0x00:
   case 0x01:
   case 0x02:
   case 0x03:
-  case 0x04:
-  case 0x05:
     fill_name(con, &b2);
     b2[0] = "add";
+    break;
+  case 0x04:
+  case 0x05:
+    b2[0] = "add";
+    get_reg_name(con, &__REG_BUF[0]);
+    b2[1] = &__REG_BUF[0];
+    if (con->opcode == 0x5) size = 32;
+    b2[2] = itoh(con->imm_val, size);
     break;
   case 0x08:
   case 0x09:
   case 0x0a:
   case 0x0b:
-  case 0x0c:
-  case 0x0d:
     fill_name(con, &b2);
     b2[0] = "or";
+    break;
+  case 0x0c:
+    size = 8;
+  case 0x0d:
+    b2[0] = "or";
+    get_reg_name(con, &__REG_BUF[0]);
+    b2[1] = &__REG_BUF[0];
+    if (con->opcode == 0xd) size = 32;
+    b2[2] = itoh(con->imm_val, size);
     break;
   case 0x10:
   case 0x11:
   case 0x12:
   case 0x13:
-  case 0x14:
-  case 0x15:
     fill_name(con, &b2);
     b2[0] = "adc";
+    break;
+  case 0x14:
+    size = 8;
+  case 0x15:
+    b2[0] = "or";
+    get_reg_name(con, &__REG_BUF[0]);
+    b2[1] = &__REG_BUF[0];
+    if (con->opcode == 0x15) size = 32;
+    b2[2] = itoh(con->imm_val, size);
     break;
   case 0x18:
   case 0x19:
   case 0x1a:
   case 0x1b:
-  case 0x1c:
-  case 0x1d:
     fill_name(con, &b2);
     b2[0] = "sbb";
+    break;
+  case 0x1c:
+    size = 8;
+  case 0x1d:
+    b2[0] = "sbb";
+    get_reg_name(con, &__REG_BUF[0]);
+    b2[1] = &__REG_BUF[0];
+    if (con->opcode == 0x25) size = 32;
+    b2[2] = itoh(con->imm_val, size);
     break;
   case 0x20:
   case 0x21:
   case 0x22:
   case 0x23:
-  case 0x24:
-  case 0x25:
     fill_name(con, &b2);
     b2[0] = "and";
+    break;
+  case 0x24:
+    size = 8;
+  case 0x25:
+    b2[0] = "and";
+    get_reg_name(con, &__REG_BUF[0]);
+    b2[1] = &__REG_BUF[0];
+    if (con->opcode == 0x25) size = 32;
+    b2[2] = itoh(con->imm_val, size);
     break;
   case 0x28:
   case 0x29:
   case 0x2a:
   case 0x2b:
-  case 0x2c:
-  case 0x2d:
     fill_name(con, &b2);
     b2[0] = "sub";
+    break;
+  case 0x2c:
+  case 0x2d:
+    b2[0] = "sub";
+    get_rm_name(con, &__RM_BUF[0]);
+    b2[1] = &__RM_BUF[0];
+    b2[2] = itoh(con->imm_val, 32);
     break;
   case 0x2e:
     __os__write(1, "k\n", 2);
@@ -620,10 +1146,15 @@ void __z__x86__dis() {
   case 0x39:
   case 0x3a:
   case 0x3b:
-  case 0x3c:
-  case 0x3d:
     fill_name(con, &b2);
     b2[0] = "cmp";
+    break;
+  case 0x3c:
+  case 0x3d:
+    b2[0] = "cmp";
+    get_rm_name(con, &__RM_BUF[0]);
+    b2[1] = &__RM_BUF[0];
+    b2[2] = itoh(con->imm_val, 32);
     break;
   case 0x50:
   case 0x51:
@@ -634,7 +1165,8 @@ void __z__x86__dis() {
   case 0x56:
   case 0x57:
     b2[0] = "push";
-    b2[1] = get_register_name(con->reg, 0x18);
+    if (arch == 2) size = 0x18;
+    b2[1] = get_register_name(con->reg, size);
     break;
   case 0x58:
   case 0x59:
@@ -645,10 +1177,17 @@ void __z__x86__dis() {
   case 0x5e:
   case 0x5f:
     b2[0] = "pop";
-    b2[1] = get_register_name(con->reg, 0x18);
+    if (arch == 2) size = 0x18;
+    b2[1] = get_register_name(con->reg, size);
     break;
   case 0x60:
-    
+    break;
+  case 0x63:
+    b2[0] = "movslq";
+    fill_name(con, &b2);    
+    break;
+  case 0x66:   
+    break;
   case 0x68:
     b2[0] = "push";
     b2[1] = itoh(con->imm_val, 32);
@@ -677,6 +1216,8 @@ void __z__x86__dis() {
   case 0x7f:
     b2[0] = get_jmp_name(con->opcode);
     b2[1] = itoh(con->imm_val, 8);
+    prepare_control_data(reg->pre_rip, reg->pre_rip + con->imm_val, 0, 0);
+
     break;
   case 0x80:
   case 0x81:
@@ -735,12 +1276,31 @@ void __z__x86__dis() {
     break;
   case 0x98:
   case 0x99:
+    b2[0] = "cltq";
     break;
   case 0x9c:
     b2[0] = "pushf";
     break;    
   case 0x9d:
     b2[0] = "popf";
+    break;
+  case 0xa0:
+  case 0xa1:
+    b2[0] = "mov";
+    get_rm_name(con, &__RM_BUF[0]);
+    b2[2] = &__RM_BUF[0];
+    b2[1] = itoh(con->imm_val, 32);    
+    break;
+  case 0xa2:
+  case 0xa3:
+    b2[0] = "mov";
+    get_rm_name(con, &__RM_BUF[0]);
+    b2[1] = &__RM_BUF[0];
+    b2[2] = itoh(con->imm_val, 32);    
+    break;
+  case 0xa5:
+  case 0xa6:
+    b2[0] = "cmpsb";
     break;
   case 0xa8:
     break;
@@ -757,7 +1317,11 @@ void __z__x86__dis() {
     b2[0] = "stosS";
     break;
   case 0xab:
-    b2[0] = "stosS";
+    if (con->repz) {
+      b2[0] = "rep";
+    }
+    b2[1] = "stosS";
+    // get_rm_name(con, &__RM_BUF[0]);
     break;
   case 0xac:
     b2[0] = "lodsS";
@@ -794,14 +1358,15 @@ void __z__x86__dis() {
     get_rm_name(con, &__RM_BUF[0]);
     b2[1] = &__RM_BUF[0];
     b2[2] = itoh(con->imm_val, 8);
-    logger_emit_p(con->imm_val);    
+    logger_emit_p(con->imm_val);
     // __os__write(1, "c\n", 2);
     // for (;;);
     break;
   case 0xc2:
     b2[0] = "ret";
-    get_rm_name(con, &__RM_BUF[0]);
-    b2[1] = &__RM_BUF[0];    
+    b2[1] = itoh(con->imm_val, 16);    
+    /* get_rm_name(con, &__RM_BUF[0]); */
+    /* b2[1] = &__RM_BUF[0];     */
     break;
   case 0xc3:
     b2[0] = "ret";
@@ -811,17 +1376,19 @@ void __z__x86__dis() {
   case 0xc5:
     break;
   case 0xc6:
+    b2[0] = "mov";
+    get_rm_name(con, &__RM_BUF[0]);
+    b2[1] = &__RM_BUF[0];
+    b2[2] = itoh(con->imm_val, 8);
+    break;
   case 0xc7:
     b2[0] = "mov";
-    fill_name(con, &b2);
-    /* for (;;); */
-    /* get_rm_name(con, &__RM_BUF[0]); */
-    /* b2[1] = &__RM_BUF[0]; */
-    /* if (con->dflag == 0) len = 8; */
-    /* else if (con->dflag == 0x8) len = 16; */
-    /* else if (con->dflag == 0x10) len = 32; */
-    /* else if (con->dflag == 0x18) len = 32; */
-    /* b2[2] = itoh(con->imm_val, len); */
+    get_rm_name(con, &__RM_BUF[0]);
+    b2[1] = &__RM_BUF[0];
+    b2[2] = itoh(con->imm_val, 32);
+    break;
+  case 0xc9:
+    b2[0] = "leave";
     break;
   case 0xd0:
   case 0xd1:
@@ -831,18 +1398,48 @@ void __z__x86__dis() {
     // this actually should be alaways 1
     b2[2] = itoh(con->imm_val, 8);
     break;
+  case 0xd8:
+    // float32
+  case 0xda:
+    // int32
+  case 0xdc:
+    // double(64)
+  case 0xde:
+    // int16
+    b2[0] = get_fpu_d8ace_op_name(con);
+    get_rm_name(con, &__RM_BUF[0]);
+    b2[1] = &__RM_BUF[0];
+    break;
+  case 0xd9:
+    // float
+  case 0xdd:
+    // double
+    b2[0] = get_fpu_d9_op_name(con);
+    get_rm_name(con, &__RM_BUF[0]);
+    b2[1] = &__RM_BUF[0];
+    break;
+  case 0xdb: {
+    char* r = reg->rip;
+    if (*(r-1) | 0xe3 == 0xe3) {
+      b2[0] = "finit";
+    }
+    break;
+  }
   case 0xe8:
     b2[0] = "call";
     b2[1] = itoh(con->imm_val, 32);
+    prepare_control_data(reg->pre_rip, reg->pre_rip + con->imm_val, 0, 0);
     break;
   case 0xe9:
     b2[0] = "jmp";
     b2[1] = itoh(con->imm_val, 32);
+    prepare_control_data(reg->pre_rip, reg->pre_rip + con->imm_val, 0, 0);
     break;
   case 0xea:
   case 0xeb:
     b2[0] = "jmp";
     b2[1] = itoh(con->imm_val, 8);
+    prepare_control_data(reg->pre_rip, reg->pre_rip + con->imm_val, 0, 0);
     break;
   case 0xf6:
     b2[0] = get_f6_opcode_name(con);
@@ -870,7 +1467,10 @@ void __z__x86__dis() {
   }
   if (b2[0]) {
     b = _snprintf(buf, &b2);
-    __os__write(1, buf, __z__std__strlen(buf));    
+    __os__write(1, buf, __z__std__strlen(buf));
+    logger_emit("instruction.log", buf);
+    
+    // logger_emit("instruction.log", "\t");  
     state_clean_internal();
   }
   write_addr();

@@ -28,7 +28,7 @@ f1:
 	nop
 	ret
 	
-	SECTION .data
+	SECTION .datadddddddddddd
 	
 msg:	db "flag",4
 

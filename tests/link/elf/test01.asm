@@ -10,7 +10,7 @@ start:
 	mov rsi, msg
 	mov rdx, lens
 	syscall
-noflag:	
+noflag:
 	mov rax, 60
 	mov rdi, 0
 	syscall
@@ -18,6 +18,7 @@ noflag:
 	SECTION .data
 	
 msg:	db "flag",4
-
+	db 0
 lens:	equ $-msg
+
 
