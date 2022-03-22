@@ -1,0 +1,30 @@
+
+
+digraph graph_name {
+
+ "text caller"
+ "text callee"
+ "plt";
+ "got";
+ "symtab";
+ "dynsym";
+ "dynstr";
+ "rela.plt";
+ "rela.text";
+ "dynamic";
+
+ "text caller" -> "text callee\n(in a same object file)";
+ "text caller" -> "text callee\n(in a different object file)";
+ "text caller" -> "plt";
+ "plt" -> "got";
+ "rela.text" -> "symtab";
+ "rela.text" -> "text caller";
+ "rela.plt" -> "got";
+ "dynsym" -> "dynstr";
+ "dynamic" -> "rela.plt";
+ "dynamic" -> "dynsym";
+ "dynamic" -> "dynstr";
+ "rela.plt" -> "dynsym";
+}
+
+
