@@ -1,4 +1,3 @@
-
 CC=gcc
 cflags=-w -nostdlib -fno-jump-tables -fPIC
 header=-I./include
