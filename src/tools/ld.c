@@ -1,18 +1,18 @@
 
-#include <windows.h>
-#include <stdio.h>
 #include <stdint.h>
-#include "win_memory.h"
+#include <stdio.h>
+#include <windows.h>
 
 #include "coff.h"
 #include "link.h"
+#include "win_memory.h"
 
 /* extern int run_through_coff_shdr3(void*,void*); */
 /* static uint32_t EXPORT_SYMBOL_NUM = 0; */
 /* static uint32_t IMPORT_SYMBOL_NUM = 0; */
 
-extern void resolve(CallbackArgIn* _in,uint32_t* addr);
-extern void resolve_only_in_a_section(CallbackArgIn* _in,uint32_t* addr);
+extern void resolve(CallbackArgIn* _in, uint32_t* addr);
+extern void resolve_only_in_a_section(CallbackArgIn* _in, uint32_t* addr);
 
 extern uint32_t ExportDirectoryLen;
 extern uint32_t ExportFuncCount;
@@ -33,15 +33,11 @@ uint32_t EntrySectionOffset = 0;
 uint8_t _Win32 = 0;
 uint8_t WithTlsDirectory = 0;
 
-__attribute__((constructor)) void set_heap_header() {
-  
-}
+__attribute__((constructor)) void set_heap_header() {}
 
-__attribute__((destructor)) void dealloc() {
-  printf("finish \n");
-}
+__attribute__((destructor)) void dealloc() { printf("finish \n"); }
 
-/*static inline */const char check_coff(const uint16_t* p) {
+/*static inline */ const char check_coff(const uint16_t* p) {
   if (*p == 0x8664) {
     return 2;
   }
@@ -52,21 +48,22 @@ __attribute__((destructor)) void dealloc() {
   return 0;
 }
 
-char read_coff(const char *const begin) {
-
+char read_coff(const char* const begin) {
   IMAGE_FILE_HEADER* img_file_header = (IMAGE_FILE_HEADER*)begin;
-  int sec_num = img_file_header->NumberOfSections;  
-  IMAGE_SYMBOL* sym_begin = (IMAGE_SYMBOL*)(begin + img_file_header->PointerToSymbolTable);
+  int sec_num = img_file_header->NumberOfSections;
+  IMAGE_SYMBOL* sym_begin =
+      (IMAGE_SYMBOL*)(begin + img_file_header->PointerToSymbolTable);
   IMAGE_SYMBOL* sym_end = sym_begin + img_file_header->NumberOfSymbols;
   IMAGE_SYMBOL* is = sym_begin;
   const char* str_begin = sym_end;
   alloc_obj_chain(sym_begin, str_begin, img_file_header->NumberOfSymbols);
-  IMAGE_SECTION_HEADER* sec_begin = (IMAGE_SECTION_HEADER*)(img_file_header+1);
-  IMAGE_SECTION_HEADER* sec_end = sec_begin + sec_num;  
+  IMAGE_SECTION_HEADER* sec_begin =
+      (IMAGE_SECTION_HEADER*)(img_file_header + 1);
+  IMAGE_SECTION_HEADER* sec_end = sec_begin + sec_num;
   IMAGE_SECTION_HEADER* s = sec_begin;
   IMAGE_SECTION_HEADER* _sec;
   char log[30] = {};
-  for (;s!=sec_end;s++) {
+  for (; s != sec_end; s++) {
     if (!strcmp(s->Name, "/4")) {
       continue;
     }
@@ -75,8 +72,9 @@ char read_coff(const char *const begin) {
     // To do this, you need to check the list of existing section,
     _sec = check_section(s);
     alloc_section_chain(begin, s, _sec);
-    if (s->NumberOfRelocations == 0/* && s->PointerToRelocations == 0*/) {}
-    else s->PointerToRelocations += begin;
+    if (s->NumberOfRelocations == 0 /* && s->PointerToRelocations == 0*/) {
+    } else
+      s->PointerToRelocations += begin;
 #ifdef DEBUG
     logger_emit("-------------------\n");
     logger_emit("section\n");
@@ -93,29 +91,30 @@ char read_coff(const char *const begin) {
 #endif
   }
   char* name;
-  for (;is!=sym_end;is++) {
+  for (; is != sym_end; is++) {
     name = GET_NAME(is, str_begin);
     // StorageClass == 2 is import/export
-    // difference between import and export is if it belongs to section(0) or not.
-    // import section should belong to section(0) which means nothing.
+    // difference between import and export is if it belongs to section(0) or
+    // not. import section should belong to section(0) which means nothing.
     // export section belongs a section from 1.
     if (EntryPointFuncName && !strcmp(EntryPointFuncName, name)) {
       EntrySectionChain = get_sc_from_obj(is->SectionNumber);
       EntrySectionOffset = is->Value;
     }
-    if (is->StorageClass == 2/*External*/ && is->SectionNumber) {
+    if (is->StorageClass == 2 /*External*/ && is->SectionNumber) {
       alloc_symbol_chain(name, is);
       // number of export symbols and its string size should be
       // counted for constructing export table on later stage.
       // EAT + ENT + ordinal(WORD)
       if (ExportDirectoryLen == 0)
-	ExportDirectoryLen = sizeof(IMAGE_EXPORT_DIRECTORY) + strlen(OutputFileName) + 1;
+        ExportDirectoryLen =
+            sizeof(IMAGE_EXPORT_DIRECTORY) + strlen(OutputFileName) + 1;
       ExportDirectoryLen += 4 + 4 + 2 + strlen(name) + 1;
       ExportFuncCount += 1;
     }
-    // even if the storage class is static(which means refers from only same object file,
-    // can be refered by them.REALLY???)
-    if (is->StorageClass == 3/*Static*/) {
+    // even if the storage class is static(which means refers from only same
+    // object file, can be refered by them.REALLY???)
+    if (is->StorageClass == 3 /*Static*/) {
       // SectionChain* sc = get_sc_from_obj(is->SectionNumber);
       // alloc_static_symbol(sc, is);
     }
@@ -136,7 +135,8 @@ char read_coff(const char *const begin) {
     /* printf("----\n"); */
 #endif
     // jump aux vector if it has
-    for (;is!=is+is->NumberOfAuxSymbols;is++);
+    for (; is != is + is->NumberOfAuxSymbols; is++)
+      ;
     // HashTable.bucket = 1;
   }
 }
@@ -149,30 +149,31 @@ void* read_cmdline(int argc, char** argv) {
   uint8_t i = 1;
   size_t* p = __malloc(sizeof(void*) * (argc));
   void* _p = p;
-  for (;i<argc;i++) {
+  for (; i < argc; i++) {
     if (!strcmp(argv[i], "-o")) {
-      OutputFileName = argv[i+1];
+      OutputFileName = argv[i + 1];
       char* s = OutputFileName;
-      for (;*s != '.';s++);
+      for (; *s != '.'; s++)
+        ;
       if (!strcmp(s, ".dll")) {
-	EmitType = EMIT_DLL;
-	// printf("DLL\n");
+        EmitType = EMIT_DLL;
+        // printf("DLL\n");
       } else if (!strcmp(s, ".o")) {
-	EmitType = EMIT_OBJ;
+        EmitType = EMIT_OBJ;
       } else if (!strcmp(s, ".exe")) {
-	EmitType = EMIT_EXE;	
+        EmitType = EMIT_EXE;
       }
       i++;
       continue;
     }
     // ef is the abbrebiation of a function that the entry point points to.
     if (!strcmp(argv[i], "-ef")) {
-      EntryPointFuncName = argv[i+1];      
+      EntryPointFuncName = argv[i + 1];
       i++;
       continue;
     }
     if (!strcmp(argv[i], "-ib")) {
-      ImageBase = argv[i+1];
+      ImageBase = argv[i + 1];
       continue;
     }
     if (!strcmp(argv[i], "-tls")) {
@@ -194,7 +195,6 @@ void* read_cmdline(int argc, char** argv) {
 }
 
 int main(int argc, char** argv) {
-  
   // 1.create_section_chain
   // 2.create_symbol_chain
   // 3.relocation finding(all of import should be resolved except -l)
@@ -203,9 +203,10 @@ int main(int argc, char** argv) {
   // 6.resolve_import
   // 7.resolve_image_directory_entry_section
   // 8.emit target file
-  // 
+  //
   // --- incremental linking
-  // you can resolve some pairs of symbols without waiting arrival of all object files.
+  // you can resolve some pairs of symbols without waiting arrival of all object
+  // files.
 
   logger_init();
   mem_init();
@@ -219,7 +220,7 @@ int main(int argc, char** argv) {
     return 0;
   }
   void* q;
-  for (;*p1;p1++) {
+  for (; *p1; p1++) {
     q = alloc_obj((void*)*p1);
     if (check_coff(q) == 0) {
       fprintf(stderr, "a file does not have coff header\n");
@@ -228,37 +229,33 @@ int main(int argc, char** argv) {
     read_coff(q);
   }
   if (EmitType != EMIT_OBJ) {
-  SectionChain* tlsdata;
-  if (WithTlsDirectory) {
-    tlsdata = add_section(".tls", 200);
-    add_tls(tlsdata);
-  }
-  void* esection;
-  if (ExportDirectoryLen)
-    esection = add_section(".edata", ExportDirectoryLen);
-  // size should be adjusted by number of import symbol which needs to be resolved.
-  void* isection;
-  SectionChain* pltsection;
-  /* if (ImportDirectoryLen) { */
+    SectionChain* tlsdata;
+    if (WithTlsDirectory) {
+      tlsdata = add_section(".tls", 200);
+      add_tls(tlsdata);
+    }
+    void* esection;
+    if (ExportDirectoryLen) esection = dd_section(".edata", ExportDirectoryLen);
+    // size should be adjusted by number of import symbol which needs to be
+    // resolved.
+    void* isection;
+    SectionChain* pltsection;
+    /* if (ImportDirectoryLen) { */
     pltsection = add_section(".plt", 200);
     isection = add_section(".idata", 200);
-  /* } */
-  set_virtual_address();
-  /* if (ImportDirectoryLen) { */
+    /* } */
+    set_virtual_address();
+    /* if (ImportDirectoryLen) { */
     PltSection = pltsection;
     PltBegin = pltsection->p->VirtualAddress;
-    PltOffset = PltBegin; 
-  /* } */
-  do_reloc(&resolve);
-  if (ImportDirectoryLen)
-    add_import(isection);
-  if (ExportDirectoryLen)
-    add_export(esection);
+    PltOffset = PltBegin;
+    /* } */
+    do_reloc(&resolve);
+    if (ImportDirectoryLen) add_import(isection);
+    if (ExportDirectoryLen) add_export(esection);
   } else {
     do_reloc(&resolve_only_in_a_section);
   }
   gen();
   return 0;
 }
-
-

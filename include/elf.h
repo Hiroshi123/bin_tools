@@ -36,21 +36,35 @@ typedef Elf64_Half Elf64_Versym;
 #define EI_NIDENT (16)
 
 typedef struct {
+  // 0x00
   unsigned char	e_ident[EI_NIDENT];
+  // 0x10
   Elf32_Half	e_type;
+  // 0x12
   Elf32_Half	e_machine;
+  // 0x14
   Elf32_Word	e_version;
+  // 0x18 difference (-4)
   Elf32_Addr	e_entry;
+  // 0x1c difference (-4)
   Elf32_Off	e_phoff;
+  // 0x20 difference (-4)
   Elf32_Off	e_shoff;
+  // 0x24
   Elf32_Word	e_flags;
+  // 0x28
   Elf32_Half	e_ehsize;
+  // 0x2a
   Elf32_Half	e_phentsize;
+  // 0x2c
   Elf32_Half	e_phnum;
+  // 0x2e
   Elf32_Half	e_shentsize;
+  // 0x30
   Elf32_Half	e_shnum;
+  // 0x32
   Elf32_Half	e_shstrndx;
-} Elf32_Ehdr;
+} Elf32_Ehdr; // 0x34
 
 typedef struct {
   // 0x00
@@ -78,7 +92,7 @@ typedef struct {
   // 0x3c
   Elf64_Half	e_shnum;
   Elf64_Half	e_shstrndx;
-} Elf64_Ehdr;
+} Elf64_Ehdr; // 0x40
 
 #define EI_MAG0		0
 #define ELFMAG0		0x7f
@@ -335,10 +349,15 @@ typedef struct {
 #define EV_NUM		2
 
 typedef struct {
+  // 0
   Elf32_Word	sh_name;
+  // 0x4
   Elf32_Word	sh_type;
+  // 0x8
   Elf32_Word	sh_flags;
+  // 0xc
   Elf32_Addr	sh_addr;
+  // 0x10
   Elf32_Off	sh_offset;
   Elf32_Word	sh_size;
   Elf32_Word	sh_link;
@@ -348,10 +367,15 @@ typedef struct {
 } Elf32_Shdr;
 
 typedef struct {
+  // 0
   Elf64_Word	sh_name;
+  // 0x4
   Elf64_Word	sh_type;
+  // 0x8
   Elf64_Xword	sh_flags;
+  // 0x10
   Elf64_Addr	sh_addr;
+  // 0x18
   Elf64_Off	sh_offset;
   Elf64_Xword	sh_size;
   Elf64_Word	sh_link;
@@ -614,6 +638,8 @@ typedef struct {
 #define PT_GNU_EH_FRAME	0x6474e550
 #define PT_GNU_STACK	0x6474e551
 #define PT_GNU_RELRO	0x6474e552
+#define PT_GNU_PROPERTY	0x6474e553
+
 #define PT_LOSUNW	0x6ffffffa
 #define PT_SUNWBSS	0x6ffffffa
 #define PT_SUNWSTACK	0x6ffffffb
@@ -3232,9 +3258,13 @@ typedef struct {
   
 } sh_callback_arg;
 
-void _on_section_callback_for_link( uint8_t* p, uint8_t* strtable, Elf64_Shdr* shdr, size_t*);
-				    // sh_callback_arg* ret);
-void _on_elf_symtab_callback_for_link(Elf64_Sym* arg1, void* e1);
+void __z__link__on_section_callback_for_link( uint8_t* p, uint8_t* strtable, void* shdr, size_t*);
+// Elf64_Shdr* sh_callback_arg* ret);
+void __z__link__on_elf_symtab_callback_for_link(void* arg1, void* e1);
+
+Elf64_Shdr* __z__link__alloc_elf_section(int type, int flags);
+
+// __z__obj__run_through_elf_symtable4_32
 
 // void* run_through_elf_phdr3();
 void* run_through_elf_shdr3(void*,void*,void*);

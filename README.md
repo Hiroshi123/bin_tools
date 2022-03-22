@@ -8,7 +8,7 @@ Misc for reverse engineering.
 
 A linker which is intended for anti-malicious staff)  
 
-Its documentation is on wiki(https://github.com/Hiroshi123/bin_tools/wiki/LDD-documentation).
+Its documentation is on wiki(https://github.com/Hiroshi123/bin_tools/wiki/zld-documentation).
 
 ### zbuild 
 

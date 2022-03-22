@@ -9,6 +9,7 @@
 	global __read
 	global __write
 	global __open
+	global __lseek
 	global __close
 	global __pread
 	global __os__mmap
@@ -31,11 +32,12 @@ __clean:
 __go_entry:
 	cmp rsp,rsi
 	jne __clean
-	
+
 	mov rsp,rsi
 	;; call rdi
 	;; otherwise
 	add rsp,0x8	
+	
 	jmp rdi
 	ret	
 __read:	
@@ -55,6 +57,11 @@ __open:
 
 __close:
 	mov rax, 3
+	syscall
+	ret
+
+__lseek:
+	mov rax, 8
 	syscall
 	ret
 
