@@ -1,22 +1,20 @@
 
 /* #include <windows.h> */
-#include <stdio.h>
 #include <stdint.h>
-#include "alloc.h"
+#include <stdio.h>
 
-#include "pe.h"
+#include "alloc.h"
 #include "link.h"
+#include "pe.h"
 
 extern Config* Confp;
 
 void add_export(/*SectionChain* _sec*/) {
-  
   SectionContainer* scon = match_section(".edata");
   if (scon == 0) return;
   SectionChain* _sec = scon->this;
   IMAGE_SECTION_HEADER* sec = _sec->p;
-  if (sec->SizeOfRawData == 0)
-    sec->SizeOfRawData = Confp->export_directory_len;
+  if (sec->SizeOfRawData == 0) sec->SizeOfRawData = Confp->export_directory_len;
   void* export_data_p = __malloc(Confp->export_directory_len);
   // Confp->export_data_p = export_data_p;
   void* begin = export_data_p;
@@ -40,8 +38,8 @@ void add_export(/*SectionChain* _sec*/) {
   SymbolChain* sc;
   IMAGE_SYMBOL* is;
   char* name;
-  char* image_name = ied+1;
-  strcpy(image_name, Confp->outfile_name);  
+  char* image_name = ied + 1;
+  strcpy(image_name, Confp->outfile_name);
   ied->Name += (void*)image_name - begin;
 
   // this is local(in this process) pointer
@@ -49,9 +47,9 @@ void add_export(/*SectionChain* _sec*/) {
   WORD* addressOfNameOrdinals = image_name + strlen(image_name) + 1;
   DWORD* addressOfFunctions = addressOfNameOrdinals + Confp->export_func_count;
   DWORD* addressOfNames = addressOfFunctions + Confp->export_func_count;
-  
+
   // pe_export_data export_data = {};
-  
+
   ied->AddressOfNameOrdinals += (void*)addressOfNameOrdinals - begin;
   ied->AddressOfFunctions += (void*)addressOfFunctions - begin;
   ied->AddressOfNames += (void*)addressOfNames - begin;
@@ -65,36 +63,34 @@ void add_export(/*SectionChain* _sec*/) {
   Confp->export_data.address_of_names = addressOfNames;
   Confp->export_data.str_p = c;
   Confp->export_data.vaddr_p = sec->VirtualAddress;
-  
+
   DWORD export_addr;
   uint32_t i = 0;
-  
+
   if (export_data_p)
-  for (oc=Confp->initial_object;oc;oc=oc->next) {
-    sc = oc->symbol_chain_head;
-    // printf("!aa,%p,%d,%p\n", ied,ExportDirectoryLen,sec);
-    for (;sc;sc=sc->next) {
-      is = sc->p;
-      name = GET_NAME(is, oc->str_table_p);
-      *addressOfNames = sec->VirtualAddress + (c - begin);
-      // export_addr = get_export_virtual_address(is, oc);
-      export_addr = sc->schain->virtual_address + is->Value;
-      *addressOfFunctions = export_addr;
-      *addressOfNameOrdinals = i;
-      if (Confp->use_dt_hash) {
-	add_dt_hash_entry(Confp->hash_table_p, sc->name, i);
-	// printf("!%s,%p,%d,%p\n",name, export_addr, i, sc->schain);
+    for (oc = Confp->initial_object; oc; oc = oc->next) {
+      sc = oc->symbol_chain_head;
+      // printf("!aa,%p,%d,%p\n", ied,ExportDirectoryLen,sec);
+      for (; sc; sc = sc->next) {
+        is = sc->p;
+        name = GET_NAME(is, oc->str_table_p);
+        *addressOfNames = sec->VirtualAddress + (c - begin);
+        // export_addr = get_export_virtual_address(is, oc);
+        export_addr = sc->schain->virtual_address + is->Value;
+        *addressOfFunctions = export_addr;
+        *addressOfNameOrdinals = i;
+        if (Confp->use_dt_hash) {
+          add_dt_hash_entry(Confp->hash_table_p, sc->name, i);
+          // printf("!%s,%p,%d,%p\n",name, export_addr, i, sc->schain);
+        }
+        // should contain some virtual address
+        // addressOfNameOrdinals =
+        strcpy(c, name);
+        c += strlen(name) + 1;
+        addressOfFunctions++;
+        addressOfNameOrdinals++;
+        addressOfNames++;
+        i++;
       }
-      // should contain some virtual address
-      // addressOfNameOrdinals =
-      strcpy(c, name);
-      c += strlen(name) + 1;
-      addressOfFunctions++;
-      addressOfNameOrdinals++;
-      addressOfNames++;
-      i++;
     }
-  }
 }
-
-

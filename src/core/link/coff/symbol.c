@@ -1,17 +1,17 @@
 
 /* #include <windows.h> */
-#include <stdio.h>
 #include <stdint.h>
-#include "alloc.h"
+#include <stdio.h>
 
-#include "pe.h"
+#include "alloc.h"
 #include "link.h"
+#include "pe.h"
 
 extern Config* Confp;
 
 void* __coff__lookup_symbol(char* name, size_t* address) {
-  size_t* table_index =
-    (Confp->ExportHashTable.bucket + (elf_hash(name) % Confp->ExportHashTable.nbucket));
+  size_t* table_index = (Confp->ExportHashTable.bucket +
+                         (elf_hash(name) % Confp->ExportHashTable.nbucket));
   // if you do not find any entry on this table.
   if (*table_index == 0) {
     return address ? 0 : table_index;
@@ -26,20 +26,19 @@ void* __coff__lookup_symbol(char* name, size_t* address) {
   // if you find any entry then trace the chain which was stored.
   pre_chain = *table_index;
   // check hash collision
-  for (;pre_chain;pre_chain = pre_chain->next) {
+  for (; pre_chain; pre_chain = pre_chain->next) {
     is = pre_chain->p;
     // find actual entry
-    for (oc=Confp->initial_object;oc;oc=oc->next) {
+    for (oc = Confp->initial_object; oc; oc = oc->next) {
       begin = oc->symbol_table_p;
       end = begin + oc->symbol_num;
-      if (begin<is && is<end) {
-    	_name = GET_NAME(is, oc->str_table_p);
-  	break;
+      if (begin < is && is < end) {
+        _name = GET_NAME(is, oc->str_table_p);
+        break;
       }
     }
-    if (!strcmp(name,_name)) {
-      if (address)
-	*address = oc;
+    if (!strcmp(name, _name)) {
+      if (address) *address = oc;
       return address ? is : 0;
     }
     pre = pre_chain;
@@ -50,7 +49,8 @@ void* __coff__lookup_symbol(char* name, size_t* address) {
 }
 
 void* lookup_dynamic_symbol(char* name, size_t* address, uint32_t* ever) {
-  size_t* table_index = (Confp->DLLHashTable.bucket + (elf_hash(name) % Confp->DLLHashTable.nbucket));
+  size_t* table_index = (Confp->DLLHashTable.bucket +
+                         (elf_hash(name) % Confp->DLLHashTable.nbucket));
   // printf("!%p,%p\n", table_index, *table_index);
   if (*table_index == 0) {
     return address ? 0 : table_index;
@@ -59,22 +59,22 @@ void* lookup_dynamic_symbol(char* name, size_t* address, uint32_t* ever) {
   SymbolChain3* pre;
   char* _name;
   pre_chain = *table_index;
-  for (;pre_chain;pre_chain = pre_chain->next) {
+  for (; pre_chain; pre_chain = pre_chain->next) {
     _name = pre_chain->name;
     // printf("%s\n",_name);
     if (!strcmp(name, _name)) {
       // printf("found,%s,%s\n", _name, pre_chain->this);
       if (address) {
-	if (pre_chain->ever == 0) {
-	  // store PltOffset when a new entry is added.
-	  pre_chain->ever = Confp->plt_offset;
-	} else {
-	  // load PltOffset when a new entry is added.
-	  *ever = pre_chain->ever;
-	}
-	return pre_chain->this;
+        if (pre_chain->ever == 0) {
+          // store PltOffset when a new entry is added.
+          pre_chain->ever = Confp->plt_offset;
+        } else {
+          // load PltOffset when a new entry is added.
+          *ever = pre_chain->ever;
+        }
+        return pre_chain->this;
       } else {
-	return pre_chain->next;	
+        return pre_chain->next;
       }
     }
     pre = pre_chain;
@@ -88,9 +88,11 @@ void __coff__alloc_symbol_chain(char* name, void* is) {
   chain->next = 0;
   chain->p = is;
   size_t* ret = __coff__lookup_symbol(name, 0);
-  if (ret) *ret = chain;
+  if (ret)
+    *ret = chain;
   else {
-    fprintf(stderr, "should raise an error as symbol is overrlapping.%s\n", name);
+    fprintf(stderr, "should raise an error as symbol is overrlapping.%s\n",
+            name);
   }
   // you need to allocate another symbolchain for object chain.
   chain = __malloc(sizeof(SymbolChain));
@@ -114,7 +116,6 @@ void __coff__alloc_symbol_chain(char* name, void* is) {
 }
 
 void alloc_static_symbol(SectionChain* sc, SymbolChain* is) {
-
   SymbolChain* chain = __malloc(sizeof(SymbolChain));
   chain->p = is;
   if (sc->sym_head == 0) {
@@ -149,11 +150,11 @@ void* alloc_candidate_symbol(void* obj, void* sec, ListContainer* lc) {
   chain->name = sec;
   if (lc->init == 0) {
     lc->init = chain;
-  } else {    
+  } else {
     ((SymbolChain3*)lc->current)->next = chain;
   }
   lc->current = chain;
-  printf("lccurrent:%p\n",lc->current);
+  printf("lccurrent:%p\n", lc->current);
   return chain;
 }
 
@@ -161,7 +162,7 @@ IMAGE_SYMBOL* make_ImageSymbol(void* val, void* name) {
   IMAGE_SYMBOL* is = __malloc(sizeof(IMAGE_SYMBOL));
   // value is provided from linker script.
   is->Value = val;
-  // you can meanwhile specify index of section container.  
+  // you can meanwhile specify index of section container.
   is->SectionNumber = 0;
   // if ()
   // is->Name = name;
@@ -173,4 +174,3 @@ IMAGE_SYMBOL* make_ImageSymbol(void* val, void* name) {
   is->NumberOfAuxSymbols = 0;
   return is;
 }
-

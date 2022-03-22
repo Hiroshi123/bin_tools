@@ -1,7 +1,8 @@
 
 /* #include <windows.h> */
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
+
 #include "alloc.h"
 
 #ifdef _Win32
@@ -11,7 +12,8 @@
 
 extern Config* Confp;
 
-ObjectChain* alloc_obj_chain_init(void* sym_begin, void* str_begin, uint32_t sym_num) {
+ObjectChain* __z__link__alloc_obj_chain_init(void* sym_begin, void* str_begin,
+                                             uint32_t sym_num) {
   ObjectChain* sc = __malloc(sizeof(ObjectChain));
   sc->symbol_chain_head = 0;
   sc->symbol_chain_tail = 0;
@@ -24,15 +26,16 @@ ObjectChain* alloc_obj_chain_init(void* sym_begin, void* str_begin, uint32_t sym
   return sc;
 }
 
-ObjectChain* _alloc_obj_chain(void* sym_begin, void* str_begin, uint32_t sym_num) {
-  ObjectChain* sc = alloc_obj_chain_init(sym_begin, str_begin, sym_num);
+ObjectChain* __z__link__alloc_obj_chain(void* sym_begin, void* str_begin,
+                                        uint32_t sym_num) {
+  ObjectChain* sc =
+      __z__link__alloc_obj_chain_init(sym_begin, str_begin, sym_num);
   Confp->current_object->next = sc;
   Confp->current_object = sc;
   return sc;
 }
 
 void update_object_chain(ObjectChain* oc, SectionChain* schain) {
-
   if (oc->section_chain_head == 0) {
     oc->section_chain_head = schain;
   } else {
@@ -43,10 +46,14 @@ void update_object_chain(ObjectChain* oc, SectionChain* schain) {
 }
 
 void iterate_object_chain(void* callback_f, void* arg1) {
-  ObjectChain* oc = Confp->initial_object;  
-  for (;oc;oc = oc->next) {
+  ObjectChain* oc = Confp->initial_object;
+  for (; oc; oc = oc->next) {
     callback_arg2_linux(oc, callback_f, arg1);
   }
+}
+
+void __z__link__iterate_object_chain(void* callback_f, void* arg1) {
+  return iterate_object_chain(callback_f, arg1);
 }
 
 void alloc_obj_chain(void* sym_begin, void* str_begin, uint32_t sym_num) {
@@ -69,18 +76,17 @@ void alloc_obj_chain(void* sym_begin, void* str_begin, uint32_t sym_num) {
 
 void update_symbol_table_info() {
   ObjectChain* oc = Confp->initial_object;
-  for (;oc;oc=oc->next) {
+  for (; oc; oc = oc->next) {
     printf("symtable p:%p\n", oc->symbol_table_p);
-    printf("sym num :%d\n", oc->symbol_num);    
+    printf("sym num :%d\n", oc->symbol_num);
   }
   return 0;
 }
 
-
 SectionChain* get_sc_from_obj(int index) {
   SectionChain* sc = Confp->current_object->section_chain_head;
   int i = 1;
-  for (;sc;sc=sc->next,i++) {
+  for (; sc; sc = sc->next, i++) {
     if (i == index) {
       return sc;
     }
@@ -89,7 +95,6 @@ SectionChain* get_sc_from_obj(int index) {
 }
 
 void* alloc_obj(char* fname) {
-
   return __z__mem__alloc_file(fname);
   /* HANDLE hFile = CreateFile */
   /*   ( */
@@ -111,5 +116,3 @@ void* alloc_obj(char* fname) {
   /* CloseHandle(hFile); */
   /* return p; */
 }
-
-

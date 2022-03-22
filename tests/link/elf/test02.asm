@@ -1,11 +1,16 @@
 
 	SECTION .text
-        global main
+        global start
 	extern puts
-main:
-	mov rdi, msg
+	extern gf1
+ff1:
+	call gf1
+	jmp ff1
+start:
+	;; jmp start
+	mov rdi, msg	
 	call puts
-	mov rax, 60
+	mov rax, 60		
 	mov rdi, 0
 	syscall
 	

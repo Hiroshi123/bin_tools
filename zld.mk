@@ -15,7 +15,7 @@ pre :
 
 #####################################################
 
-zld : $(objdir)/zld.obj $(sodir)/objectfile.so.0 $(sodir)/logger.so.0 $(sodir)/link.so.0 $(sodir)/os.so.0 $(sodir)/alloc.so.1
+zld : $(objdir)/zld.obj $(sodir)/objectfile.so.0 $(sodir)/__z__logger.so.0 $(sodir)/link.so.0 $(sodir)/os.so.0 $(sodir)/alloc.so.1
 	$(cc) -w $^ -o $@
 
 $(objdir)/zld.obj : src/tools/zld.c
