@@ -284,6 +284,7 @@ typedef struct __attribute__((packed)) {
 } relocation_entry;
 
 typedef struct {
+  
   // head of image dos header
   const IMAGE_DOS_HEADER* ids;
   // head of image nt header (retrieved from the last element of image dos header)
@@ -292,9 +293,17 @@ typedef struct {
   const IMAGE_SECTION_HEADER* sec_begin;
   const IMAGE_SECTION_HEADER* sec_end;
   // head of text section
-  const char* text_begin;
+  union {
+    const char* text_begin;
+    uint32_t base_of_code;
+  };// code_begin;
+  union {
+    const char* text_end;
+    uint32_t size_of_code;
+  };// code_size;
   // end of text section
-  const char* text_end;  
+  /* const char* text_end;   */
+
   // heads of image import descriptor which are
   // given from rawdatapointer on idata section
   const IMAGE_IMPORT_DESCRIPTOR* idata_begin;
@@ -315,7 +324,10 @@ typedef struct {
   
   const char* text_reloc_begin;
   const char* text_reloc_end;
-  
+  // 
+  const char* image_base;
+  void* this_image_base;
+  int fd;
 } info_on_pe, info_on_coff;
 
 typedef struct _IMAGE_EXPORT_DIRECTORY {
@@ -341,5 +353,6 @@ char _check_on_iat(p_guest rip, p_guest query);
 /* p_host get_dll_name(p_host idata_section, p_host f_name); */
 p_host _find_f_addr(p_guest rip, p_guest query);
 /*heap**/void* get_parent_heap_from_guest(p_guest p);
+char* __z__obj__load_pe(char* name, void* out);
 
 /* void iterate_import_directory(uint8_t* pp, void* _p); */

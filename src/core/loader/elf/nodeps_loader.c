@@ -12,9 +12,8 @@
 
 #define DEBUG 1
 
-static int PAGE_SIZE = 0x1000;
-static int DSO_NUM = 0;
-// #define PAGE_SIZE 0x1000
+// static int PAGE_SIZE = 0x1000;
+#define PAGE_SIZE 0x1000
 static int DEB = 0;
 
 static struct dso *HEAD, *TAIL;
@@ -161,14 +160,8 @@ static void *map_library(int fd, struct dso * dso) {
 	if (DEB)
 	  copy(v1 + (phdr.p_offset & -PAGE_SIZE), v, size);
       } else {
+	// for (;;);
 	v = v1;
-      }
-      if (DEB) {
-      logger_emit("misc.log", "map lib\n");  
-      logger_emit_p(begin_addr);
-      logger_emit_p(phdr.p_memsz + (phdr.p_vaddr & PAGE_SIZE-1));
-      logger_emit_p(phdr.p_offset & -PAGE_SIZE);
-      logger_emit_p(v);
       }
       if (v == -1) {
         __write(1, "mmap error\n", 13);
@@ -198,7 +191,7 @@ static void *map_library(int fd, struct dso * dso) {
     dso->entry = dso->base + eh->e_entry;
   else {
     dso->entry = eh->e_entry;
-  __write(1, "m4\n", 3);
+    __write(1, "m4\n", 3);
 
   }
   // allows the case where dynamic header does not exist
@@ -363,7 +356,7 @@ static void reloc_all(struct dso *p) {
   size_t* v;
   v = p->dynv;
   if (v == 0) return;
-  for (; *v; v+=2) {    
+  for (; *v; v+=2) {
     if (*v == DT_REL) {
       rel = *(v+1);
     }
@@ -432,11 +425,11 @@ static struct dso *__load_library(const char *name, struct dso *_dso, uint8_t re
 /* #endif */
 /*     return 0;     */
 /*   } */
-  enum OBJECT_FORMAT format = __z__obj__detect_format_fname(name, 0);
-  if (format == PE64) {
-    __z__obj__load_pe(name);
-  }
-  logger_emit("misc.log", "!!!\n");  
+  /* enum OBJECT_FORMAT format = __z__obj__detect_format_fname(name, 0); */
+  /* if (format == PE64) { */
+  /*   __z__obj__load_pe(name); */
+  /* } */
+  /* logger_emit("misc.log", "!!!\n");   */
   // logger_emit_p(d);
   return 0;
 }
@@ -457,11 +450,8 @@ static struct dso *load_library(const char *name, struct dso *_dso, uint8_t recu
     __write(1, "\n", 1);
     __write(1, name, strlen(name));
     __write(1, "\n", 1);
-    logger_emit_p(dso->base);
     __write(1, "gggg\n",5);
     // for (;;);
-    logger_emit("misc.log","dso\n");
-    logger_emit_p(dso);
     // dso = __malloc(sizeof(struct dso));
   } else {
     dso = _dso;
@@ -518,7 +508,7 @@ static void read_auxv(char** argv, size_t* aux) {
     case AT_PAGESZ:
       if (PAGE_SIZE != auxv->a_un.a_val) {
         __write(1, "PAGESIZE differ\n", 16);
-        PAGE_SIZE = auxv->a_un.a_val;
+        // PAGE_SIZE = auxv->a_un.a_val;	
       }
       break;
     default:
@@ -528,7 +518,7 @@ static void read_auxv(char** argv, size_t* aux) {
   if (!aux[AT_BASE]) aux[AT_BASE] = aux[AT_PHDR] & -4096;
 }
 
-#define DEPS_N 4
+#define DEPS_N 0
 
 void __start(void* rsp) {
 
@@ -569,86 +559,33 @@ void __start(void* rsp) {
   //
   HEAD = TAIL = &dsos[0];
 
+  
   //////////////////////////////////
   // resolve deps
   
   /* dsos[3].deps_index = 1; */
   /* dsos[2].deps_index = 1 | 2; */
   /* dsos[1].deps_index = 1; */
-  
-  int k = 0;
-  char* name = 0;
-  for (i=0; dynv->d_tag; dynv++) {
-    if (dynv->d_tag == DT_NEEDED) {
-      name = dsos[DEPS_N].strings + dynv->d_un.d_val;
-#ifdef DEBUG
-      __write(1, name, strlen(name));
-      __write(1, "\n", 1);
-#endif
-      load_library(name, &dsos[k], 1);
-      k++;
-    }
-  }
 
-  TAIL = &dsos[4];
-  ((struct dso*)&dsos[3])->next = TAIL;
-  dsos[4].deps_index = 1 | (1 << 1) | (1 << 2) | (1 << 3);
+  /* TAIL = &dsos[4]; */
+  /* ((struct dso*)&dsos[3])->next = TAIL; */
+  dsos[0].deps_index = 1;// | (1 << 1) | (1 << 2) | (1 << 3);
   
   // relocation for this library itself.
   // After this point, API on which it depends is available.
 
-  reloc_all(&dsos[DEPS_N]);
-  
-  logger_init("misc.log");
-  
-  mem_init();
-  
-  logger_emit("misc.log", "loader init done\n");
-  
-  // return 1;
-  
-  /* void* initial_dso_heap = __malloc(sizeof(struct dso) * 4); */
-  /* memcpy(&dsos[0], initial_dso_heap, sizeof(struct dso) * 4);   */
-  
-  logger_emit("misc.log", own_name);
-  
-  if (fname == 0) {
-    logger_emit("misc.log", "providd entry\n");
-    __write("provide entri\n", sizeof("provide entry\n"));
-    // needs flush
-    for (;;);
-    return;
-  }
-  
-  // ____f1();
-  // __load_library(fname, 0, 1);
-  
-  enum OBJECT_FORMAT format = __z__obj__detect_format_fname(fname, 0);
-  if (format != ELF64) {
-    for (;;);
-    return;
-  }
-  logger_emit_p(format);
-  logger_emit("misc.log", "ggg\n");
-  logger_emit_p(&dsos[0]);
-  logger_emit_p(&dsos[1]);
-  logger_emit_p(&dsos[2]);
-  logger_emit_p(&dsos[3]);
-  logger_emit_p(&dsos[4]);
+  // reloc_all(&dsos[DEPS_N]);
+    
+  /* enum OBJECT_FORMAT format = __z__obj__detect_format_fname(fname, 0); */
+  /* if (format != ELF64) { */
+  /*   for (;;); */
+  /*   return; */
+  /* } */
   
   __write(1, "ggg\n", 4);
   DEB = 1;
   struct dso* entry_dso = load_library(fname, 0, 1);
-
-  logger_emit_p(entry_dso);
-  logger_emit_p(entry_dso->entry);
-  
-  logger_emit("misc.log", "given executable load done\n");
-  logger_emit("misc.log", fname);
-  //__write(1, fname, strlen(fname));
-  // logger_emit("misc.log", *(size_t*)&fname);
-
-  
+  // for (;;);
   if (entry_dso->entry) {
     __go_entry(entry_dso->entry, rsp);
   }

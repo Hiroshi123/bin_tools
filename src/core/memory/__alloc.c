@@ -54,6 +54,10 @@ static H HeapMeta = {-1, -1};
 // Chunk* CUR_CHUNK;
 static int INIT_DONE = 0;
 
+void __z__mem_init() {
+  mem_init();
+}
+
 void mem_init() {
 
   if (INIT_DONE == 1) return;
@@ -300,6 +304,11 @@ static int get_file_size(void* fd) {
   return size;
 }
 
+int __z__mem__get_file_size(void* fd) {
+  
+  return get_file_size(fd);
+}
+
 void* __z__mem__alloc_file_with_malloc(char* fname) {
   void* fp = __os__open(fname, O_RDONLY, 0777);
   int size = get_file_size(fp);
@@ -313,6 +322,19 @@ void* __z__mem__alloc_file(char* fname) {
   // TODO ::
   if (fd < 0) return 0;
   int size = get_file_size(fd);
+  const size_t map_size = ((size + 0xfff) & 0xfffff000);
+  void* p = __os__mmap
+    (NULL, map_size/*PAGE_SIZE*/, PROT_READ|PROT_EXEC | PROT_WRITE,
+     MAP_PRIVATE/* | MAP_ANONYMOUS*/, fd, 0);
+  return p;
+}
+
+void* __z__mem__alloc_file_with_size(char* fname, int* size_p) {
+  int fd = __os__open(fname, O_RDONLY, 0777);
+  // TODO ::
+  if (fd < 0) return 0;
+  int size = get_file_size(fd);
+  *size_p = size;
   const size_t map_size = ((size + 0xfff) & 0xfffff000);
   void* p = __os__mmap
     (NULL, map_size/*PAGE_SIZE*/, PROT_READ|PROT_EXEC | PROT_WRITE,

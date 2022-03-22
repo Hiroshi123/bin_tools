@@ -131,7 +131,7 @@ char* __z__std__hash_find(hash_table* hash_table_p, char* key) {
   size_t* s = 0;
   if (hash_table_p->hash_f == 0) {
     s = hash_table_p->bucket +
-      (__z__sysv_hash(key) % hash_table_p->nbucket);
+      (__z__std__sysv_hash(key) % hash_table_p->nbucket);
   } else {
     s = hash_table_p->bucket +
       (hash_table_p->hash_f(key, 0) % hash_table_p->nbucket);
@@ -160,7 +160,7 @@ void __z__std__hash_set(hash_table* hash_table_p, char* key, char* value, int mo
   size_t* s = 0;
   if (hash_table_p->hash_f == 0) {
     s = hash_table_p->bucket +
-      (__z__sysv_hash(key) % hash_table_p->nbucket);
+      (__z__std__sysv_hash(key) % hash_table_p->nbucket);
   } else {
     s = hash_table_p->bucket +
       (hash_table_p->hash_f(key, 0) % hash_table_p->nbucket);

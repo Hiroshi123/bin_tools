@@ -18,7 +18,8 @@
 	global __os__exit
 	global __os__wait4
 	global __os__kill
-
+	global __z__os__fcntl
+	
 __os__read:
 	mov rax,0
 	;; mov rdi,0
@@ -126,6 +127,12 @@ __os__kill:
 	syscall
 	ret
 
+__z__os__fcntl:
+	mov rax, 72
+	syscall
+	ret
+
+	
 __os__futex:
 	mov rax, 202
 	syscall

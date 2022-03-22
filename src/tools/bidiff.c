@@ -1,19 +1,18 @@
 
 /*
-  This is a short script which will apply patch to an input binary file.  
+  This is a short script which will apply patch to an input binary file.
   patch file format is defined in its own way.
 */
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "bipatch.h"
 
@@ -22,9 +21,10 @@ static uint64_t ascii_to_bin(const char *begin, const char *end) {
   uint64_t r = 0;
   char s = 0;
   if (*x == '0' && *(x + 1) == 'x') {
-    for (; x != end; x++);
+    for (; x != end; x++)
+      ;
     x--;
-    for (; x != begin+1; x--, s += 4) {
+    for (; x != begin + 1; x--, s += 4) {
       if ('0' <= *x && *x <= '9') {
         r += (*x - '0') << s;
       } else if ('a' <= *x && *x <= 'f') {
@@ -40,7 +40,6 @@ static uint64_t ascii_to_bin(const char *begin, const char *end) {
 }
 
 char read_patch(const char *fname, patch_info *info) {
-
   // input mapping
   const int fd = open(fname, O_RDONLY);
   if (fd == -1) {
@@ -66,15 +65,16 @@ char read_patch(const char *fname, patch_info *info) {
   info->size_updown = 0;
   uint64_t d;
   uint64_t addr;
-  for (; p != end && *p != '\n';p++,q++) {
+  for (; p != end && *p != '\n'; p++, q++) {
     if (*p == '1') {
-        q->cmd = 1;	
+      q->cmd = 1;
     } else if (*p == '0') {
       q->cmd = 0;
     } else {
       return 0;
     }
-    for (p++; *p != ' '; p++);
+    for (p++; *p != ' '; p++)
+      ;
     p++;
     addr = ascii_to_bin(p, p + 10);
     if (addr == (uint64_t)-1) {
@@ -82,25 +82,27 @@ char read_patch(const char *fname, patch_info *info) {
     }
     q->addr = addr;
     // next
-    for (p+=10; *p == ' '; p++);
+    for (p += 10; *p == ' '; p++)
+      ;
     if (q->cmd == 0) {
       d = ascii_to_bin(p, p + 4);
       if (d == (uint64_t)-1) {
-	return 0;
+        return 0;
       }
-      p+=4;
+      p += 4;
       q->length = d;
       q->elem = 0;
       info->size_updown -= d;
-    } else if (q->cmd==1) {
+    } else if (q->cmd == 1) {
       q->elem = (uint8_t *)data;
       for (; *p != '\n'; data++, q->length++) {
-	d = ascii_to_bin(p, p + 4);
-	if (d == (uint64_t)-1) {
-	  return 0;
-	}
-	*data = d;
-	for (p+=4; *p == ' '; p++);
+        d = ascii_to_bin(p, p + 4);
+        if (d == (uint64_t)-1) {
+          return 0;
+        }
+        *data = d;
+        for (p += 4; *p == ' '; p++)
+          ;
       }
       info->size_updown += q->length;
     }
@@ -111,7 +113,6 @@ char read_patch(const char *fname, patch_info *info) {
 }
 
 void map_input_file(const char *fname, map_info *_p) {
-
   const int fd = open(fname, O_RDONLY);
   if (fd == -1) {
     exit(0);
@@ -121,7 +122,7 @@ void map_input_file(const char *fname, map_info *_p) {
     close(fd);
     exit(1);
   }
-  printf("%ld\n",stbuf.st_size);
+  printf("%ld\n", stbuf.st_size);
   size_t map_size = (stbuf.st_size + 0x1000) & 0xfffff000;
   char *p = (char *)mmap(NULL, map_size, PROT_READ /*|PROT_WRITE*/,
                          MAP_PRIVATE /* | MAP_FIXED*/, fd, 0);
@@ -133,10 +134,9 @@ void map_input_file(const char *fname, map_info *_p) {
 }
 
 void map_output_file(const char *fname, uint64_t map_size, map_info *_out) {
-
   int fd = open(fname, O_RDWR | O_CREAT | O_TRUNC);
   if (fd == -1) {
-    printf("error:%d\n",errno);
+    printf("error:%d\n", errno);
     exit(1);
   }
   const char c = 0x00;
@@ -156,7 +156,6 @@ void map_output_file(const char *fname, uint64_t map_size, map_info *_out) {
 }
 
 void apply(map_info *_in, patch_info *_pi, map_info *_out) {
-
   char *p = _in->map_begin;
   char *q = _out->map_begin;
   patch_format *_pf = (patch_format *)_pi->begin;
@@ -166,28 +165,28 @@ void apply(map_info *_in, patch_info *_pi, map_info *_out) {
   for (; p != _in->map_end && q != _out->map_end;) {
     if (p == _pf->addr + _in->map_begin) {
       // editing
-      switch (_pf->cmd) {	
-      case 1:
-	end = _pf->elem + _pf->length;
-	for (e = _pf->elem; e != end; e++, q++) *q = *e;	
-        break;
-      case 0:
-	for (i = 0; i < _pf->length; p++, i++);
-        break;
-      default:
-        printf("apply error!\n");
-        break;
+      switch (_pf->cmd) {
+        case 1:
+          end = _pf->elem + _pf->length;
+          for (e = _pf->elem; e != end; e++, q++) *q = *e;
+          break;
+        case 0:
+          for (i = 0; i < _pf->length; p++, i++)
+            ;
+          break;
+        default:
+          printf("apply error!\n");
+          break;
       }
       if (_pf != _pi->end) _pf++;
     } else {
       *q = *p;
-      p++, q++;      
+      p++, q++;
     }
   }
 }
 
 void diff(map_info *_in, map_info *_out) {
-
   char *p = _in->map_begin;
   char *q = _out->map_begin;
   /* patch_format *_pf = (patch_format *)_pi->begin; */
@@ -195,12 +194,12 @@ void diff(map_info *_in, map_info *_out) {
   uint8_t *end;
   uint8_t *e;
   for (; p != _in->map_end && q != _out->map_end;) {
-
-    if (*(uint8_t*)p == *(uint8_t*)q) {} else {
-      printf("%p,%p,%p\n",p - _in->map_begin,*(uint8_t*)p,*(uint8_t*)q);
+    if (*(uint8_t *)p == *(uint8_t *)q) {
+    } else {
+      printf("%p,%p,%p\n", p - _in->map_begin, *(uint8_t *)p, *(uint8_t *)q);
     }
     // *q = *p;
-    p++, q++;      
+    p++, q++;
   }
 }
 
@@ -213,7 +212,6 @@ char save(map_info *p) {
 }
 
 void apply_patch(const char *in_f, patch_info *edit, const char *out_f) {
-  
   map_info _in;
   map_info _out;
   map_input_file(in_f, &_in);
@@ -228,9 +226,10 @@ void apply_patch(const char *in_f, patch_info *edit, const char *out_f) {
 }
 
 void show_usage() {
-  const char *usage = "1st argument:original file\n"
-                      "2nd argument:patch file\n"
-                      "3rd argument:output file\n";
+  const char *usage =
+      "1st argument:original file\n"
+      "2nd argument:patch file\n"
+      "3rd argument:output file\n";
   printf("%s", usage);
 }
 
@@ -249,5 +248,4 @@ int main(int argc, char **argv) {
   /*   printf("parse error\n"); */
   /* } */
   /* apply_patch(argv[1], &edit, argv[3]); */
-  
 }

@@ -4,6 +4,7 @@
 uint8_t __z__std__strcmp(char* p1, char* p2);
 int __z__std__strlen(char* p);
 void* __z__std__strtok(uint8_t* p);
+void* __z__std__sprintf(uint8_t* p, uint8_t* q);
 
 #define strcmp __z__std__strcmp
 #define strlen __z__std__strlen

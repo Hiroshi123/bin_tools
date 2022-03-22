@@ -1,17 +1,18 @@
 
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 
 uint64_t ascii_to_bin(const char *begin, const char *end) {
   char *x = (char *)begin;
   uint64_t r = 0;
   char s = 0;
   if (*x == '0' && *(x + 1) == 'x') {
-    for (; x != end; x++);
+    for (; x != end; x++)
+      ;
     x--;
-    for (; x != begin+1; x--, s += 4) {
+    for (; x != begin + 1; x--, s += 4) {
       if ('0' <= *x && *x <= '9') {
-	r += (*x - '0') << s;
+        r += (*x - '0') << s;
       } else if ('a' <= *x && *x <= 'f') {
         r += (*x - 'a' + 10) << s;
       } else {
@@ -24,17 +25,15 @@ uint64_t ascii_to_bin(const char *begin, const char *end) {
   return -1;
 }
 
-void hex_text_save(char** p, char v) {  
+void hex_text_save(char **p, char v) {
   /* (*p)->data = 0x20;// which means space */
   /* *p++; */
-  *p = 0x30;// which means 0
+  *p = 0x30;  // which means 0
   *p++;
-  *p= 0x78;// which means x
+  *p = 0x78;  // which means x
   *p++;
-  
+
   // *p = v / 0x10;
   /* *p++;   */
   /* (*p)->data = v % 0x10;   */
 }
-
-

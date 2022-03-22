@@ -5,8 +5,8 @@
 #include "elf.h"
 #include "macho.h"
 #include "memory.h"
-#include "pe.h"
 #include "objformat.h"
+#include "pe.h"
 
 // what needs to be resoled is
 // 1. calls to functions of test subject on test function.
@@ -14,8 +14,9 @@
 // defined on external object format files.
 
 void show_usage() {
-  const char *usage = "1st argument:test & mock file\n"
-                      "2nd argument:test subject file\n";
+  const char *usage =
+      "1st argument:test & mock file\n"
+      "2nd argument:test subject file\n";
   printf("%s", usage);
 }
 
@@ -40,7 +41,7 @@ char *process_macho(heap *a, heap *b) {
   do_reloc_all(&macho1, &macho2);
   do_reloc_all(&macho2, &macho1);
   // on macho, every function puts prefix _ ahead of it,
-  const char* test_ = "_test__";
+  const char *test_ = "_test__";
   return find_test(test_, &macho1);
 }
 
@@ -51,7 +52,7 @@ char *process_coff(heap *a, heap *b) {
   read_coff(b->begin, &e2);
   do_reloc_coff(&e1, &e2);
   do_reloc_coff(&e2, &e1);
-  const char* test_ = "test__";
+  const char *test_ = "test__";
   return find_test_(test_, &e1);
 }
 
@@ -72,17 +73,16 @@ char *process_coff(heap *a, heap *b) {
 // the returned value after calling a function on %rax on x86.
 
 void do_test(char *r) {
-  
-  heap* h = get_page(1);
+  heap *h = get_page(1);
   // call once for later another call.
-  if ( h->begin != get_page_head()) {
+  if (h->begin != get_page_head()) {
     printf("error\n");
   }
   char *_a = (char *)(h->begin);
   // this is going to be the arugment to the test-subject function.
   printf("argument:rdi is %d\n", *_a);
   printf("argument:+4(rdi) is %d\n", *(_a + 4));
-  
+
   asm("call *%0" : : "r"(get_page_head));
   asm("mov %rax,%rdi");
   asm("call *%0" : : "r"(r));
@@ -90,16 +90,13 @@ void do_test(char *r) {
   asm("call *%0" : : "r"(get_page_head));
   asm("mov %rbx,(%rax)");
   printf("returned value on rax is %d\n", *_a);
-  
 }
 
-do_instrument(uint8_t* r) {
-
-  printf("r:%x,%x\n",r,*r);
+do_instrument(uint8_t *r) {
+  printf("r:%x,%x\n", r, *r);
   decode(r);
-  /* for (;;c++) { */    
+  /* for (;;c++) { */
   /* } */
-  
 }
 
 int main(int argc, char **argv) {
@@ -116,31 +113,31 @@ int main(int argc, char **argv) {
   }
   char *r;
   switch (ao) {
-  case ELF:
-    r = process_elf(a, b);
-    break;
-  case MACHO:
-    r = process_macho(a, b);
-    if (r == 0) {
-      printf("not found\n");
-    }
-    break;
-  case PE:
-    // pe might be difficult as its definition
-    // means executable but not relocatable..
-    // Ummm, needs to be considered...
-    // r = process_pe(a, b);
-    printf("not yet..\n");
-    return 0;
-    // break;
-  case COFF:
-    r = process_coff(a, b);
-    return 0;
-    break;
-  case NONE:
-    printf("error\n");
-    return 0;
-    // break;
+    case ELF:
+      r = process_elf(a, b);
+      break;
+    case MACHO:
+      r = process_macho(a, b);
+      if (r == 0) {
+        printf("not found\n");
+      }
+      break;
+    case PE:
+      // pe might be difficult as its definition
+      // means executable but not relocatable..
+      // Ummm, needs to be considered...
+      // r = process_pe(a, b);
+      printf("not yet..\n");
+      return 0;
+      // break;
+    case COFF:
+      r = process_coff(a, b);
+      return 0;
+      break;
+    case NONE:
+      printf("error\n");
+      return 0;
+      // break;
   }
   do_instrument(r);
   // do_test(r);

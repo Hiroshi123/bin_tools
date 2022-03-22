@@ -1,7 +1,7 @@
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 
 #ifdef __linux__
 #include <dlfcn.h>
@@ -13,7 +13,6 @@
 #include "os.h"
 #define ULONG_MAX 0xffffffff
 
-
 #define MAX_BUF 100
 
 static BUF[MAX_BUF] = {};
@@ -23,19 +22,15 @@ typedef struct {
   char* filename;
 } logfile;
 
-static logfile MemoryLog = {
-  .handle = 1,
-  .filename = 1
-};
-static logfile MiscLog = {
-  .handle = 1,
-  .filename = 1
-};
+static logfile MemoryLog = {.handle = 1, .filename = 1};
+static logfile MiscLog = {.handle = 1, .filename = 1};
 
-static void*/*HANDLE*/ LOG_HANDLE = 1;
+static logfile InstructionLog = {.handle = 1, .filename = 1};
+
+static void* /*HANDLE*/ LOG_HANDLE = 1;
 
 static int _strcmp(char* s, char* t) {
-  for (;*s && *t;s++,t++) {
+  for (; *s && *t; s++, t++) {
     if (*s != *t) {
       return -1;
     }
@@ -43,41 +38,57 @@ static int _strcmp(char* s, char* t) {
   return !(*s == *t);
 }
 
+static int _myff1(char* s, char* t, int n) {
+  /* if ((*s != 1) && (*t != 1)) { */
+  /* } */
+  if ((*s != 1)) {
+    if ((*t != 1)) {
+    }
+  }
+  // if ((*t != 1)) {}
+  for (;;)
+    ;
+
+  for (; *s && *t && n > 0; s++, t++, n--) {
+    if (*s != *t) {
+      return -1;
+    }
+  }
+
+  return !(*s == *t);
+}
+
 static int _strlen(char* s) {
-  int i=0;
-  for (;*s;s++,i++);
+  int i = 0;
+  for (; *s; s++, i++)
+    ;
   return i;
 }
 
-static const char xdigits[16] = {
-  "0123456789ABCDEF"
-};
+static const char xdigits[16] = {"0123456789ABCDEF"};
 
-static char *fmt_x(uintmax_t x, char *s, int lower)
-{
-  for (; x; x>>=4) *--s = xdigits[(x&15)]|lower;
+static char* fmt_x(uintmax_t x, char* s, int lower) {
+  for (; x; x >>= 4) *--s = xdigits[(x & 15)] | lower;
   return s;
 }
 
-static char *_fmt_x(uintmax_t x, char *s, int lower, uint8_t max)
-{
-  uint8_t i = max-2;
+static char* _fmt_x(uintmax_t x, char* s, int lower, uint8_t max) {
+  uint8_t i = max - 2;
   uint8_t m = 8;
-  for (;  ; i-=2) {
+  for (;; i -= 2) {
     /* if (m == i) *s++ = ',';  */
-    *s++ = xdigits[(x>>(4*(i+1)))&15]|lower;
-    *s++ = xdigits[(x>>(4*i))&15]|lower;
+    *s++ = xdigits[(x >> (4 * (i + 1))) & 15] | lower;
+    *s++ = xdigits[(x >> (4 * i)) & 15] | lower;
     if (i == 0) break;
   }
   return s;
 }
 
-static char *fmt_mx(uintmax_t x, char *s, int lower, uint8_t max)
-{
+static char* fmt_mx(uintmax_t x, char* s, int lower, uint8_t max) {
   int i = 0;
-  for (; i < max; i+=2) {
-    *s++ = xdigits[(x>>(4*(i+1)))&15]|lower;
-    *s++ = xdigits[(x>>(4*i))&15]|lower;
+  for (; i < max; i += 2) {
+    *s++ = xdigits[(x >> (4 * (i + 1))) & 15] | lower;
+    *s++ = xdigits[(x >> (4 * i)) & 15] | lower;
   }
   return s;
 }
@@ -90,11 +101,10 @@ static char *fmt_mx(uintmax_t x, char *s, int lower, uint8_t max)
 /*   return s; */
 /* } */
 
-static char *fmt_u(uintmax_t x, char *s)
-{
+static char* fmt_u(uintmax_t x, char* s) {
   unsigned long y;
-  for (   ; x>ULONG_MAX; x/=10) *--s = '0' + x%10;
-  for (y=x;           y; y/=10) *--s = '0' + y%10;
+  for (; x > ULONG_MAX; x /= 10) *--s = '0' + x % 10;
+  for (y = x; y; y /= 10) *--s = '0' + y % 10;
   return s;
 }
 
@@ -102,30 +112,30 @@ static void _sprintf(char* buf, char* p, size_t** va_arg) {
   uint8_t* va = *va_arg;
   uint8_t tmp[8] = {};
   uint8_t* q;
-  for (;*p;buf++,p++) {
+  for (; *p; buf++, p++) {
     if (*p == '%') {
       p++;
       switch (*p) {
-      case 's':
-	if (va) {
-	  for (;*va;buf++,va++) {
-	    *buf = *va;
-	  }
-	}
-	break;
-      case 'x':
-      case 'p':
-	q = fmt_x(va, &tmp[7], 32);
-	for (;q < &tmp[7];q++,buf++) *buf = *q;
-	break;
-      case 'd':
-        q = fmt_u(va, &tmp[7]);
-	for (;q < &tmp[7];q++,buf++) *buf = *q;
-	break;
-      default:
-	break;
+        case 's':
+          if (va) {
+            for (; *va; buf++, va++) {
+              *buf = *va;
+            }
+          }
+          break;
+        case 'x':
+        case 'p':
+          q = fmt_x(va, &tmp[7], 32);
+          for (; q < &tmp[7]; q++, buf++) *buf = *q;
+          break;
+        case 'd':
+          q = fmt_u(va, &tmp[7]);
+          for (; q < &tmp[7]; q++, buf++) *buf = *q;
+          break;
+        default:
+          break;
 
-      va_arg++;
+          va_arg++;
       }
       p++;
     }
@@ -135,29 +145,28 @@ static void _sprintf(char* buf, char* p, size_t** va_arg) {
 }
 
 static void* check_handle(char* name) {
-
   void* handle = &LOG_HANDLE;
   if (!_strcmp(name, "memory.log")) {
     handle = &MemoryLog.handle;
   } else if (!_strcmp(name, "misc.log")) {
     handle = &MiscLog.handle;
+  } else if (!_strcmp(name, "instruction.log")) {
+    handle = &InstructionLog.handle;
   }
   return handle;
 }
 
-void logger_init(char* name) {
+void __z__logger_init(char* name) { logger_init(name); }
 
+void logger_init(char* name) {
   size_t* handle = check_handle(name);
   /* void* lib = dlopen("lib/so/os.so.0", RTLD_LAZY); */
   /* void* f1 = dlsym(lib, "__open");   */
 #ifdef __linux__
   *handle = __os__open(name, O_CREAT | O_WRONLY | O_TRUNC, 0777);
 #else
-  LOG_HANDLE = CreateFile
-    (
-     name , GENERIC_ALL/* | GENERIC_EXECUTE*/, 0, NULL,
-     CREATE_ALWAYS, 0/*FILE_SHARE_READ*/, NULL
-     );
+  LOG_HANDLE = CreateFile(name, GENERIC_ALL /* | GENERIC_EXECUTE*/, 0, NULL,
+                          CREATE_ALWAYS, 0 /*FILE_SHARE_READ*/, NULL);
 #endif
 }
 
@@ -169,8 +178,9 @@ void logger_emit(char* name, char* log) {
   DWORD dsize = 0;
   WriteFile(LOG_HANDLE, log, strlen(log), &dsize, NULL);
 #endif
-
 }
+
+void __z__logger_emit(char* name, char* log) { return logger_emit(name, log); }
 
 /* void logger_emit_x(void* p) { */
 /*   size_t* h = &MiscLog.handle; */
@@ -181,6 +191,11 @@ void logger_emit(char* name, char* log) {
 /*   __os__write(*h, q, _strlen(q)); */
 /* } */
 
+int __z__logger__get_handle(char* name) {
+  int* h = check_handle(name);
+  return *h;
+}
+
 void logger_emit_p(void* p) {
   size_t* h = &MiscLog.handle;
   __os__write(*h, "0x", 2);
@@ -189,6 +204,8 @@ void logger_emit_p(void* p) {
   *q = '\n';
   __os__write(*h, tmp, _strlen(tmp));
 }
+
+void __z__logger_emit_p(void* p) { return logger_emit_p(p); }
 
 void logger_emit_m(void* p) {
   size_t* h = &MiscLog.handle;
@@ -212,4 +229,3 @@ void logger_emit3(char* name, char* log, size_t** va) {
   _sprintf(&BUF, log, va);
   __os__write(*handle, &BUF, _strlen(BUF));
 }
-
