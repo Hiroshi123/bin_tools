@@ -6,7 +6,7 @@ Misc for reverse engineering.
 
 ### zld 
 
-A linker which is intended for anti-malicious staff)  
+A linker which is intended for anti-malicious staff  
 
 Its documentation is on wiki(https://github.com/Hiroshi123/bin_tools/wiki/zld-documentation).
 

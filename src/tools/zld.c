@@ -310,7 +310,7 @@ int main(int argc, char** argv) {
         "-use-gnu-hash :\t use gnu hash(not dt-hash)\n"
         "-nointerp :\t no interp program header\n"
         "-interp-name :\t dynamic linker location\n"
-        "-keep-gnu-property :\t krrp-gnu ptoprty ptogram header given its "
+        "-keep-gnu-property :\t keep-gnu ptoprty ptogram header given its "
         "existance"
         "-o :\t specify an outputfile. candidate suffix .exe/.dll/.o/.so\n";
 
@@ -339,11 +339,7 @@ int main(int argc, char** argv) {
   // this should be done as concurrent as it could be in the end.
   enum OBJECT_FORMAT format = -1;
 
-  printf("%p,%p\n", p1, *p1);
-  /* for (;;); */
-
   for (; *p1; p1++) {
-    printf("u:%p, %s\n", p1, *p1);
 
     format = __z__obj__detect_format_fname((void*)*p1, 0);
     if (format == -1) {
